@@ -11,9 +11,10 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="/assets/upload.css">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Normalize Audio Volume Online","url":"https://freeaudiotrim.com/normalize-audio-volume.html","description":"Normalize audio volume locally in your browser."}</script>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does this upload files?","acceptedAnswer":{"@type":"Answer","text":"No — processing is entirely client-side."}},{"@type":"Question","name":"What normalization does this perform?","acceptedAnswer":{"@type":"Answer","text":"It analyses peak levels and applies gain to reach a target loudness without clipping."}},{"@type":"Question","name":"Can I set target level?","acceptedAnswer":{"@type":"Answer","text":"Yes. Use the target dB slider to choose your desired peak level."}},{"@type":"Question","name":"Supported formats?","acceptedAnswer":{"@type":"Answer","text":"Any audio format your browser can decode (MP3, WAV, M4A etc.)."}},{"@type":"Question","name":"Is quality lost?","acceptedAnswer":{"@type":"Answer","text":"We apply gain and re-export as WAV (lossless); you avoid extra lossy encoding unless you choose MP3 later."}]}</script>
-  <style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');:root{--primary:#2563eb;--background:#fff;--text:#0f172a}body{font-family:'DM Sans',sans-serif;margin:0;background:var(--background);color:var(--text)}header,footer{background:linear-gradient(90deg,var(--primary),#1e40af);color:#fff;padding:1rem}.container{max-width:980px;margin:1.5rem auto;padding:1rem}.tool{background:#f8fafc;border:1px solid #e2e8f0;padding:1rem;border-radius:8px}</style>
+  <style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');:root{--primary:#2563eb;--background:#fff;--text:#0f172a}body{font-family:'DM Sans',sans-serif;margin:0;background:var(--background);color:var(--text)}header,footer{background:linear-gradient(90deg,var(--primary),#1e40af);color:#fff;padding:1rem}.container{max-width:980px;margin:1.5rem auto;padding:1rem}.tool{background:#f8fafc;border:1px solid #e2e8f0;padding:1rem;border-radius:8px}#fileInput{display:none}</style>
 </head>
 <body>
 <header>
@@ -34,6 +35,14 @@
     <h2>Tool</h2>
     <div style="display:grid;gap:0.75rem">
       <input type="file" id="fileInput" accept="audio/*" />
+      <div class="upload-box">
+        <div class="upload-content">
+          <div class="upload-icon">☁️</div>
+          <h2>Upload Audio File</h2>
+          <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
+          <small>Max file size: 200MB</small>
+        </div>
+      </div>
       <label>Target peak (dBFS): <input id="targetDb" type="range" min="-6" max="0" value="-1" step="0.1" /></label>
       <div style="display:flex;gap:0.5rem"><button id="normalizeBtn" style="background:var(--primary);color:#fff;padding:0.5rem;border-radius:6px;border:none">Normalize</button><a id="downloadLink" style="display:none;padding:0.5rem 1rem;border-radius:6px;border:1px solid #e2e8f0;color:var(--text);text-decoration:none;background:#fff">Download</a></div>
       <div id="status" style="color:#64748b"></div>
@@ -156,3 +165,4 @@ normalizeBtn.addEventListener('click',async()=>{
   }catch(e){console.error(e);status.textContent='Error processing file.'}
 });
 </script>
+<script src="/assets/upload.js"></script>

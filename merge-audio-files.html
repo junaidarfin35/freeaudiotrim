@@ -33,6 +33,7 @@
   
   <!-- Babel Standalone -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="/assets/upload.css">
   
   <!-- Schema.org Structured Data -->
   <script type="application/ld+json">
@@ -73,6 +74,7 @@
     .container { max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; }
     .tool { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
     .file-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border-radius: 6px; background: #fff; border: 1px solid #e6eef9 }
+    #fileInput { display: none; }
   </style>
 </head>
 <body>
@@ -101,6 +103,14 @@
     <p>Add multiple files, reorder them, and merge into a single WAV file.</p>
     <div style="display:grid;gap:0.75rem">
       <input type="file" id="fileInput" accept="audio/*" multiple />
+      <div class="upload-box">
+        <div class="upload-content">
+          <div class="upload-icon">☁️</div>
+          <h2>Upload Audio File</h2>
+          <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
+          <small>Max file size: 200MB</small>
+        </div>
+      </div>
       <div id="fileList"></div>
       <div style="display:flex;gap:0.5rem"><button id="mergeBtn" style="background:#2563eb;color:#fff;padding:0.5rem;border-radius:6px;border:none">Merge Files</button><a id="downloadLink" style="display:none;padding:0.5rem 1rem;border-radius:6px;border:1px solid #e2e8f0;color:#0f172a;text-decoration:none;background:#fff">Download</a></div>
       <div id="status" style="color:#64748b"></div>
@@ -201,5 +211,6 @@ mergeBtn.addEventListener('click',async()=>{
   }catch(e){console.error(e);status.textContent='Error merging files.'}
 });
 </script>
+<script src="/assets/upload.js"></script>
 </body>
 </html>

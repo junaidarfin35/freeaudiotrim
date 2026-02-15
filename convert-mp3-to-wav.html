@@ -32,6 +32,7 @@
   
   <!-- Babel Standalone -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="/assets/upload.css">
   
   <!-- Schema.org Structured Data -->
   <script type="application/ld+json">
@@ -85,6 +86,7 @@
     header, footer { background: var(--text); color: white; }
     .container { max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; }
     .tool { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
+    #fileInput { display: none; }
   </style>
 </head>
 <body>
@@ -113,6 +115,14 @@
 
       <div style="display:grid;gap:0.75rem;margin-top:1rem">
         <input type="file" id="fileInput" accept="audio/*" />
+        <div class="upload-box">
+          <div class="upload-content">
+            <div class="upload-icon">☁️</div>
+            <h2>Upload Audio File</h2>
+            <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
+            <small>Max file size: 200MB</small>
+          </div>
+        </div>
         <div style="display:flex;gap:0.5rem">
           <button id="convertBtn" style="background:var(--primary);color:#fff;padding:0.5rem 1rem;border-radius:6px;border:none">Convert to WAV</button>
           <a id="downloadLink" style="display:none;padding:0.5rem 1rem;border-radius:6px;border:1px solid var(--border);text-decoration:none;color:var(--text);background:#fff">Download WAV</a>
@@ -284,5 +294,6 @@
     }
   });
 </script>
+<script src="/assets/upload.js"></script>
 </body>
 </html>

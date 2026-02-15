@@ -33,6 +33,7 @@
   
   <!-- Babel Standalone -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="/assets/upload.css">
   
   <!-- Schema.org Structured Data -->
   <script type="application/ld+json">
@@ -76,6 +77,7 @@
     header, footer { background: var(--text); color: white; }
     .container { max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; }
     .tool { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
+    #fileInput { display: none; }
   </style>
 </head>
 <body>
@@ -102,6 +104,14 @@
     <h2>Tool</h2>
     <div style="display:grid;gap:0.75rem">
       <input type="file" id="fileInput" accept="audio/*,video/*" />
+      <div class="upload-box">
+        <div class="upload-content">
+          <div class="upload-icon">☁️</div>
+          <h2>Upload Audio File</h2>
+          <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
+          <small>Max file size: 200MB</small>
+        </div>
+      </div>
       <label>Silence threshold (dB): <input id="thresholdDb" type="range" min="-80" max="-20" value="-45" step="1"></label>
       <label>Min silence length (ms): <input id="minMs" type="number" value="300" /></label>
       <div style="display:flex;gap:0.5rem"><button id="processBtn" style="background:#2563eb;color:#fff;padding:0.5rem;border-radius:6px;border:none">Remove Silence</button><a id="downloadLink" style="display:none;padding:0.5rem 1rem;border-radius:6px;border:1px solid #e2e8f0;color:#0f172a;text-decoration:none;background:#fff">Download</a></div>
@@ -214,5 +224,6 @@ processBtn.addEventListener('click',async()=>{
   }catch(e){console.error(e);status.textContent='Error processing file.'}}
 , false);
 </script>
+<script src="/assets/upload.js"></script>
 </body>
 </html>
