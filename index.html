@@ -33,6 +33,7 @@
   
   <!-- Babel Standalone -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="stylesheet" href="/assets/upload.css">
   
   <!-- Schema.org Structured Data -->
   <script type="application/ld+json">
@@ -256,7 +257,7 @@
         <span style="font-weight: 700; font-size: 1.25rem; color: var(--text);">AudioTools</span>
       </div>
       <div class="flex gap-6 text-sm">
-        <a href="./trim-mp3-online.html" style="color: var(--primary); font-weight: 500; text-decoration: none;">MP3 Trimmer</a>
+        <a href="/" style="color: var(--primary); font-weight: 500; text-decoration: none;">MP3 Trimmer</a>
         <a href="./privacy-policy.html" style="color: var(--text-secondary); text-decoration: none;">Privacy</a>
         <a href="./contact.html" style="color: var(--text-secondary); text-decoration: none;">Contact</a>
       </div>
@@ -373,10 +374,11 @@
   <section class="content-section" style="background: var(--surface);">
     <h3>Related Audio Tools</h3>
     <ul style="margin-left:2rem; margin-top:1rem;">
-      <li><a href="/mp3-to-wav">Convert trimmed MP3 to WAV</a></li>
-      <li><a href="/audio-volume-normalizer">Normalize audio volume</a></li>
-      <li><a href="/remove-silence-from-audio">Remove silence from recording</a></li>
-      <li><a href="/merge-audio-files">Merge multiple audio clips</a></li>
+      <li><a href="./convert-mp3-to-wav.html">Convert trimmed MP3 to WAV</a></li>
+      <li><a href="./normalize-audio-volume.html">Normalize audio volume</a></li>
+      <li><a href="./remove-silence-from-audio.html">Remove silence from recording</a></li>
+      <li><a href="./merge-audio-files.html">Merge multiple audio clips</a></li>
+      <li><a href="./extract-audio-from-video.html">Extract audio from video</a></li>
     </ul>
   </section>
 
@@ -391,7 +393,7 @@
         <div>
           <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Tools</h4>
           <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="./trim-mp3-online.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 Trimmer</a></li>
+            <li style="margin-bottom: 0.5rem;"><a href="/" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 Trimmer</a></li>
             <li style="margin-bottom: 0.5rem;"><a href="#" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 to WAV Converter</a></li>
             <li style="margin-bottom: 0.5rem;"><a href="#" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Audio Merger</a></li>
           </ul>
@@ -441,6 +443,8 @@
       const waveformContainerRef = useRef(null);
       const animationFrameRef = useRef(null);
       const startTimeRef = useRef(0);
+      const activeTouchIdRef = useRef(null);
+      const lastTouchXRef = useRef(0);
 
       const supportedFormats = [
         'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/x-ms-wma',
@@ -724,60 +728,83 @@
         }
       };
 
-      const handleWaveformMouseDown = (e) => {
-        if (!audioBuffer || !waveformContainerRef.current) return;
+      const getWaveformPointerData = (clientX, clientY) => {
+        if (!waveformContainerRef.current) return null;
         const rect = waveformContainerRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
         const width = rect.width;
         const clickTime = ((x + panOffset) / (width * zoom)) * duration;
         const startX = ((trimStart / duration) * width * zoom) - panOffset;
         const endX = ((trimEnd / duration) * width * zoom) - panOffset;
         const playheadX = ((currentTime / duration) * width * zoom) - panOffset;
 
-        if (Math.abs(x - playheadX) < 15) {
-          // Click on playhead
-          setIsDragging({ ...isDragging, playhead: true });
+        return { x, y, clickTime, startX, endX, playheadX };
+      };
+
+      const handleWaveformPointerDown = (clientX, clientY, options = {}) => {
+        if (!audioBuffer || !waveformContainerRef.current) return false;
+
+        const pointer = getWaveformPointerData(clientX, clientY);
+        if (!pointer) return false;
+
+        const { isTouch = false, shiftKey = false } = options;
+        const playheadHitX = isTouch ? 24 : 15;
+        const handleHitX = isTouch ? 28 : 15;
+        const handleHitY = isTouch ? 44 : 25;
+        const { x, y, clickTime, startX, endX, playheadX } = pointer;
+
+        if (Math.abs(x - playheadX) < playheadHitX) {
+          setIsDragging({ playhead: true, start: false, end: false, pan: false });
           const newTime = Math.max(trimStart, Math.min(clickTime, trimEnd));
           setCurrentTime(newTime);
-        } else if (Math.abs(x - startX) < 15 && y < 25) {
-          // Click on left handle at top
-          setIsDragging({ ...isDragging, start: true });
-        } else if (Math.abs(x - endX) < 15 && y < 25) {
-          // Click on right handle at top
-          setIsDragging({ ...isDragging, end: true });
-        } else if (e.shiftKey) {
-          setIsDragging({ ...isDragging, pan: true });
-        } else {
-          // Click anywhere else - just position playhead
-          const newTime = Math.max(trimStart, Math.min(clickTime, trimEnd));
-          setCurrentTime(newTime);
+          return true;
         }
+
+        if (Math.abs(x - startX) < handleHitX && y < handleHitY) {
+          setIsDragging({ playhead: false, start: true, end: false, pan: false });
+          return true;
+        }
+
+        if (Math.abs(x - endX) < handleHitX && y < handleHitY) {
+          setIsDragging({ playhead: false, start: false, end: true, pan: false });
+          return true;
+        }
+
+        if (!isTouch && shiftKey) {
+          setIsDragging({ playhead: false, start: false, end: false, pan: true });
+          return true;
+        }
+
+        const newTime = Math.max(trimStart, Math.min(clickTime, trimEnd));
+        setCurrentTime(newTime);
+        return false;
+      };
+
+      const handleWaveformMouseDown = (e) => {
+        handleWaveformPointerDown(e.clientX, e.clientY, { isTouch: false, shiftKey: e.shiftKey });
       };
 
       const [hoveredElement, setHoveredElement] = useState(null);
       const [isLooping, setIsLooping] = useState(false);
       const isLoopingRef = useRef(false);
 
-      const handleWaveformMouseMove = (e) => {
+      const handleWaveformPointerMove = (clientX, clientY, options = {}) => {
         if (!audioBuffer || !waveformContainerRef.current) return;
-        const rect = waveformContainerRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const width = rect.width;
-        const clickTime = ((x + panOffset) / (width * zoom)) * duration;
-        const startX = ((trimStart / duration) * width * zoom) - panOffset;
-        const endX = ((trimEnd / duration) * width * zoom) - panOffset;
-        const playheadX = ((currentTime / duration) * width * zoom) - panOffset;
+        const pointer = getWaveformPointerData(clientX, clientY);
+        if (!pointer) return;
+
+        const { x, y, clickTime, startX, endX, playheadX } = pointer;
+        const { updateHover = false, movementX = 0 } = options;
 
         // Update cursor based on what's being hovered
-        if (Math.abs(x - playheadX) < 15) {
+        if (updateHover && Math.abs(x - playheadX) < 15) {
           waveformContainerRef.current.style.cursor = 'grab';
           setHoveredElement('playhead');
-        } else if ((Math.abs(x - startX) < 15 || Math.abs(x - endX) < 15) && y < 25) {
+        } else if (updateHover && (Math.abs(x - startX) < 15 || Math.abs(x - endX) < 15) && y < 25) {
           waveformContainerRef.current.style.cursor = 'grab';
           setHoveredElement(Math.abs(x - startX) < 15 ? 'start' : 'end');
-        } else {
+        } else if (updateHover) {
           waveformContainerRef.current.style.cursor = 'crosshair';
           setHoveredElement(null);
         }
@@ -791,8 +818,12 @@
         } else if (isDragging.end) {
           setTrimEnd(Math.max(trimStart + 0.1, Math.min(clickTime, duration)));
         } else if (isDragging.pan) {
-          setPanOffset(Math.max(0, panOffset - e.movementX));
+          setPanOffset(Math.max(0, panOffset - movementX));
         }
+      };
+
+      const handleWaveformMouseMove = (e) => {
+        handleWaveformPointerMove(e.clientX, e.clientY, { updateHover: true, movementX: e.movementX });
       };
 
       const handleWaveformMouseUp = () => {
@@ -800,6 +831,51 @@
           saveToHistory(trimStart, trimEnd);
         }
         setIsDragging({ playhead: false, start: false, end: false, pan: false });
+      };
+
+      const findActiveTouch = (touchList) => {
+        if (activeTouchIdRef.current === null) return null;
+        for (let i = 0; i < touchList.length; i++) {
+          if (touchList[i].identifier === activeTouchIdRef.current) {
+            return touchList[i];
+          }
+        }
+        return null;
+      };
+
+      const handleWaveformTouchStart = (e) => {
+        if (!audioBuffer || e.changedTouches.length === 0) return;
+        const touch = e.changedTouches[0];
+        activeTouchIdRef.current = touch.identifier;
+        lastTouchXRef.current = touch.clientX;
+        const startedDrag = handleWaveformPointerDown(touch.clientX, touch.clientY, { isTouch: true });
+        if (startedDrag) {
+          e.preventDefault();
+        }
+      };
+
+      const handleWaveformTouchMove = (e) => {
+        const touch = findActiveTouch(e.touches);
+        if (!touch) return;
+
+        const movementX = touch.clientX - lastTouchXRef.current;
+        lastTouchXRef.current = touch.clientX;
+
+        handleWaveformPointerMove(touch.clientX, touch.clientY, { updateHover: false, movementX });
+
+        if (isDragging.playhead || isDragging.start || isDragging.end || isDragging.pan) {
+          e.preventDefault();
+        }
+      };
+
+      const handleWaveformTouchEnd = (e) => {
+        const touch = findActiveTouch(e.changedTouches);
+        if (!touch) return;
+        if (isDragging.playhead || isDragging.start || isDragging.end || isDragging.pan) {
+          e.preventDefault();
+        }
+        activeTouchIdRef.current = null;
+        handleWaveformMouseUp();
       };
 
       const exportAudio = async () => {
@@ -877,16 +953,14 @@
           {!audioFile && (
             <div style={{ border: '2px dashed var(--border)', borderRadius: '1rem', padding: '3rem 2rem', textAlign: 'center', background: 'white' }}>
               <input type="file" accept={supportedFormats.join(',')} onChange={handleFileUpload} style={{ display: 'none' }} id="fileInput" />
-              <label htmlFor="fileInput" style={{ cursor: 'pointer', display: 'block' }}>
-                <div style={{ width: '80px', height: '80px', margin: '0 auto 1.5rem', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg style={{ width: '40px', height: '40px', color: 'white' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
+              <div className="upload-box">
+                <div className="upload-content">
+                  <div className="upload-icon">☁️</div>
+                  <h2>Upload Audio File</h2>
+                  <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
+                  <small>Max file size: 200MB</small>
                 </div>
-                <h3 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '0.5rem', color: 'var(--text)' }}>Upload Audio File</h3>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Max file size: 200MB</p>
-              </label>
+              </div>
             </div>
           )}
 
@@ -909,7 +983,7 @@
               </div>
 
               <div style={{ background: 'white', borderRadius: '0.75rem', padding: '1.5rem', border: '1px solid var(--border)' }}>
-                <div ref={waveformContainerRef} style={{ position: 'relative', background: 'var(--surface)', borderRadius: '0.5rem', overflow: 'hidden', cursor: 'crosshair', height: '180px' }} onMouseDown={handleWaveformMouseDown} onMouseMove={handleWaveformMouseMove} onMouseUp={handleWaveformMouseUp} onMouseLeave={handleWaveformMouseUp}>
+                <div ref={waveformContainerRef} style={{ position: 'relative', background: 'var(--surface)', borderRadius: '0.5rem', overflow: 'hidden', cursor: 'crosshair', height: '180px', touchAction: 'none' }} onMouseDown={handleWaveformMouseDown} onMouseMove={handleWaveformMouseMove} onMouseUp={handleWaveformMouseUp} onMouseLeave={handleWaveformMouseUp} onTouchStart={handleWaveformTouchStart} onTouchMove={handleWaveformTouchMove} onTouchEnd={handleWaveformTouchEnd} onTouchCancel={handleWaveformTouchEnd}>
                   <canvas ref={canvasRef} width={800} height={180} style={{ width: '100%', height: '100%' }} />
                 </div>
 
@@ -1020,5 +1094,6 @@
     const root = ReactDOM.createRoot(document.getElementById('audio-tool'));
     root.render(<AudioTrimmerTool />);
   </script>
+  <script src="/assets/upload.js"></script>
 </body>
 </html>
