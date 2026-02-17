@@ -100,9 +100,9 @@
       <div class="upload-box">
         <div class="upload-content">
           <div class="upload-icon">☁️</div>
-          <h2>Upload Audio File</h2>
-          <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
-          <small>Max file size: 200MB</small>
+          <h2>Upload Video File</h2>
+          <p>Supports MP4, MOV, MKV, WEBM and other common video formats</p>
+          
         </div>
       </div>
       <div style="display:flex;gap:0.5rem"><button id="extractBtn" style="background:#2563eb;color:#fff;padding:0.5rem;border-radius:6px;border:none">Extract Audio</button><a id="downloadLink" style="display:none;padding:0.5rem 1rem;border-radius:6px;border:1px solid #e2e8f0;color:#0f172a;text-decoration:none;background:#fff">Download</a></div>
@@ -163,15 +163,59 @@ const readFile = f => new Promise((r,rej)=>{const fr=new FileReader();fr.onload=
 function encodeWAV(audioBuffer){const numChannels=audioBuffer.numberOfChannels;const sampleRate=audioBuffer.sampleRate;let samples; if(numChannels===2){const l=audioBuffer.getChannelData(0), r=audioBuffer.getChannelData(1);samples=new Float32Array(l.length*2);for(let i=0;i<l.length;i++){samples[2*i]=l[i];samples[2*i+1]=r[i];}}else{samples=audioBuffer.getChannelData(0);}const buffer=new ArrayBuffer(44+samples.length*2);const view=new DataView(buffer);function writeStr(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i))}let offset=0;writeStr(offset,'RIFF');offset+=4;view.setUint32(offset,36+samples.length*2,true);offset+=4;writeStr(offset,'WAVE');offset+=4;writeStr(offset,'fmt ');offset+=4;view.setUint32(offset,16,true);offset+=4;view.setUint16(offset,1,true);offset+=2;view.setUint16(offset,numChannels,true);offset+=2;view.setUint32(offset,sampleRate,true);offset+=4;view.setUint32(offset,sampleRate*numChannels*2,true);offset+=4;view.setUint16(offset,numChannels*2,true);offset+=2;view.setUint16(offset,16,true);offset+=2;writeStr(offset,'data');offset+=4;view.setUint32(offset,samples.length*2,true);offset+=4;let pos=44;for(let i=0;i<samples.length;i++,pos+=2){let s=Math.max(-1,Math.min(1,samples[i]));view.setInt16(pos,s<0?s*0x8000:s*0x7FFF,true);}return new Blob([view],{type:'audio/wav'});} 
 
 const fileInput=document.getElementById('fileInput'), extractBtn=document.getElementById('extractBtn'), downloadLink=document.getElementById('downloadLink'), status=document.getElementById('status');
-extractBtn.addEventListener('click',async()=>{
-  const f=fileInput.files[0]; if(!f){status.textContent='Choose a video file';return}
-  status.textContent='Reading file...'; try{
-    const ab=await readFile(f); const ac=new (window.AudioContext||window.webkitAudioContext)();
-    // try to decode audio portion from container (works for many mp4/aac cases)
-    const decoded = await ac.decodeAudioData(ab);
-    status.textContent='Encoding WAV...'; const wav=encodeWAV(decoded); const url=URL.createObjectURL(wav); downloadLink.href=url; downloadLink.download=(f.name.replace(/\.[^/.]+$/,'')||'extracted')+'.wav'; downloadLink.style.display='inline-block'; status.textContent='Ready — download extracted audio.';
-  }catch(e){console.error(e);status.textContent='Unable to decode audio track in this file. Your browser may not support this codec.'}
+extractBtn.addEventListener('click', async () => {
+  const f = fileInput.files[0];
+  if (!f) {
+    status.textContent = 'Choose a video file';
+    return;
+  }
+
+  status.textContent = 'Loading video...';
+
+  const video = document.createElement('video');
+  video.src = URL.createObjectURL(f);
+  video.crossOrigin = "anonymous";
+  video.muted = true;
+
+  try {
+    await video.play();
+  } catch (e) {
+    status.textContent = 'This video format is not supported by your browser.';
+    return;
+  }
+
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = audioCtx.createMediaElementSource(video);
+  const destination = audioCtx.createMediaStreamDestination();
+
+  source.connect(destination);
+
+  const recorder = new MediaRecorder(destination.stream);
+  const chunks = [];
+
+  recorder.ondataavailable = e => chunks.push(e.data);
+
+  recorder.start();
+
+  status.textContent = 'Extracting audio...';
+
+  await new Promise(resolve => video.onended = resolve);
+
+  recorder.stop();
+  await new Promise(resolve => recorder.onstop = resolve);
+
+  const blob = new Blob(chunks, { type: 'audio/webm' });
+
+  const url = URL.createObjectURL(blob);
+  downloadLink.href = url;
+  downloadLink.download = (f.name.replace(/\.[^/.]+$/, '') || 'extracted') + '.webm';
+  downloadLink.style.display = 'inline-block';
+
+  status.textContent = 'Ready — download extracted audio.';
+
+  audioCtx.close();
 });
+
 </script>
 <script src="/assets/upload.js"></script>
 </body>
