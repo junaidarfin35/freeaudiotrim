@@ -165,55 +165,45 @@ function encodeWAV(audioBuffer){const numChannels=audioBuffer.numberOfChannels;c
 const fileInput=document.getElementById('fileInput'), extractBtn=document.getElementById('extractBtn'), downloadLink=document.getElementById('downloadLink'), status=document.getElementById('status');
 extractBtn.addEventListener('click', async () => {
   const f = fileInput.files[0];
+
   if (!f) {
     status.textContent = 'Choose a video file';
     return;
   }
 
-  status.textContent = 'Loading video...';
-
-  const video = document.createElement('video');
-  video.src = URL.createObjectURL(f);
-  video.crossOrigin = "anonymous";
-  video.muted = true;
+  status.textContent = 'Reading file...';
 
   try {
-    await video.play();
+    const ab = await readFile(f);
+
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+
+    status.textContent = 'Decoding audio track...';
+
+    const decoded = await ac.decodeAudioData(ab);
+
+    status.textContent = 'Encoding WAV...';
+
+    const wavBlob = encodeWAV(decoded);
+
+    const url = URL.createObjectURL(wavBlob);
+
+    downloadLink.href = url;
+    downloadLink.download =
+      (f.name.replace(/\.[^/.]+$/, '') || 'extracted') + '.wav';
+
+    downloadLink.style.display = 'inline-block';
+
+    status.textContent = 'Ready — download extracted audio.';
+
+    ac.close();
+
   } catch (e) {
-    status.textContent = 'This video format is not supported by your browser.';
-    return;
+    console.error(e);
+
+    status.textContent =
+      'This video format is not supported by your browser. Please export as MP4 (H.264) and try again.';
   }
-
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const source = audioCtx.createMediaElementSource(video);
-  const destination = audioCtx.createMediaStreamDestination();
-
-  source.connect(destination);
-
-  const recorder = new MediaRecorder(destination.stream);
-  const chunks = [];
-
-  recorder.ondataavailable = e => chunks.push(e.data);
-
-  recorder.start();
-
-  status.textContent = 'Extracting audio...';
-
-  await new Promise(resolve => video.onended = resolve);
-
-  recorder.stop();
-  await new Promise(resolve => recorder.onstop = resolve);
-
-  const blob = new Blob(chunks, { type: 'audio/webm' });
-
-  const url = URL.createObjectURL(blob);
-  downloadLink.href = url;
-  downloadLink.download = (f.name.replace(/\.[^/.]+$/, '') || 'extracted') + '.webm';
-  downloadLink.style.display = 'inline-block';
-
-  status.textContent = 'Ready — download extracted audio.';
-
-  audioCtx.close();
 });
 
 </script>
