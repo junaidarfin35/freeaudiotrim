@@ -21,6 +21,9 @@
   <meta name="twitter:title" content="Trim MP3 Online Free – Cut Audio Files Without Uploading">
   <meta name="twitter:description" content="Trim MP3, WAV, M4A and other audio files directly in your browser. No upload, no signup, 100% private.">
   
+  <!--lamejs Library-->
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
   
@@ -57,12 +60,12 @@
     "trim audio without upload"
   ],
   "featureList": [
-    "Trim MP3 files",
-    "Cut WAV audio",
-    "Edit M4A files",
-    "AAC audio trimming",
-    "Browser-based processing",
-    "No file upload required"
+  "Trim MP3 files",
+  "Cut WAV audio",
+  "Supports MP3, WAV, M4A and AAC input formats",
+  "Export audio as MP3 or WAV",
+  "Browser-based processing",
+  "No file upload required"
   ],
   "offers": {
     "@type": "Offer",
@@ -88,7 +91,7 @@
       {"@type":"Question","name":"Is trimming private?","acceptedAnswer":{"@type":"Answer","text":"Yes. This tool processes audio in your browser, so your file is not sent to our servers for editing. When you close the tab, temporary data from the session is cleared by the browser environment."}},
       {"@type":"Question","name":"What’s the maximum file size?","acceptedAnswer":{"@type":"Answer","text":"A practical limit is around 200 MB for smooth editing in most modern devices. Larger files can still open, but response time depends on your RAM and browser performance. If playback feels slow, split the recording into smaller parts first."}},
       {"@type":"Question","name":"Can I trim on mobile?","acceptedAnswer":{"@type":"Answer","text":"Yes, you can trim audio on Android and iOS using current mobile browsers. The controls are designed for touch, including drag handles and timeline preview. For best results, keep other heavy apps closed while exporting."}},
-      {"@type":"Question","name":"What formats are supported?","acceptedAnswer":{"@type":"Answer","text":"You can load common audio types such as MP3, WAV, M4A, AAC, OGG, FLAC, and more where browser decoding is available. Export choices include MP3, WAV, AAC, and WebM. This gives you flexibility for sharing, archiving, or further editing."}},
+      {"@type":"Question","name":"What formats are supported?","acceptedAnswer":{"@type":"Answer","text":"You can load common audio types such as MP3, WAV, M4A, AAC, OGG, FLAC, and more where browser decoding is available. Export choices include MP3 (compressed) and WAV (lossless). This gives you flexibility for sharing, archiving, or further editing."}},
       {"@type":"Question","name":"Does trimming change bitrate?","acceptedAnswer":{"@type":"Answer","text":"Trimming by itself does not automatically lower bitrate. Bitrate changes only if you choose different export quality or a different codec during download. If you want to preserve the original sound profile, keep export settings close to the source."}}
     ]
   }
@@ -296,7 +299,7 @@
         Trim MP3 Online Free – Cut Audio Files in Your Browser
       </h1>
       <p style="font-size: 1.125rem; color: var(--text-secondary); max-width: 800px;">
-        Need a quick way to cut songs, podcasts or voice memos? This browser-based audio trimmer online lets you open an MP3 (or WAV, M4A, AAC etc.) and drag endpoints on an interactive waveform to keep just what you need. No uploads, no signup, no software downloads – everything runs locally for privacy, speed and offline use. The tool handles files up to 200 MB, plays back selections instantly, and offers MP3, WAV, AAC or WebM exports at adjustable quality. Whether you're creating a ringtone, editing a podcast intro or trimming a lecture recording, the process is fast and intuitive. Works on desktop or mobile; modern browsers like Chrome, Firefox and Safari are supported. You can trim as many files as you like, on any computer. If you only need a short section, select the exact start and end points, preview the result, and download immediately without opening a desktop editor.
+        Need a quick way to cut songs, podcasts or voice memos? This browser-based audio trimmer online lets you open an MP3 (or WAV, M4A, AAC etc.) and drag endpoints on an interactive waveform to keep just what you need. No uploads, no signup, no software downloads – everything runs locally for privacy, speed and offline use. The tool handles files up to 200 MB, plays back selections instantly and lets you export as MP3 or WAV with adjustable quality. Whether you're creating a ringtone, editing a podcast intro or trimming a lecture recording, the process is fast and intuitive. Works on desktop or mobile; modern browsers like Chrome, Firefox and Safari are supported. You can trim as many files as you like, on any computer. If you only need a short section, select the exact start and end points, preview the result, and download immediately without opening a desktop editor.
       </p>
       <div class="privacy-badge">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -323,14 +326,14 @@
       <ol style="margin-top:1rem;">
         <li>Upload your MP3, WAV, M4A, AAC (etc.) file; it’s decoded instantly in-browser.</li>
         <li>Drag the waveform handles or click to set start and end points for the segment you want.</li>
-        <li>Preview with play/spacebar, then hit <strong>Export &amp; Download</strong> to save as MP3, WAV, AAC or WebM – you can cut mp3 file or cut audio online with zero fuss.</li>
+        <li>Preview with play/spacebar, then hit <strong>Export &amp; Download</strong> to save as MP3 or WAV – you can cut mp3 file or cut audio online with zero fuss.</li>
       </ol>
     </section>
 
     <!-- SECTION 4: WHY USE THIS MP3 CUTTER -->
     <section class="content-section" style="background: var(--surface);">
       <h2>Why Use This Online MP3 Cutter?</h2>
-      <p>Our in‑browser MP3 cutter gives you instant, private edits without installing anything. Audio is never uploaded – all decoding, playback and export happen locally, so you stay in control of your files. It handles popular formats (MP3, WAV, AAC, M4A, FLAC, OGG and more) and exports in multiple codecs with adjustable quality.</p>
+      <p>Our in‑browser MP3 cutter gives you instant, private edits without installing anything. Audio is never uploaded – all decoding, playback and export happen locally, so you stay in control of your files. It handles popular formats (MP3, WAV, AAC, M4A, FLAC, OGG and more) and exports trimmed audio as MP3 (compressed) or WAV (lossless).</p>
       <p>The interface works equally well on desktop and mobile devices; drag the waveform handles, preview with the spacebar, and download the result in seconds. It’s easy to trim audio in browser with no account, no waiting, and no extra steps. There are no limits, no ads, and you don’t even need to sign in – just open the page and start trimming.</p>
       <p>You’re editing with a built-in waveform editor that displays audio duration clearly; adjusting trim points changes the output instantly. Because this is client-side audio editing and browser-based processing, there’s no compression unless you choose it – keep bitrate high, avoid re-encoding, or export in a lossless format for maximum quality. File size stays small and the whole operation is secure trimming: nothing ever leaves your device.</p>
     </section>
@@ -353,7 +356,7 @@
       <div class="faq-item"><div class="faq-question">Is trimming private?</div><div class="faq-answer">Yes. This tool processes audio in your browser, so your file is not sent to our servers for editing. When you close the tab, temporary data from the session is cleared by the browser environment.</div></div>
       <div class="faq-item"><div class="faq-question">What’s the maximum file size?</div><div class="faq-answer">A practical limit is around 200 MB for smooth editing in most modern devices. Larger files can still open, but response time depends on your RAM and browser performance. If playback feels slow, split the recording into smaller parts first.</div></div>
       <div class="faq-item"><div class="faq-question">Can I trim on mobile?</div><div class="faq-answer">Yes, you can trim audio on Android and iOS using current mobile browsers. The controls are designed for touch, including drag handles and timeline preview. For best results, keep other heavy apps closed while exporting.</div></div>
-      <div class="faq-item"><div class="faq-question">What formats are supported?</div><div class="faq-answer">You can load common audio types such as MP3, WAV, M4A, AAC, OGG, FLAC, and more where browser decoding is available. Export choices include MP3, WAV, AAC, and WebM. This gives you flexibility for sharing, archiving, or further editing.</div></div>
+      <div class="faq-item"><div class="faq-question">What formats are supported?</div><div class="faq-answer">You can load common audio types such as MP3, WAV, M4A, AAC, OGG, FLAC, and more where browser decoding is available. Export choices include MP3 (compressed) and WAV (lossless). This gives you flexibility for sharing, archiving, or further editing.</div></div>
       <div class="faq-item"><div class="faq-question">Does trimming change bitrate?</div><div class="faq-answer">Trimming by itself does not automatically lower bitrate. Bitrate changes only if you choose different export quality or a different codec during download. If you want to preserve the original sound profile, keep export settings close to the source.</div></div>
     </section>
     <section class="content-section" style="background: var(--surface);">
@@ -392,6 +395,7 @@
         </a>
       </div>
     </section>
+  
   </main>
 
   <!-- RELATED TOOLS -->
@@ -417,9 +421,17 @@
         <div>
           <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Tools</h4>
           <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="/" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 Trimmer</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="#" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 to WAV Converter</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="#" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Audio Merger</a></li>
+<li style="margin-bottom: 0.5rem;">
+  <a href="./extract-audio-from-video.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">
+    Extract Audio from Video
+  </a>
+</li>
+
+<li style="margin-bottom: 0.5rem;">
+  <a href="./remove-silence-from-audio.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">
+    Remove Silence
+  </a>
+</li>
           </ul>
         </div>
         <div>
@@ -478,11 +490,9 @@
       ];
 
       const exportFormats = [
-        { value: 'mp3', label: 'MP3' },
-        { value: 'wav', label: 'WAV' },
-        { value: 'aac', label: 'AAC' },
-        { value: 'webm', label: 'WebM' }
-      ];
+      { value: 'wav', label: 'WAV (Lossless)' },
+      { value: 'mp3', label: 'MP3' }
+    ];
 
       const qualityOptions = [
         { value: '128', label: '128 kbps' },
@@ -773,9 +783,9 @@
         if (!pointer) return false;
 
         const { isTouch = false, shiftKey = false } = options;
-        const playheadHitX = isTouch ? 24 : 15;
-        const handleHitX = isTouch ? 28 : 15;
-        const handleHitY = isTouch ? 44 : 25;
+        const playheadHitX = isTouch ? 36 : 15;
+        const handleHitX   = isTouch ? 42 : 15;
+        const handleHitY   = isTouch ? 60 : 25;
         const { x, y, clickTime, startX, endX, playheadX } = pointer;
 
         if (Math.abs(x - playheadX) < playheadHitX) {
@@ -902,28 +912,84 @@
         handleWaveformMouseUp();
       };
 
-      const exportAudio = async () => {
-        if (!audioBuffer) return;
-        const offlineContext = new OfflineAudioContext(
-          audioBuffer.numberOfChannels,
-          Math.ceil((trimEnd - trimStart) * audioBuffer.sampleRate),
-          audioBuffer.sampleRate
-        );
-        const source = offlineContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(offlineContext.destination);
-        source.start(0, trimStart, trimEnd - trimStart);
-        const renderedBuffer = await offlineContext.startRendering();
-        const wav = audioBufferToWav(renderedBuffer);
-        const blob = new Blob([wav], { type: 'audio/wav' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `trimmed_audio.${exportFormat}`;
-        a.click();
-        URL.revokeObjectURL(url);
-      };
+  const exportAudio = async () => {
+  if (!audioBuffer) return;
 
+  const offlineContext = new OfflineAudioContext(
+    audioBuffer.numberOfChannels,
+    Math.ceil((trimEnd - trimStart) * audioBuffer.sampleRate),
+    audioBuffer.sampleRate
+  );
+
+  const source = offlineContext.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(offlineContext.destination);
+  source.start(0, trimStart, trimEnd - trimStart);
+
+  const renderedBuffer = await offlineContext.startRendering();
+
+  // ===== WAV EXPORT =====
+  if (exportFormat === "wav") {
+    const wav = audioBufferToWav(renderedBuffer);
+    const blob = new Blob([wav], { type: "audio/wav" });
+    downloadBlob(blob, "wav");
+  }
+
+  // ===== MP3 EXPORT =====
+  else if (exportFormat === "mp3") {
+    const mp3Blob = encodeMP3(renderedBuffer, exportQuality);
+    downloadBlob(mp3Blob, "mp3");
+  }
+};
+function downloadBlob(blob, extension) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `trimmed_audio.${extension}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function encodeMP3(audioBuffer, bitrate) {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const mp3encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, parseInt(bitrate));
+
+  const blockSize = 1152;
+  const left = audioBuffer.getChannelData(0);
+  const right = numChannels > 1 ? audioBuffer.getChannelData(1) : left;
+
+  let mp3Data = [];
+
+  for (let i = 0; i < left.length; i += blockSize) {
+    const leftChunk = left.subarray(i, i + blockSize);
+    const rightChunk = right.subarray(i, i + blockSize);
+
+    const left16 = convertFloatToInt16(leftChunk);
+    const right16 = convertFloatToInt16(rightChunk);
+
+    const mp3buf = mp3encoder.encodeBuffer(left16, right16);
+    if (mp3buf.length > 0) {
+      mp3Data.push(new Uint8Array(mp3buf));
+    }
+  }
+
+  const endBuf = mp3encoder.flush();
+  if (endBuf.length > 0) {
+    mp3Data.push(new Uint8Array(endBuf));
+  }
+
+  return new Blob(mp3Data, { type: "audio/mp3" });
+}
+
+
+function convertFloatToInt16(buffer) {
+  let l = buffer.length;
+  let buf = new Int16Array(l);
+  while (l--) {
+    buf[l] = Math.max(-1, Math.min(1, buffer[l])) * 0x7fff;
+  }
+  return buf;
+}
       const audioBufferToWav = (buffer) => {
         const length = buffer.length * buffer.numberOfChannels * 2 + 44;
         const arrayBuffer = new ArrayBuffer(length);
@@ -1094,12 +1160,32 @@
                       {exportFormats.map(fmt => <option key={fmt.value} value={fmt.value}>{fmt.label}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: '500' }}>Quality</label>
-                    <select value={exportQuality} onChange={(e) => setExportQuality(e.target.value)} style={{ width: '100%', padding: '0.75rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.5rem', fontSize: '0.9375rem' }}>
-                      {qualityOptions.map(qual => <option key={qual.value} value={qual.value}>{qual.label}</option>)}
-                    </select>
-                  </div>
+                  {exportFormat === "mp3" && (
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: '500' }}>
+                 Quality
+               </label>
+    <select
+      value={exportQuality}
+      onChange={(e) => setExportQuality(e.target.value)}
+      style={{
+        width: '100%',
+        padding: '0.75rem',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: '0.5rem',
+        fontSize: '0.9375rem'
+      }}
+    >
+      {qualityOptions.map(qual => (
+        <option key={qual.value} value={qual.value}>
+          {qual.label}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
+
                 </div>
                 <button onClick={exportAudio} style={{ width: '100%', padding: '1rem', background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)', color: 'white', border: 'none', borderRadius: '0.5rem', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.2s' }}>
                   <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
