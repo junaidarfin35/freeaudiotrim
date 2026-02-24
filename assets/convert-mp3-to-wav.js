@@ -1,4 +1,4 @@
-﻿// Small helpers: read file and convert AudioBuffer -> WAV
+// Small helpers: read file and convert AudioBuffer -> WAV
   const fileInput = document.getElementById('fileInput');
   const convertBtn = document.getElementById('convertBtn');
   const downloadLink = document.getElementById('downloadLink');

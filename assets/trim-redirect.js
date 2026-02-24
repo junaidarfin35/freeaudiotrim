@@ -1,1 +1,1 @@
-﻿window.location.replace("https://freeaudiotrim.com/");
+window.location.replace("https://freeaudiotrim.com/");
