@@ -1,43 +1,44 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="preload" href="/assets/logo.svg" as="image" type="image/svg+xml">
+  <link rel="preload" href="/assets/layout.css" as="style">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Normalize Audio Volume Online - Balance Sound Instantly</title>
   <meta name="description" content="Adjust and normalize audio volume directly in your browser. Fix low or inconsistent sound levels without uploading your file.">
   <link rel="canonical" href="https://freeaudiotrim.com/normalize-audio-volume.html">
   <meta property="og:url" content="https://freeaudiotrim.com/normalize-audio-volume.html">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <link rel="stylesheet" href="/assets/upload.css">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Normalize Audio Volume Online","url":"https://freeaudiotrim.com/normalize-audio-volume.html","description":"Normalize audio volume locally in your browser."}</script>
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does this upload files?","acceptedAnswer":{"@type":"Answer","text":"No — processing is entirely client-side."}},{"@type":"Question","name":"What normalization does this perform?","acceptedAnswer":{"@type":"Answer","text":"It analyses peak levels and applies gain to reach a target loudness without clipping."}},{"@type":"Question","name":"Can I set target level?","acceptedAnswer":{"@type":"Answer","text":"Yes. Use the target dB slider to choose your desired peak level."}},{"@type":"Question","name":"Supported formats?","acceptedAnswer":{"@type":"Answer","text":"Any audio format your browser can decode (MP3, WAV, M4A etc.)."}},{"@type":"Question","name":"Is quality lost?","acceptedAnswer":{"@type":"Answer","text":"We apply gain and re-export as WAV (lossless); you avoid extra lossy encoding unless you choose MP3 later."}]}</script>
-  <style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');:root{--primary:#2563eb;--background:#fff;--text:#0f172a}body{font-family:'DM Sans',sans-serif;margin:0;background:var(--background);color:var(--text)}header,footer{background:linear-gradient(90deg,var(--primary),#1e40af);color:#fff;padding:1rem}.container{max-width:980px;margin:1.5rem auto;padding:1rem}.tool{background:#f8fafc;border:1px solid #e2e8f0;padding:1rem;border-radius:8px}#fileInput{display:none}</style>
+  <link rel="stylesheet" href="/assets/layout.css">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does this upload files?","acceptedAnswer":{"@type":"Answer","text":"No — processing is entirely client-side."}},{"@type":"Question","name":"What normalization does this perform?","acceptedAnswer":{"@type":"Answer","text":"It analyses peak levels and applies gain to reach a target loudness without clipping."}},{"@type":"Question","name":"Can I set target level?","acceptedAnswer":{"@type":"Answer","text":"Yes. Use the target dB slider to choose your desired peak level."}},{"@type":"Question","name":"Supported formats?","acceptedAnswer":{"@type":"Answer","text":"Any audio format your browser can decode (MP3, WAV, M4A etc.)."}},{"@type":"Question","name":"Is quality lost?","acceptedAnswer":{"@type":"Answer","text":"We apply gain and re-export as WAV (lossless); you avoid extra lossy encoding unless you choose MP3 later."}}]}</script>
 </head>
 <body>
 <header>
-  <div class="container" style="display:flex;justify-content:space-between;align-items:center">
-    <a href="./trim-mp3-online.html" style="color:white;font-weight:700;text-decoration:none">AudioTools</a>
-    <nav style="display:flex;gap:1rem">
-      <a href="./trim-mp3-online.html" style="color:rgba(255,255,255,0.9)">Trim</a>
-      <a href="./convert-mp3-to-wav.html" style="color:rgba(255,255,255,0.9)">Convert</a>
-      <a href="./normalize-audio-volume.html" style="color:rgba(255,255,255,0.9)">Normalize</a>
-    </nav>
+  <div class="header-container">
+    <a href="/" class="logo"><img src="/assets/logo.svg" alt="AudioTools" width="24" height="24" decoding="async"> AudioTools</a>
+    <nav>
+  <a href="/trim-mp3-online.html">MP3 Trimmer</a>
+  <a href="/convert-mp3-to-wav.html">Convert</a>
+  <a href="/normalize-audio-volume.html">Normalize Volume</a>
+  <a href="/blog/">Blog</a>
+</nav>
   </div>
 </header>
 <main class="container">
-  <h1>Normalize Audio Volume Online – Increase or Balance Sound Instantly</h1>
-  <p style="color:#64748b">Adjust and normalize audio volume directly in your browser. Fix low or inconsistent levels without uploading your file — everything runs locally using the Web Audio API. Whether you're working with a quiet podcast recording that needs a volume boost, balancing tracks for a presentation, or simply correcting uneven sound in a ripped MP3, this online normalizer lets you dial in the peak level in decibels and hear the change instantly. The interface is minimal: pick a file, set your target peak in dBFS, then click Normalize. A WAV download is produced with no third-party server involved. Because the entire process happens in memory, you retain privacy and avoid bandwidth delays. You don't need any special software or accounts — the tool runs in any modern browser and supports all audio formats the browser can decode. Use it as a quick pre‑processing step before editing, mixing, or sharing audio to be sure the volume is consistent and audible.</p>
-  <p style="color:#64748b">This audio volume normalizer online is ideal when you need to increase MP3 volume or simply make audio louder online, whether for a video soundtrack or a voice memo. It handles fixes for low volume audio and provides fast audio loudness adjustment, all without requiring upload.</p>
+  <h1>Normalize Audio Volume Online - Increase or Balance Sound Instantly</h1>
+  <p>Adjust and normalize audio volume directly in your browser. Fix low or inconsistent levels without uploading your file — everything runs locally using the Web Audio API. Whether you're working with a quiet podcast recording that needs a volume boost, balancing tracks for a presentation, or simply correcting uneven sound in a ripped MP3, this online normalizer lets you dial in the peak level in decibels and hear the change instantly. The interface is minimal: pick a file, set your target peak in dBFS, then click Normalize. A WAV download is produced with no third-party server involved. Because the entire process happens in memory, you retain privacy and avoid bandwidth delays. You don't need any special software or accounts — the tool runs in any modern browser and supports all audio formats the browser can decode. Use it as a quick pre‑processing step before editing, mixing, or sharing audio to be sure the volume is consistent and audible.</p>
+  <p>This audio volume normalizer online is ideal when you need to increase MP3 volume or simply make audio louder online, whether for a video soundtrack or a voice memo. It handles fixes for low volume audio and provides fast audio loudness adjustment, all without requiring upload. If you need cleanup before balancing levels, use <a href="/remove-silence-from-audio.html">Remove Silence from Audio</a>. To combine finalized clips afterward, try <a href="/merge-audio-files.html">Merge Audio Files</a>.</p>
   <section class="tool">
-    <h2>Tool</h2>
     <div style="display:grid;gap:0.75rem">
       <input type="file" id="fileInput" accept="audio/*" />
       <div class="upload-box">
         <div class="upload-content">
-          <div class="upload-icon">☁️</div>
+          <div class="upload-icon">&#9729;&#65039;</div>
           <h2>Upload Audio File</h2>
           <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
         </div>
@@ -65,7 +66,7 @@
     <p>Even small fluctuations in audio gain can make a recording hard to listen to. When the volume is too low, listeners may need to crank up their speakers, amplifying background noise and potentially triggering clipping on sudden peaks. If the waveform amplitude is wildly uneven, parts of your file may sound buried while others blast at full volume. By normalizing audio volume, you ensure a consistent loudness that respects the content's dynamic range while making the material accessible on different devices and platforms.</p>
     <p>For musicians, podcasters, and creators, proper volume is not just about loudness, it's about maintaining headroom and avoiding distortion. Adjusting the dB level correctly also helps when combining multiple clips or layering tracks in an editor.
     </p>
-    <p>On phones, laptops, or in a car, inconsistent levels force listeners to constantly reach for the volume control. A normalized file keeps audio peaks in check and preserves dynamic range, so quiet passages remain audible without making loud sections painful. This becomes especially important when transferring files between platforms where each service may apply its own loudness normalization or headroom rules.</p></p>
+    <p>On phones, laptops, or in a car, inconsistent levels force listeners to constantly reach for the volume control. A normalized file keeps audio peaks in check and preserves dynamic range, so quiet passages remain audible without making loud sections painful. This becomes especially important when transferring files between platforms where each service may apply its own loudness normalization or headroom rules.</p>
   </section>
 
   <section style="margin-top:1rem">
@@ -85,83 +86,67 @@
     <details><summary>Is the result lossy?</summary><p>The tool exports WAV (lossless PCM). If you re-encode to MP3 later, that step will be lossy.</p></details>
   </section>
 
-  <p style="margin-top:1rem;color:#64748b">With the normalized file in hand you can proceed to trim, merge, or convert it using our other tools, or drop it straight into your editor knowing the levels are even. This simple step often makes the difference between a polished result and a messy mix. Try it now to see how easy it is.</p>
+  <p class="footer-text">With the normalized file in hand you can proceed to trim, merge, or convert it using our other tools, or drop it straight into your editor knowing the levels are even. This simple step often makes the difference between a polished result and a messy mix. Try it now to see how easy it is.</p>
 
   <section style="margin-top:1rem">
     <h3>Internal Links</h3>
     <ul>
-      <li><a href="./trim-mp3-online.html">Trim MP3</a></li>
-      <li><a href="./convert-mp3-to-wav.html">Convert MP3→WAV</a></li>
-      <li><a href="./remove-silence-from-audio.html">Remove Silence</a></li>
-      <li><a href="./merge-audio-files.html">Merge</a></li>
-      <li><a href="./extract-audio-from-video.html">Extract</a></li>
+      <li><a href="/trim-mp3-online.html">Trim MP3</a></li>
+      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a></li>
+      <li><a href="/remove-silence-from-audio.html">Remove Silence</a></li>
+      <li><a href="/merge-audio-files.html">Merge</a></li>
+      <li><a href="/extract-audio-from-video.html">Extract</a></li>
     </ul>
   </section>
 
-  <section style="margin-top:1rem">
+  <section class="related-tools">
     <h2>Related Audio Tools</h2>
     <ul>
-      <li><a href="./trim-mp3-online.html">trim MP3 files online</a></li>
-      <li><a href="./convert-mp3-to-wav.html">convert MP3 to WAV format</a></li>
-      <li><a href="./remove-silence-from-audio.html">remove silent sections</a></li>
-      <li><a href="./merge-audio-files.html">merge multiple audio tracks</a></li>
+      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a> – Cut and edit MP3 files in your browser.</li>
+      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a> – Change MP3 files into WAV audio.</li>
+      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a> – Balance sound levels instantly.</li>
+      <li><a href="/merge-audio-files.html">Merge Audio Files</a> – Combine multiple tracks into one file.</li>
+      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> – Automatically cut silent parts.</li>
+      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> – Convert video files to audio format.</li>
     </ul>
   </section>
 </main>
   <!-- SECTION 7: FOOTER -->
-  <footer style="background: var(--text); color: white; margin-top: 4rem;">
-    <div class="container" style="padding-top: 3rem; padding-bottom: 3rem;">
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
-        <div>
-          <h3 style="font-size: 1.125rem; margin-bottom: 1rem; color: white;">AudioTools</h3>
-          <p style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">Free browser-based audio editing tools. Private, fast, and easy to use.</p>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Tools</h4>
-          <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="./trim-mp3-online.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 Trimmer</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./convert-mp3-to-wav.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 to WAV Converter</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./merge-audio-files.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Audio Merger</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Legal</h4>
-          <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="./privacy-policy.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Privacy Policy</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./terms-of-service.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Terms of Service</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./contact.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Contact</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">About</h4>
-          <p style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">All processing happens in your browser. We never store your files.</p>
-        </div>
+<footer>
+  <div class="footer-container">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
+      <div>
+        <div class="footer-title">AudioTools</div>
+        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
       </div>
-      <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; text-align: center;">
-        <p style="color: rgba(255,255,255,0.5); font-size: 0.875rem; margin: 0;">© 2026 AudioTools. All rights reserved. Your privacy is our priority.</p>
+      <div>
+        <div class="footer-title">Tools</div>
+        <p><a href="/trim-mp3-online.html" class="footer-text">MP3 Trimmer</a></p>
+        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
+        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
+      </div>
+      <div>
+        <div class="footer-title">Legal</div>
+        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
+        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
+        <p><a href="/contact.html" class="footer-text">Contact</a></p>
       </div>
     </div>
-  </footer>
-<script>
-const readFile = file => new Promise((r,rej)=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.onerror=rej;fr.readAsArrayBuffer(file)});
-const fileInput=document.getElementById('fileInput'), normalizeBtn=document.getElementById('normalizeBtn'), downloadLink=document.getElementById('downloadLink'), targetDb=document.getElementById('targetDb'), status=document.getElementById('status');
-function encodeWAV(audioBuffer){const numChannels=audioBuffer.numberOfChannels;const sampleRate=audioBuffer.sampleRate;let samples; if(numChannels===2){const l=audioBuffer.getChannelData(0), r=audioBuffer.getChannelData(1);samples=new Float32Array(l.length*2);for(let i=0;i<l.length;i++){samples[2*i]=l[i];samples[2*i+1]=r[i];}}else{samples=audioBuffer.getChannelData(0);}const buffer=new ArrayBuffer(44+samples.length*2);const view=new DataView(buffer);function writeStr(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));}
-let offset=0;writeStr(offset,'RIFF');offset+=4;view.setUint32(offset,36+samples.length*2,true);offset+=4;writeStr(offset,'WAVE');offset+=4;writeStr(offset,'fmt ');offset+=4;view.setUint32(offset,16,true);offset+=4;view.setUint16(offset,1,true);offset+=2;view.setUint16(offset,numChannels,true);offset+=2;view.setUint32(offset,sampleRate,true);offset+=4;view.setUint32(offset,sampleRate*numChannels*2,true);offset+=4;view.setUint16(offset,numChannels*2,true);offset+=2;view.setUint16(offset,16,true);offset+=2;writeStr(offset,'data');offset+=4;view.setUint32(offset,samples.length*2,true);offset+=4;let pos=44;for(let i=0;i<samples.length;i++,pos+=2){let s=Math.max(-1,Math.min(1,samples[i]));view.setInt16(pos,s<0?s*0x8000:s*0x7FFF,true);}return new Blob([view],{type:'audio/wav'});} 
+    <div class="footer-small">
+      © 2026 AudioTools. All rights reserved.
+    </div>
+  </div>
+</footer>
+<script src="/assets/normalize-audio-volume.js" defer></script>
+<script src="/assets/upload.js" defer></script>
+</body>
+</html>
 
-normalizeBtn.addEventListener('click',async()=>{
-  const file=fileInput.files[0]; if(!file){status.textContent='Choose a file';return}
-  status.textContent='Decoding...'; try{
-    const buf=await readFile(file);const ac=new (window.AudioContext||window.webkitAudioContext)();const ab=await ac.decodeAudioData(buf);
-    // compute peak
-    let peak=0; for(let c=0;c<ab.numberOfChannels;c++){const data=ab.getChannelData(c);for(let i=0;i<data.length;i++){peak=Math.max(peak,Math.abs(data[i]));}}
-    const peakDb=20*Math.log10(peak||1e-8); const target=parseFloat(targetDb.value); const gainDb=target-peakDb; const gain=Math.pow(10,gainDb/20);
-    status.textContent='Applying gain...';
-    // apply gain to copies
-    const out= new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(ab.numberOfChannels,ab.length,ab.sampleRate);
-    const src=out.createBufferSource(); src.buffer=ab; const gainNode=out.createGain(); gainNode.gain.value=gain; src.connect(gainNode); gainNode.connect(out.destination); src.start(0);
-    const rendered=await out.startRendering();
-    const wav=encodeWAV(rendered); const url=URL.createObjectURL(wav); downloadLink.href=url; downloadLink.download=(file.name.replace(/\.[^/.]+$/,'')||'normalized')+'.wav'; downloadLink.style.display='inline-block'; status.textContent='Ready — download the normalized WAV.';
-  }catch(e){console.error(e);status.textContent='Error processing file.'}
-});
-</script>
-<script src="/assets/upload.js"></script>
+
+
+
+
+
+
+
+

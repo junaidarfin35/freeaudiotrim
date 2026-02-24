@@ -1,6 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="preload" href="/assets/logo.svg" as="image" type="image/svg+xml">
+  <link rel="preload" href="/assets/layout.css" as="style">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Privacy Policy - AudioTools</title>
@@ -9,8 +15,6 @@
   <meta property="og:url" content="https://freeaudiotrim.com/privacy-policy.html">
   
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
-    
     :root {
       --primary: #2563eb;
       --text: #0f172a;
@@ -25,88 +29,7 @@
       padding: 0;
       box-sizing: border-box;
     }
-    
-    body {
-      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      line-height: 1.7;
-      color: var(--text);
-      background: var(--background);
-    }
-    
-    header {
-      background: white;
-      border-bottom: 1px solid var(--border);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    
-    nav {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 1rem 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-weight: 700;
-      font-size: 1.25rem;
-      color: var(--text);
-      text-decoration: none;
-    }
-    
-    .nav-links {
-      display: flex;
-      gap: 1.5rem;
-      font-size: 0.875rem;
-    }
-    
-    .nav-links a {
-      color: var(--text-secondary);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    
-    .nav-links a:hover {
-      color: var(--primary);
-    }
-    
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 3rem 1.5rem;
-    }
-    
-    h1 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 1rem;
-      line-height: 1.2;
-    }
-    
-    h2 {
-      font-size: 1.75rem;
-      font-weight: 600;
-      margin-top: 2.5rem;
-      margin-bottom: 1rem;
-    }
-    
-    h3 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin-top: 1.5rem;
-      margin-bottom: 0.75rem;
-    }
-    
-    p {
-      margin-bottom: 1rem;
-      font-size: 1.0625rem;
-    }
-    
-    ul, ol {
+ul, ol {
       margin-left: 1.5rem;
       margin-bottom: 1rem;
     }
@@ -132,40 +55,23 @@
       font-size: 0.875rem;
       margin-bottom: 2rem;
     }
-    
-    footer {
-      background: var(--text);
-      color: white;
-      padding: 2rem 1.5rem;
-      margin-top: 4rem;
-      text-align: center;
-    }
-    
-    footer a {
-      color: rgba(255,255,255,0.7);
-      text-decoration: none;
-      margin: 0 0.5rem;
-    }
-    
-    footer a:hover {
-      color: white;
-    }
+  
+  
   </style>
+  <link rel="stylesheet" href="/assets/layout.css">
 </head>
 <body>
   <header>
+  <div class="header-container">
+    <a href="/" class="logo"><img src="/assets/logo.svg" alt="AudioTools" width="24" height="24" decoding="async"> AudioTools</a>
     <nav>
-      <a href="index.html" class="logo">
-        <span style="font-size: 1.5rem;">🎵</span>
-        <span>AudioTools</span>
-      </a>
-      <div class="nav-links">
-        <a href="./trim-mp3-online.html">MP3 Trimmer</a>
-        <a href="./privacy-policy.html" style="color: var(--primary); font-weight: 500;">Privacy</a>
-        <a href="./contact.html">Contact</a>
-      </div>
-    </nav>
-  </header>
+  <a href="/trim-mp3-online.html">MP3 Trimmer</a>
+  <a href="/convert-mp3-to-wav.html">Convert</a>
+  <a href="/normalize-audio-volume.html">Normalize Volume</a>
+  <a href="/blog/">Blog</a>
+</nav>
+  </div>
+</header>
 
   <main class="container">
     <h1>Privacy Policy</h1>
@@ -285,7 +191,7 @@
     <h2>Contact Us</h2>
     <p>If you have questions about this privacy policy or our privacy practices, please contact us:</p>
     <ul>
-      <li><strong>Contact Form:</strong> <a href="./contact.html" style="color: var(--primary);">Visit our contact page</a></li>
+      <li><strong>Contact Form:</strong> <a href="/contact.html" style="color: var(--primary);">Visit our contact page</a></li>
     </ul>
 
     <h2>Conclusion</h2>
@@ -293,15 +199,35 @@
   </main>
 
   <footer>
-    <p style="margin-bottom: 1rem;">
-      <a href="./trim-mp3-online.html">MP3 Trimmer</a> |
-      <a href="./privacy-policy.html">Privacy Policy</a> |
-      <a href="./terms-of-service.html">Terms of Service</a> |
-      <a href="./contact.html">Contact</a>
-    </p>
-    <p style="color: rgba(255,255,255,0.5); font-size: 0.875rem; margin: 0;">
-      © 2026 AudioTools. Your files, your device, your privacy.
-    </p>
-  </footer>
+  <div class="footer-container">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
+      <div>
+        <div class="footer-title">AudioTools</div>
+        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
+      </div>
+      <div>
+        <div class="footer-title">Tools</div>
+        <p><a href="/trim-mp3-online.html" class="footer-text">MP3 Trimmer</a></p>
+        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
+        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
+      </div>
+      <div>
+        <div class="footer-title">Legal</div>
+        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
+        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
+        <p><a href="/contact.html" class="footer-text">Contact</a></p>
+      </div>
+    </div>
+    <div class="footer-small">
+      © 2026 AudioTools. All rights reserved.
+    </div>
+  </div>
+</footer>
 </body>
 </html>
+
+
+
+
+
+

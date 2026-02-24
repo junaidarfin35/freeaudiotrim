@@ -1,6 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="preload" href="/assets/logo.svg" as="image" type="image/svg+xml">
+  <link rel="preload" href="/assets/layout.css" as="style">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
@@ -23,76 +29,40 @@
   
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React & ReactDOM -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
-  <!-- Babel Standalone -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <link rel="stylesheet" href="/assets/upload.css">
   
   <!-- Schema.org Structured Data -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Extract Audio from Video",
-    "url": "https://freeaudiotrim.com/extract-audio-from-video.html",
-    "description": "Extract audio from video locally in your browser.",
-    "applicationCategory": "MultimediaApplication",
-    "operatingSystem": "Any",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-  }
-  </script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Extract Audio from Video","url":"https://freeaudiotrim.com/extract-audio-from-video.html","description":"Extract audio from video locally in your browser.","applicationCategory":"MultimediaApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   
   <!-- FAQ Structured Data -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {"@type":"Question","name":"Does this upload my video?","acceptedAnswer":{"@type":"Answer","text":"No — extraction runs in your browser only."}},
-      {"@type":"Question","name":"Which video formats are supported?","acceptedAnswer":{"@type":"Answer","text":"Files that your browser can decode, commonly MP4 with AAC audio."}},
-      {"@type":"Question","name":"Can I convert to MP3?","acceptedAnswer":{"@type":"Answer","text":"This tool exports WAV; MP3 export requires additional encoding which can be added client-side but is not included by default."}},
-      {"@type":"Question","name":"Is quality preserved?","acceptedAnswer":{"@type":"Answer","text":"The audio track is preserved as decoded by your browser; exported WAV keeps the PCM audio data."}},
-      {"@type":"Question","name":"Is this free?","acceptedAnswer":{"@type":"Answer","text":"Yes — entirely client-side and free to use."}}
-    ]
-  }
-  </script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does this upload my video?","acceptedAnswer":{"@type":"Answer","text":"No — extraction runs in your browser only."}},{"@type":"Question","name":"Which video formats are supported?","acceptedAnswer":{"@type":"Answer","text":"Files that your browser can decode, commonly MP4 with AAC audio."}},{"@type":"Question","name":"Can I convert to MP3?","acceptedAnswer":{"@type":"Answer","text":"This tool exports WAV; MP3 export requires additional encoding which can be added client-side but is not included by default."}},{"@type":"Question","name":"Is quality preserved?","acceptedAnswer":{"@type":"Answer","text":"The audio track is preserved as decoded by your browser; exported WAV keeps the PCM audio data."}},{"@type":"Question","name":"Is this free?","acceptedAnswer":{"@type":"Answer","text":"Yes — entirely client-side and free to use."}}]}</script>
   
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap');
     :root { --primary: #2563eb; --primary-dark: #1e40af; --secondary: #10b981; --background: #ffffff; --surface: #f8fafc; --text: #0f172a; --text-secondary: #64748b; --border: #e2e8f0; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: var(--text); background: var(--background); }
-    header, footer { background: var(--text); color: white; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; }
-    .tool { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
+.tool { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
     #fileInput { display: none; }
+  
+  
   </style>
+  <link rel="stylesheet" href="/assets/layout.css">
 </head>
 <body>
   <!-- Header -->
-  <header style="background: white; border-bottom: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-    <nav class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span style="font-size: 1.5rem;">🎵</span>
-        <span style="font-weight: 700; font-size: 1.25rem; color: var(--text);">AudioTools</span>
-      </div>
-      <div class="flex gap-6 text-sm">
-        <a href="./trim-mp3-online.html" style="color: var(--primary); font-weight: 500; text-decoration: none;">MP3 Trimmer</a>
-        <a href="./privacy-policy.html" style="color: var(--text-secondary); text-decoration: none;">Privacy</a>
-        <a href="./contact.html" style="color: var(--text-secondary); text-decoration: none;">Contact</a>
-      </div>
-    </nav>
-  </header>
+  <header>
+  <div class="header-container">
+    <a href="/" class="logo"><img src="/assets/logo.svg" alt="AudioTools" width="24" height="24" decoding="async"> AudioTools</a>
+    <nav>
+  <a href="/trim-mp3-online.html">MP3 Trimmer</a>
+  <a href="/convert-mp3-to-wav.html">Convert</a>
+  <a href="/normalize-audio-volume.html">Normalize Volume</a>
+  <a href="/blog/">Blog</a>
+</nav>
+  </div>
+</header>
 <main class="container">
   <h1>Extract Audio from Video Online – Get MP3 from MP4 Instantly</h1>
-  <p style="color:#64748b">Extract audio from video files directly in your browser. Convert MP4 video to WAV without uploading your file to any server. Processing is done locally using the browser's decoding capabilities.</p>
+  <p>Extract audio from video files directly in your browser. Convert MP4 video to WAV without uploading your file to any server. Processing is done locally using the browser's decoding capabilities. If you want to edit the extracted output right away, use <a href="/trim-mp3-online.html">Trim MP3 Online</a>. For level balancing after extraction, apply <a href="/normalize-audio-volume.html">Normalize Audio Volume</a>.</p>
   <section class="tool">
     <h2>Tool</h2>
     <div style="display:grid;gap:0.75rem">
@@ -110,11 +80,11 @@
     </div>
   </section>
 
-  <section style="margin-top:1rem"><h2>How it works</h2>
+  <section><h2>How it works</h2>
     <p>The browser reads the file as an ArrayBuffer and attempts to decode the audio track via the Web Audio API's <code>decodeAudioData</code>. For common containers like MP4 with AAC audio, modern browsers can decode the audio track directly. Once decoded into an AudioBuffer, it is exported as WAV and offered for download — all in memory in the browser.</p>
   </section>
 
-  <section style="margin-top:1rem"><h2>FAQ</h2>
+  <section><h2>FAQ</h2>
     <details><summary>Will my file be uploaded?</summary><p>No — the file stays in your browser.</p></details>
     <details><summary>Can I get MP3 directly?</summary><p>This tool provides WAV output; MP3 encoding can be added client-side using a JS encoder if desired.</p></details>
     <details><summary>What if decodeAudioData fails?</summary><p>Your browser may not support the audio codec inside the video; try exporting from your video editor to a supported container or use a different browser.</p></details>
@@ -122,14 +92,14 @@
     <details><summary>Is the audio quality preserved?</summary><p>Yes — audio is exported as decoded PCM in WAV format.</p></details>
   </section>
 
-  <section style="margin-top:1rem"><h2>Internal Links</h2><ul><li><a href="./trim-mp3-online.html">Trim MP3</a></li><li><a href="./convert-mp3-to-wav.html">Convert MP3→WAV</a></li><li><a href="./normalize-audio-volume.html">Normalize</a></li><li><a href="./remove-silence-from-audio.html">Remove Silence</a></li><li><a href="./merge-audio-files.html">Merge</a></li></ul></section>
- <section style="margin-top:60px;max-width:900px;margin-left:auto;margin-right:auto;line-height:1.8;color:#334155;">
+  <section><h2>Internal Links</h2><ul><li><a href="/trim-mp3-online.html">Trim MP3</a></li><li><a href="/convert-mp3-to-wav.html">Convert MP3→WAV</a></li><li><a href="/normalize-audio-volume.html">Normalize</a></li><li><a href="/remove-silence-from-audio.html">Remove Silence</a></li><li><a href="/merge-audio-files.html">Merge</a></li></ul></section>
+ <section>
   <h2>Extract Audio from MP4 Video Online</h2>
 
   <p>
     This free online tool lets you extract audio from MP4 video files directly
 in your browser. You can also use our 
-<a href="index.html">MP3 trimmer tool</a> 
+<a href="/index.html">MP3 trimmer tool</a> 
 to cut and edit the extracted audio after conversion. 
 No uploads, no server processing, and no account required.
   </p>
@@ -153,92 +123,57 @@ No uploads, no server processing, and no account required.
     Unlike many online converters, FreeAudioTrim processes everything locally
     using the Web Audio API. Your files are never uploaded to any server.
   </p>
-</section>
- 
+ </section>
+
+  <section class="related-tools">
+    <h2>Related Audio Tools</h2>
+    <ul>
+      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a> – Cut and edit MP3 files in your browser.</li>
+      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a> – Change MP3 files into WAV audio.</li>
+      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a> – Balance sound levels instantly.</li>
+      <li><a href="/merge-audio-files.html">Merge Audio Files</a> – Combine multiple tracks into one file.</li>
+      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> – Automatically cut silent parts.</li>
+      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> – Convert video files to audio format.</li>
+    </ul>
+  </section>
+  
 </main>
   <!-- SECTION 7: FOOTER -->
-  <footer style="background: var(--text); color: white; margin-top: 4rem;">
-    <div class="container" style="padding-top: 3rem; padding-bottom: 3rem;">
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
-        <div>
-          <h3 style="font-size: 1.125rem; margin-bottom: 1rem; color: white;">AudioTools</h3>
-          <p style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">Free browser-based audio editing tools. Private, fast, and easy to use.</p>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Tools</h4>
-          <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="./trim-mp3-online.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 Trimmer</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./convert-mp3-to-wav.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 to WAV Converter</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./normalize-audio-volume.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Normalize</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Legal</h4>
-          <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="./privacy-policy.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Privacy Policy</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./terms-of-service.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Terms of Service</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./contact.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Contact</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">About</h4>
-          <p style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">All processing happens in your browser. We never store your files.</p>
-        </div>
+  <footer>
+  <div class="footer-container">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
+      <div>
+        <div class="footer-title">AudioTools</div>
+        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
       </div>
-      <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; text-align: center;">
-        <p style="color: rgba(255,255,255,0.5); font-size: 0.875rem; margin: 0;">© 2026 AudioTools. All rights reserved. Your privacy is our priority.</p>
+      <div>
+        <div class="footer-title">Tools</div>
+        <p><a href="/trim-mp3-online.html" class="footer-text">MP3 Trimmer</a></p>
+        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
+        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
+      </div>
+      <div>
+        <div class="footer-title">Legal</div>
+        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
+        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
+        <p><a href="/contact.html" class="footer-text">Contact</a></p>
       </div>
     </div>
-  </footer>
-<script>
-const readFile = f => new Promise((r,rej)=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.onerror=rej;fr.readAsArrayBuffer(f)});
-function encodeWAV(audioBuffer){const numChannels=audioBuffer.numberOfChannels;const sampleRate=audioBuffer.sampleRate;let samples; if(numChannels===2){const l=audioBuffer.getChannelData(0), r=audioBuffer.getChannelData(1);samples=new Float32Array(l.length*2);for(let i=0;i<l.length;i++){samples[2*i]=l[i];samples[2*i+1]=r[i];}}else{samples=audioBuffer.getChannelData(0);}const buffer=new ArrayBuffer(44+samples.length*2);const view=new DataView(buffer);function writeStr(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i))}let offset=0;writeStr(offset,'RIFF');offset+=4;view.setUint32(offset,36+samples.length*2,true);offset+=4;writeStr(offset,'WAVE');offset+=4;writeStr(offset,'fmt ');offset+=4;view.setUint32(offset,16,true);offset+=4;view.setUint16(offset,1,true);offset+=2;view.setUint16(offset,numChannels,true);offset+=2;view.setUint32(offset,sampleRate,true);offset+=4;view.setUint32(offset,sampleRate*numChannels*2,true);offset+=4;view.setUint16(offset,numChannels*2,true);offset+=2;view.setUint16(offset,16,true);offset+=2;writeStr(offset,'data');offset+=4;view.setUint32(offset,samples.length*2,true);offset+=4;let pos=44;for(let i=0;i<samples.length;i++,pos+=2){let s=Math.max(-1,Math.min(1,samples[i]));view.setInt16(pos,s<0?s*0x8000:s*0x7FFF,true);}return new Blob([view],{type:'audio/wav'});} 
-
-const fileInput=document.getElementById('fileInput'), extractBtn=document.getElementById('extractBtn'), downloadLink=document.getElementById('downloadLink'), status=document.getElementById('status');
-extractBtn.addEventListener('click', async () => {
-  const f = fileInput.files[0];
-
-  if (!f) {
-    status.textContent = 'Choose a video file';
-    return;
-  }
-
-  status.textContent = 'Reading file...';
-
-  try {
-    const ab = await readFile(f);
-
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-
-    status.textContent = 'Decoding audio track...';
-
-    const decoded = await ac.decodeAudioData(ab);
-
-    status.textContent = 'Encoding WAV...';
-
-    const wavBlob = encodeWAV(decoded);
-
-    const url = URL.createObjectURL(wavBlob);
-
-    downloadLink.href = url;
-    downloadLink.download =
-      (f.name.replace(/\.[^/.]+$/, '') || 'extracted') + '.wav';
-
-    downloadLink.style.display = 'inline-block';
-
-    status.textContent = 'Ready — download extracted audio.';
-
-    ac.close();
-
-  } catch (e) {
-    console.error(e);
-
-    status.textContent =
-      'This video format is not supported by your browser. Please export as MP4 (H.264) and try again.';
-  }
-});
-
-</script>
-<script src="/assets/upload.js"></script>
+    <div class="footer-small">
+      © 2026 AudioTools. All rights reserved.
+    </div>
+  </div>
+</footer>
+<script src="/assets/extract-audio-from-video.js" defer></script>
+<script src="/assets/upload.js" defer></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+

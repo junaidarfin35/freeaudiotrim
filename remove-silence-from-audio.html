@@ -1,6 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="preload" href="/assets/logo.svg" as="image" type="image/svg+xml">
+  <link rel="preload" href="/assets/layout.css" as="style">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
@@ -23,83 +29,42 @@
   
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React & ReactDOM -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
-  <!-- Babel Standalone -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <link rel="stylesheet" href="/assets/upload.css">
   
   <!-- Schema.org Structured Data -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Remove Silence from Audio",
-    "url": "https://freeaudiotrim.com/remove-silence-from-audio.html",
-    "description": "Remove silence locally in your browser.",
-    "applicationCategory": "MultimediaApplication",
-    "operatingSystem": "Any",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-  }
-  </script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Remove Silence from Audio","url":"https://freeaudiotrim.com/remove-silence-from-audio.html","description":"Remove silence locally in your browser.","applicationCategory":"MultimediaApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   
   <!-- FAQ Structured Data -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {"@type":"Question","name":"Is my audio uploaded?","acceptedAnswer":{"@type":"Answer","text":"No — we process in the browser only."}},
-      {"@type":"Question","name":"How is silence detected?","acceptedAnswer":{"@type":"Answer","text":"We measure short-term RMS and consider frames below a threshold as silence."}},
-      {"@type":"Question","name":"Can I set sensitivity?","acceptedAnswer":{"@type":"Answer","text":"Yes — use the threshold and minimum silence duration controls."}},
-      {"@type":"Question","name":"What about music with quiet parts?","acceptedAnswer":{"@type":"Answer","text":"Tune the threshold and minimum length to avoid removing desired quiet passages."}},
-      {"@type":"Question","name":"Output format?","acceptedAnswer":{"@type":"Answer","text":"WAV (16-bit PCM) is the exported default to preserve quality."}},
-      {"@type":"Question","name":"Does silence removal affect quality?","acceptedAnswer":{"@type":"Answer","text":"No — removing silent frames doesn't change the audio data you keep; it simply cuts out empty space."}},
-      {"@type":"Question","name":"Is processing private?","acceptedAnswer":{"@type":"Answer","text":"Yes — everything runs client-side in your browser and no files are uploaded."}},
-      {"@type":"Question","name":"Does it remove background noise?","acceptedAnswer":{"@type":"Answer","text":"Not directly; it only removes sections below the amplitude threshold, but quieter background noise inside voice segments remains."}},
-      {"@type":"Question","name":"Are there file size limits?","acceptedAnswer":{"@type":"Answer","text":"Practical limits are set by browser memory; very large files (hundreds of MB) may be slow or fail."}},
-      {"@type":"Question","name":"Will it work on mobile devices?","acceptedAnswer":{"@type":"Answer","text":"Yes—modern mobile browsers support the required Web Audio APIs, though performance may vary."}}
-    ]
-  }
-  </script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is my audio uploaded?","acceptedAnswer":{"@type":"Answer","text":"No — we process in the browser only."}},{"@type":"Question","name":"How is silence detected?","acceptedAnswer":{"@type":"Answer","text":"We measure short-term RMS and consider frames below a threshold as silence."}},{"@type":"Question","name":"Can I set sensitivity?","acceptedAnswer":{"@type":"Answer","text":"Yes — use the threshold and minimum silence duration controls."}},{"@type":"Question","name":"What about music with quiet parts?","acceptedAnswer":{"@type":"Answer","text":"Tune the threshold and minimum length to avoid removing desired quiet passages."}},{"@type":"Question","name":"Output format?","acceptedAnswer":{"@type":"Answer","text":"WAV (16-bit PCM) is the exported default to preserve quality."}},{"@type":"Question","name":"Does silence removal affect quality?","acceptedAnswer":{"@type":"Answer","text":"No — removing silent frames doesn\u0027t change the audio data you keep; it simply cuts out empty space."}},{"@type":"Question","name":"Is processing private?","acceptedAnswer":{"@type":"Answer","text":"Yes — everything runs client-side in your browser and no files are uploaded."}},{"@type":"Question","name":"Does it remove background noise?","acceptedAnswer":{"@type":"Answer","text":"Not directly; it only removes sections below the amplitude threshold, but quieter background noise inside voice segments remains."}},{"@type":"Question","name":"Are there file size limits?","acceptedAnswer":{"@type":"Answer","text":"Practical limits are set by browser memory; very large files (hundreds of MB) may be slow or fail."}},{"@type":"Question","name":"Will it work on mobile devices?","acceptedAnswer":{"@type":"Answer","text":"Yes—modern mobile browsers support the required Web Audio APIs, though performance may vary."}}]}</script>
   
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap');
     :root { --primary: #2563eb; --primary-dark: #1e40af; --secondary: #10b981; --background: #ffffff; --surface: #f8fafc; --text: #0f172a; --text-secondary: #64748b; --border: #e2e8f0; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: var(--text); background: var(--background); }
-    header, footer { background: var(--text); color: white; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; }
-    .tool { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
+.tool { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
     #fileInput { display: none; }
+  
+  
   </style>
+  <link rel="stylesheet" href="/assets/layout.css">
 </head>
 <body>
   <!-- Header -->
-  <header style="background: white; border-bottom: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-    <nav class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span style="font-size: 1.5rem;">🎵</span>
-        <span style="font-weight: 700; font-size: 1.25rem; color: var(--text);">AudioTools</span>
-      </div>
-      <div class="flex gap-6 text-sm">
-        <a href="./trim-mp3-online.html" style="color: var(--primary); font-weight: 500; text-decoration: none;">MP3 Trimmer</a>
-        <a href="./privacy-policy.html" style="color: var(--text-secondary); text-decoration: none;">Privacy</a>
-        <a href="./contact.html" style="color: var(--text-secondary); text-decoration: none;">Contact</a>
-      </div>
-    </nav>
-  </header>
+  <header>
+  <div class="header-container">
+    <a href="/" class="logo"><img src="/assets/logo.svg" alt="AudioTools" width="24" height="24" decoding="async"> AudioTools</a>
+    <nav>
+  <a href="/trim-mp3-online.html">MP3 Trimmer</a>
+  <a href="/convert-mp3-to-wav.html">Convert</a>
+  <a href="/normalize-audio-volume.html">Normalize Volume</a>
+  <a href="/blog/">Blog</a>
+</nav>
+  </div>
+</header>
 <main class="container">
   <h1>Remove Silence from Audio Online – Clean Dead Air Instantly</h1>
-  <p style="color:#64748b">Automatically detect and remove silent sections from your audio file directly in your browser. No uploads or external processing required.</p>
-  <p style="color:#64748b">This silence remover is a handy tool when you need to remove silence from podcast recordings or cut silent pauses automatically from interviews. You can cut silent parts from audio or trim quiet sections of a speech recording without touching a DAW. This tool is designed to cut silent pauses automatically, so you don’t have to scrub through a waveform manually. Whether you're doing audio cleanup for a lecture, trimming gaps in a voice memo, or cleaning background gaps in a live stream, everything happens locally in your browser so your files never leave your device.</p>
-  <p style="color:#64748b">Use it as part of your podcast editing workflow to clean dead air before adding music or voice-over; the threshold and minimum silence controls let you fine‑tune how aggressively the audio waveform is scanned. This online tool makes it easy to fix recordings on the fly and keeps the process simple and fast.</p>
+  <p>Automatically detect and remove silent sections from your audio file directly in your browser. No uploads or external processing required.</p>
+  <p>This silence remover is a handy tool when you need to remove silence from podcast recordings or cut silent pauses automatically from interviews. You can cut silent parts from audio or trim quiet sections of a speech recording without touching a DAW. This tool is designed to cut silent pauses automatically, so you don’t have to scrub through a waveform manually. Whether you're doing audio cleanup for a lecture, trimming gaps in a voice memo, or cleaning background gaps in a live stream, everything happens locally in your browser so your files never leave your device.</p>
+  <p>Use it as part of your podcast editing workflow to clean dead air before adding music or voice-over; the threshold and minimum silence controls let you fine‑tune how aggressively the audio waveform is scanned. This online tool makes it easy to fix recordings on the fly and keeps the process simple and fast. If you need precision edits after cleanup, continue with <a href="/trim-mp3-online.html">Trim MP3 Online</a>. For final loudness consistency, use <a href="/normalize-audio-volume.html">Normalize Audio Volume</a>.</p>
   <section class="tool">
     <h2>Tool</h2>
     <div style="display:grid;gap:0.75rem">
@@ -118,27 +83,27 @@
     </div>
   </section>
 
-  <section style="margin-top:1rem">
+  <section>
     <h2>How it works</h2>
     <p>The tool decodes audio into an AudioBuffer and computes short-time RMS over sliding windows. Segments with RMS below the threshold for at least the minimum duration are considered silence and removed. The non-silent segments are concatenated into a single audio buffer and exported as WAV, all in the browser using Web Audio APIs.</p>
   </section>
 
-  <section style="margin-top:1rem">
+  <section>
     <h2>How Silence Detection Works</h2>
     <p>Detection starts with an analysis of the audio waveform. The script examines the amplitude of the signal in small frames (typically 20‑40 ms) and converts each frame to a root mean square (RMS) value that represents its average energy. When the RMS level falls below the chosen amplitude threshold, that frame is marked as silence. Consecutive silent frames longer than the minimum silence length trigger a cut.</p>
     <p>This approach mimics what many professional editors call silence detection or noise gate functionality, but it runs entirely client-side in your browser. You can watch the audio waveform preview as you adjust settings to see exactly which areas will be removed, giving you a visual sense of the gaps in your speech or podcast audio. Typical thresholds are around -40 dB for spoken-word material, but you can lower it for studio-quality speech recording or raise it for noisier environments. Rather than manually dragging trim handles, the automatic algorithm scans for low-energy frames and flags them—this saves time and ensures no silent gap is overlooked.</p>
   </section>
 
-  <section style="margin-top:1rem">
+  <section>
     <h2>Why Remove Silence from Recordings?</h2>
     <p>Removing silence improves the listener experience and makes spoken-word content feel tighter and more engaging. For podcasters and speech recording enthusiasts, cutting pauses and gaps eliminates awkward dead air between sentences and helps maintain a consistent flow. It also reduces file size by trimming unnecessary portions, which is especially useful when uploading episodes or sending drafts to collaborators.</p>
     <p>In podcast editing, cleaned audio is easier to mix with music beds or sound effects because you don’t have to manually hunt for empty segments. Audio cleanup with a silence remover also speeds up post-production – instead of scrubbing through hours of footage, you can automatically cut silent sections and jump straight to the content that matters. Removing pauses is especially helpful when editing interviews, allowing you to tighten conversations and improve pacing.</p>
     <p>Even for casual users, a quick pass with this tool can transform a long lecture or voice memo by removing background gaps and making the recording sound more professional without any specialized software. The same is true for speech recording assignments or online meetings where you want to remove silence from podcast episodes or Zoom recordings before sharing. Beyond aesthetics, cutting quiet sections reduces the final file size and makes uploads faster—important when band‑width or storage space is limited.</p>
   </section>
 
-  <section style="margin-top:1rem"><h2>FAQ</h2>
-  <p style="color:#64748b">If you're working on a podcast or long voice piece, run the detection once then preview to make sure it didn't cut out any spoken words; adjusting the amplitude threshold and minimum silence duration gives you full control. Remember that speech recordings often contain natural breaths and pauses—tuning the threshold lets you preserve those while still eliminating dead air.</p>
-  <p style="color:#64748b">A final cleanup pass can make your voice track more engaging and ready for publishing, whether you're removing silence from podcast episodes, cleaning up a webinar recording, or preparing a speech for transcription.</p>
+  <section><h2>FAQ</h2>
+  <p>If you're working on a podcast or long voice piece, run the detection once then preview to make sure it didn't cut out any spoken words; adjusting the amplitude threshold and minimum silence duration gives you full control. Remember that speech recordings often contain natural breaths and pauses—tuning the threshold lets you preserve those while still eliminating dead air.</p>
+  <p>A final cleanup pass can make your voice track more engaging and ready for publishing, whether you're removing silence from podcast episodes, cleaning up a webinar recording, or preparing a speech for transcription.</p>
     <details><summary>Does silence removal affect quality?</summary><p>No — removing silent frames doesn't change the audio data you keep; it simply cuts out empty space.</p></details>
     <details><summary>Can I set sensitivity?</summary><p>Yes — use the threshold and minimum silence duration controls to fine-tune detection.</p></details>
     <details><summary>Is processing private?</summary><p>All analysis runs locally in your browser; your file is never uploaded.</p></details>
@@ -152,77 +117,56 @@
     <details><summary>Can I undo?</summary><p>This page processes files in memory. You can re-open the original file to retry different settings.</p></details>
   </section>
 
-  <section style="margin-top:1rem"><h2>Internal Links</h2><ul><li><a href="./trim-mp3-online.html">Trim MP3</a></li><li><a href="./convert-mp3-to-wav.html">Convert MP3→WAV</a></li><li><a href="./normalize-audio-volume.html">Normalize</a></li><li><a href="./merge-audio-files.html">Merge</a></li><li><a href="./extract-audio-from-video.html">Extract</a></li></ul></section>
+  <section><h2>Internal Links</h2><ul><li><a href="/trim-mp3-online.html">Trim MP3</a></li><li><a href="/convert-mp3-to-wav.html">Convert MP3→WAV</a></li><li><a href="/normalize-audio-volume.html">Normalize</a></li><li><a href="/merge-audio-files.html">Merge</a></li><li><a href="/extract-audio-from-video.html">Extract</a></li></ul></section>
 
-  <section style="margin-top:1rem">
+  <section class="related-tools">
     <h2>Related Audio Tools</h2>
     <ul>
-      <li><a href="./trim-mp3-online.html">trim MP3 files online</a></li>
-      <li><a href="./normalize-audio-volume.html">use the audio volume normalizer</a></li>
-      <li><a href="./convert-mp3-to-wav.html">convert MP3 to WAV</a></li>
-      <li><a href="./merge-audio-files.html">merge multiple tracks</a></li>
+      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a> – Cut and edit MP3 files in your browser.</li>
+      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a> – Change MP3 files into WAV audio.</li>
+      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a> – Balance sound levels instantly.</li>
+      <li><a href="/merge-audio-files.html">Merge Audio Files</a> – Combine multiple tracks into one file.</li>
+      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> – Automatically cut silent parts.</li>
+      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> – Convert video files to audio format.</li>
     </ul>
   </section>
 </main>
   <!-- SECTION 7: FOOTER -->
-  <footer style="background: var(--text); color: white; margin-top: 4rem;">
-    <div class="container" style="padding-top: 3rem; padding-bottom: 3rem;">
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
-        <div>
-          <h3 style="font-size: 1.125rem; margin-bottom: 1rem; color: white;">AudioTools</h3>
-          <p style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">Free browser-based audio editing tools. Private, fast, and easy to use.</p>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Tools</h4>
-          <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="./trim-mp3-online.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 Trimmer</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./convert-mp3-to-wav.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 to WAV Converter</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./merge-audio-files.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Audio Merger</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Legal</h4>
-          <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="./privacy-policy.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Privacy Policy</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./terms-of-service.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Terms of Service</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./contact.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Contact</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">About</h4>
-          <p style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">All processing happens in your browser. We never store your files.</p>
-        </div>
+  <footer>
+  <div class="footer-container">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
+      <div>
+        <div class="footer-title">AudioTools</div>
+        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
       </div>
-      <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; text-align: center;">
-        <p style="color: rgba(255,255,255,0.5); font-size: 0.875rem; margin: 0;">© 2026 AudioTools. All rights reserved. Your privacy is our priority.</p>
+      <div>
+        <div class="footer-title">Tools</div>
+        <p><a href="/trim-mp3-online.html" class="footer-text">MP3 Trimmer</a></p>
+        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
+        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
+      </div>
+      <div>
+        <div class="footer-title">Legal</div>
+        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
+        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
+        <p><a href="/contact.html" class="footer-text">Contact</a></p>
       </div>
     </div>
-  </footer>
-<script>
-const readFile= f => new Promise((r,rej)=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.onerror=rej;fr.readAsArrayBuffer(f)});
-const fileInput=document.getElementById('fileInput'), processBtn=document.getElementById('processBtn'), downloadLink=document.getElementById('downloadLink'), status=document.getElementById('status');
-const thresholdEl=document.getElementById('thresholdDb'), minMsEl=document.getElementById('minMs');
-function encodeWAV(audioBuffer){const numChannels=audioBuffer.numberOfChannels;const sampleRate=audioBuffer.sampleRate;let samples; if(numChannels===2){const l=audioBuffer.getChannelData(0), r=audioBuffer.getChannelData(1);samples=new Float32Array(l.length*2);for(let i=0;i<l.length;i++){samples[2*i]=l[i];samples[2*i+1]=r[i];}}else{samples=audioBuffer.getChannelData(0);}const buffer=new ArrayBuffer(44+samples.length*2);const view=new DataView(buffer);function writeStr(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i))}let offset=0;writeStr(offset,'RIFF');offset+=4;view.setUint32(offset,36+samples.length*2,true);offset+=4;writeStr(offset,'WAVE');offset+=4;writeStr(offset,'fmt ');offset+=4;view.setUint32(offset,16,true);offset+=4;view.setUint16(offset,1,true);offset+=2;view.setUint16(offset,numChannels,true);offset+=2;view.setUint32(offset,sampleRate,true);offset+=4;view.setUint32(offset,sampleRate*numChannels*2,true);offset+=4;view.setUint16(offset,numChannels*2,true);offset+=2;view.setUint16(offset,16,true);offset+=2;writeStr(offset,'data');offset+=4;view.setUint32(offset,samples.length*2,true);offset+=4;let pos=44;for(let i=0;i<samples.length;i++,pos+=2){let s=Math.max(-1,Math.min(1,samples[i]));view.setInt16(pos,s<0?s*0x8000:s*0x7FFF,true);}return new Blob([view],{type:'audio/wav'});} 
-
-processBtn.addEventListener('click',async()=>{
-  const f=fileInput.files[0]; if(!f){status.textContent='Choose a file';return}
-  status.textContent='Decoding...'; try{const abuf=await readFile(f);const actx=new (window.AudioContext||window.webkitAudioContext)();const decoded=await actx.decodeAudioData(abuf);
-    const thresholdDb=parseFloat(thresholdEl.value);const threshold=Math.pow(10,thresholdDb/20);const frameMs=30;const frameSize=Math.floor(decoded.sampleRate*(frameMs/1000));const minFrames=Math.ceil((parseInt(minMsEl.value)||300)/frameMs);
-    // compute RMS per frame (across channels)
-    const rms=[];const channels=decoded.numberOfChannels;const len=decoded.length;for(let i=0;i<len;i+=frameSize){let sum=0;let count=0;for(let c=0;c<channels;c++){const data=decoded.getChannelData(c);for(let j=0;j<frameSize && i+j<len;j++){const s=data[i+j];sum+=s*s;count++;}}rms.push(Math.sqrt(sum/count));}
-    // find non-silent frames
-    const keepSegments=[];let i=0;while(i<rms.length){if(rms[i]>=threshold){let start=i;while(i<rms.length && rms[i]>=threshold)i++;let end=i;keepSegments.push({start:start*frameSize,end:Math.min(len,end*frameSize)});}else{i++;}}
-    // merge close segments and skip short segments
-    const merged=[];for(const seg of keepSegments){if(merged.length===0)merged.push(seg);else{const prev=merged[merged.length-1];if(seg.start-prev.end<=frameSize*2){prev.end=seg.end;}else merged.push(seg);}}
-    if(merged.length===0){status.textContent='No audible segments found with current settings.';return}
-    // build new buffer
-    let total=0;for(const s of merged)total+=s.end-s.start;const out=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(decoded.numberOfChannels,total,decoded.sampleRate);const outBuf=out.createBuffer(decoded.numberOfChannels,total,decoded.sampleRate);
-    let writePos=0;for(const s of merged){for(let c=0;c<decoded.numberOfChannels;c++){const src=decoded.getChannelData(c);const dst=outBuf.getChannelData(c);for(let k=s.start;k<s.end;k++){dst[writePos+k-s.start]=src[k];}}writePos+=s.end-s.start;}
-    // render (not strictly necessary since we already have buffer)
-    const wav=encodeWAV(outBuf); const url=URL.createObjectURL(wav); downloadLink.href=url; downloadLink.download=(f.name.replace(/\.[^/.]+$/,'' )||'clean')+'_nosilence.wav'; downloadLink.style.display='inline-block'; status.textContent='Ready — download cleaned file.';
-  }catch(e){console.error(e);status.textContent='Error processing file.'}}
-, false);
-</script>
-<script src="/assets/upload.js"></script>
+    <div class="footer-small">
+      © 2026 AudioTools. All rights reserved.
+    </div>
+  </div>
+</footer>
+<script src="/assets/remove-silence-from-audio.js" defer></script>
+<script src="/assets/upload.js" defer></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+

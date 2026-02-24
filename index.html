@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -26,9 +26,6 @@
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
   
   <!-- React & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -98,80 +95,12 @@
   </script>
   
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap');
-    
-    :root {
-      --primary: #2563eb;
-      --primary-dark: #1e40af;
-      --secondary: #10b981;
-      --background: #ffffff;
-      --surface: #f8fafc;
-      --text: #0f172a;
-      --text-secondary: #64748b;
-      --border: #e2e8f0;
-    }
-    
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      line-height: 1.6;
-      color: var(--text);
-      background: var(--background);
-    }
-    
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
+
     .font-mono {
       font-family: 'JetBrains Mono', monospace;
     }
-    
-    /* Smooth scrolling */
-    html {
-      scroll-behavior: smooth;
-    }
-    
-    /* Content sections */
-    .content-section {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 3rem 1.5rem;
-    }
-    
-    .content-section h2 {
-      font-size: 2rem;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 1.5rem;
-      line-height: 1.2;
-    }
-    
-    .content-section h3 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: var(--text);
-      margin-top: 2rem;
-      margin-bottom: 1rem;
-    }
-    
-    .content-section p {
-      margin-bottom: 1rem;
-      color: var(--text);
-      font-size: 1.0625rem;
-    }
-    
-    .content-section ul, .content-section ol {
-      margin-left: 1.5rem;
-      margin-bottom: 1rem;
-    }
-    
-    .content-section li {
-      margin-bottom: 0.5rem;
-      color: var(--text);
-    }
-    
+
     /* FAQ Styles */
     .faq-item {
       background: var(--surface);
@@ -192,41 +121,7 @@
       color: var(--text-secondary);
       line-height: 1.7;
     }
-    
-    /* Tool Links */
-    .tool-link {
-      display: block;
-      padding: 1rem 1.25rem;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 0.5rem;
-      color: var(--primary);
-      text-decoration: none;
-      margin-bottom: 0.75rem;
-      transition: all 0.2s;
-    }
-    
-    .tool-link:hover {
-      background: var(--primary);
-      color: white;
-      transform: translateX(4px);
-    }
-    
-    /* Step Numbers */
-    .step-number {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 2rem;
-      height: 2rem;
-      background: var(--primary);
-      color: white;
-      border-radius: 50%;
-      font-weight: 600;
-      margin-right: 0.75rem;
-      flex-shrink: 0;
-    }
-    
+
     /* Privacy Badge */
     .privacy-badge {
       display: inline-flex;
@@ -240,67 +135,35 @@
       font-weight: 500;
       margin-top: 1rem;
     }
-    
-    /* Responsive */
-    @media (max-width: 768px) {
-      .content-section {
-        padding: 2rem 1rem;
-      }
-      
-      .content-section h2 {
-        font-size: 1.75rem;
-      }
-      
-      .content-section h3 {
-        font-size: 1.25rem;
-      }
-    }
-    
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-      width: 10px;
-    }
-    
-    ::-webkit-scrollbar-track {
-      background: var(--surface);
-    }
-    
-    ::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 5px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-secondary);
-    }
   </style>
+  <link rel="stylesheet" href="/assets/layout.css">
 </head>
 <body>
   <!-- Header -->
-  <header style="background: white; border-bottom: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-    <nav class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span style="font-size: 1.5rem;">🎵</span>
-        <span style="font-weight: 700; font-size: 1.25rem; color: var(--text);">AudioTools</span>
-      </div>
-      <div class="flex gap-6 text-sm">
-        <a href="/" style="color: var(--primary); font-weight: 500; text-decoration: none;">MP3 Trimmer</a>
-        <a href="./privacy-policy.html" style="color: var(--text-secondary); text-decoration: none;">Privacy</a>
-        <a href="./contact.html" style="color: var(--text-secondary); text-decoration: none;">Contact</a>
-      </div>
-    </nav>
-  </header>
+  <header>
+  <div class="header-container">
+    <a href="/" class="logo">
+      🎵 AudioTools
+    </a>
+    <nav>
+  <a href="/trim-mp3-online.html">MP3 Trimmer</a>
+  <a href="/convert-mp3-to-wav.html">Convert</a>
+  <a href="/normalize-audio-volume.html">Normalize Volume</a>
+  <a href="/blog/">Blog</a>
+</nav>
+  </div>
+</header>
 
   <!-- Main Content -->
-  <main>
+  <main class="container">
     <!-- SECTION 1: H1 + SHORT INTRO -->
-    <section class="content-section" style="padding-top: 2rem; padding-bottom: 1.5rem;">
-      <h1 style="font-size: 2.5rem; font-weight: 700; color: var(--text); margin-bottom: 1rem; line-height: 1.2;">
+    <section class="content-section section-intro">
+      <h1>
         Trim MP3 Online Free – Cut Audio Files in Your Browser
       </h1>
-      <p style="font-size: 1.125rem; color: var(--text-secondary); max-width: 800px;">
-        Need a quick way to cut songs, podcasts or voice memos? This browser-based audio trimmer online lets you open an MP3 (or WAV, M4A, AAC etc.) and drag endpoints on an interactive waveform to keep just what you need. No uploads, no signup, no software downloads – everything runs locally for privacy, speed and offline use. The tool handles files up to 200 MB, plays back selections instantly and lets you export as MP3 or WAV with adjustable quality. Whether you're creating a ringtone, editing a podcast intro or trimming a lecture recording, the process is fast and intuitive. Works on desktop or mobile; modern browsers like Chrome, Firefox and Safari are supported. You can trim as many files as you like, on any computer. If you only need a short section, select the exact start and end points, preview the result, and download immediately without opening a desktop editor.
+      <p>Need a quick way to cut songs, podcasts or voice memos? This browser-based audio trimmer online lets you open an MP3 (or WAV, M4A, AAC etc.) and drag endpoints on an interactive waveform to keep just what you need. No uploads, no signup, no software downloads – everything runs locally for privacy, speed and offline use. The tool handles files up to 200 MB, plays back selections instantly and lets you export as MP3 or WAV with adjustable quality. Whether you're creating a ringtone, editing a podcast intro or trimming a lecture recording, the process is fast and intuitive. Works on desktop or mobile; modern browsers like Chrome, Firefox and Safari are supported. You can trim as many files as you like, on any computer. If you only need a short section, select the exact start and end points, preview the result, and download immediately without opening a desktop editor.
       </p>
+      <p>Many users search for a free online audio editor that works instantly without installing software. This MP3 trimmer and browser-based audio cutter lets you edit audio online, cut MP3 files, shorten songs, create ringtones, and prepare podcast clips in seconds — all without uploads or accounts.</p>
       <div class="privacy-badge">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -308,22 +171,24 @@
         100% Client-Side Processing
       </div>
     </section>
+    <section class="content-section">
+  <h2>Quick Answer: How to Trim MP3 Online</h2>
+  <p>To trim MP3 online, upload your audio file, drag the start and end markers on the waveform, preview the selected section, and export as MP3 or WAV. The entire process runs in your browser without uploading your file to a server.</p>
+</section>
 
     <!-- SECTION 2: TOOL INTERFACE -->
-    <section style="background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
-      <div class="content-section">
-        <div id="audio-tool"></div>
-        <p style="text-align: center; color: var(--text-secondary); font-size: 0.875rem; margin-top: 1rem; margin-bottom: 0;">
-          <strong>Your files never leave your device. No uploads. No account required.</strong>
-        </p>
-      </div>
+    <section class="content-section section-surface">
+      <div id="audio-tool"></div>
+      <p class="tool-shell-note">
+        <strong>Your files never leave your device. No uploads. No account required.</strong>
+      </p>
     </section>
 
     <!-- SECTION 3: HOW TO TRIM MP3 ONLINE -->
     <section class="content-section">
       <h2>How to Trim MP3 Online</h2>
       <p>Just three quick actions let you trim mp3 online in minutes using this free mp3 cutter and audio trimmer online:</p>
-      <ol style="margin-top:1rem;">
+      <ol>
         <li>Upload your MP3, WAV, M4A, AAC (etc.) file; it’s decoded instantly in-browser.</li>
         <li>Drag the waveform handles or click to set start and end points for the segment you want.</li>
         <li>Preview with play/spacebar, then hit <strong>Export &amp; Download</strong> to save as MP3 or WAV – you can cut mp3 file or cut audio online with zero fuss.</li>
@@ -331,37 +196,43 @@
     </section>
 
     <!-- SECTION 4: WHY USE THIS MP3 CUTTER -->
-    <section class="content-section" style="background: var(--surface);">
+    <section class="content-section section-surface">
       <h2>Why Use This Online MP3 Cutter?</h2>
       <p>Our in‑browser MP3 cutter gives you instant, private edits without installing anything. Audio is never uploaded – all decoding, playback and export happen locally, so you stay in control of your files. It handles popular formats (MP3, WAV, AAC, M4A, FLAC, OGG and more) and exports trimmed audio as MP3 (compressed) or WAV (lossless).</p>
       <p>The interface works equally well on desktop and mobile devices; drag the waveform handles, preview with the spacebar, and download the result in seconds. It’s easy to trim audio in browser with no account, no waiting, and no extra steps. There are no limits, no ads, and you don’t even need to sign in – just open the page and start trimming.</p>
       <p>You’re editing with a built-in waveform editor that displays audio duration clearly; adjusting trim points changes the output instantly. Because this is client-side audio editing and browser-based processing, there’s no compression unless you choose it – keep bitrate high, avoid re-encoding, or export in a lossless format for maximum quality. File size stays small and the whole operation is secure trimming: nothing ever leaves your device.</p>
     </section>
 
-    
+    <!-- SECTION 4B: Need more than just trimming? -->
+    <section class="content-section">
+      <h2>Need More Than Just Trimming?</h2>
+      <p>
+      Need more than just trimming? You can also 
+      <a href="/convert-mp3-to-wav.html">convert MP3 to WAV online</a> 
+      without uploading your files. Improve sound clarity using our 
+      <a href="/normalize-audio-volume.html">audio volume normalizer</a>, 
+      combine tracks with the 
+      <a href="/merge-audio-files.html">merge audio files tool</a>, 
+      or automatically 
+      <a href="/remove-silence-from-audio.html">remove silence from audio</a> 
+      to clean up recordings. You can even 
+      <a href="/extract-audio-from-video.html">extract audio from video</a> 
+      directly in your browser.
+      </p>
+    </section>
+
 
     <!-- SECTION 5A: WHY TRIM WITHOUT UPLOADING -->
     <section class="content-section">
-      <h3>Why Trim MP3 Without Uploading?</h3>
+      <h2>Why Trim MP3 Without Uploading?</h2>
       <p>Choosing to trim mp3 without uploading means your private recordings stay private. No server, no account, no transfer – you cut mp3 file fragments right in the browser. That makes it a naturally secure option for anyone who needs to edit audio without installing software or trusting a third party. It’s also much faster; you don’t wait for large files to upload before you can begin to edit a clip.</p>
       <p>Local processing helps you cut mp3 without losing quality because your source file stays on your device from start to finish. You can review every selection before export, keep quality settings under your control, and avoid unnecessary transfers when you only need a short segment.</p>
     </section>
 
     <!-- SECTION 5B: COMMON USE CASES -->
-    
-    <!-- SECTION 5C: VISIBLE FAQ -->
-    <section class="content-section">
-      <h2>Frequently Asked Questions</h2>
-      <div class="faq-item"><div class="faq-question">Does trimming reduce audio quality?</div><div class="faq-answer">Trimming removes the parts you do not want but keeps the selected section intact. In normal use, the audible quality of that kept section stays the same. Quality only changes when you export with lower settings or switch to a more compressed format.</div></div>
-      <div class="faq-item"><div class="faq-question">Is trimming private?</div><div class="faq-answer">Yes. This tool processes audio in your browser, so your file is not sent to our servers for editing. When you close the tab, temporary data from the session is cleared by the browser environment.</div></div>
-      <div class="faq-item"><div class="faq-question">What’s the maximum file size?</div><div class="faq-answer">A practical limit is around 200 MB for smooth editing in most modern devices. Larger files can still open, but response time depends on your RAM and browser performance. If playback feels slow, split the recording into smaller parts first.</div></div>
-      <div class="faq-item"><div class="faq-question">Can I trim on mobile?</div><div class="faq-answer">Yes, you can trim audio on Android and iOS using current mobile browsers. The controls are designed for touch, including drag handles and timeline preview. For best results, keep other heavy apps closed while exporting.</div></div>
-      <div class="faq-item"><div class="faq-question">What formats are supported?</div><div class="faq-answer">You can load common audio types such as MP3, WAV, M4A, AAC, OGG, FLAC, and more where browser decoding is available. Export choices include MP3 (compressed) and WAV (lossless). This gives you flexibility for sharing, archiving, or further editing.</div></div>
-      <div class="faq-item"><div class="faq-question">Does trimming change bitrate?</div><div class="faq-answer">Trimming by itself does not automatically lower bitrate. Bitrate changes only if you choose different export quality or a different codec during download. If you want to preserve the original sound profile, keep export settings close to the source.</div></div>
-    </section>
-    <section class="content-section" style="background: var(--surface);">
+    <section class="content-section section-surface">
       <h2>Common Use Cases for Trimming Audio</h2>
-      <ul style="margin-left:2rem; margin-top:1rem;">
+      <ul>
         <li>Emailing or messaging a clip? Cut mp3 without losing quality and keep file size down.</li>
         <li>Making a ringtone? Cut mp3 file to the perfect length with precise duration control.</li>
         <li>Preparing podcast teasers? Use the audio trimmer online to slice out intros or ads quickly.</li>
@@ -372,86 +243,157 @@
       </ul>
     </section>
 
+    <!-- SECTION 5C: VISIBLE FAQ -->
+    <section class="content-section">
+      <h2>Frequently Asked Questions</h2>
+      <div class="faq-item"><div class="faq-question">Does trimming reduce audio quality?</div><div class="faq-answer">Trimming removes the parts you do not want but keeps the selected section intact. In normal use, the audible quality of that kept section stays the same. Quality only changes when you export with lower settings or switch to a more compressed format.</div></div>
+      <div class="faq-item"><div class="faq-question">Is trimming private?</div><div class="faq-answer">Yes. This tool processes audio in your browser, so your file is not sent to our servers for editing. When you close the tab, temporary data from the session is cleared by the browser environment.</div></div>
+      <div class="faq-item"><div class="faq-question">What’s the maximum file size?</div><div class="faq-answer">A practical limit is around 200 MB for smooth editing in most modern devices. Larger files can still open, but response time depends on your RAM and browser performance. If playback feels slow, split the recording into smaller parts first.</div></div>
+      <div class="faq-item"><div class="faq-question">Can I trim on mobile?</div><div class="faq-answer">Yes, you can trim audio on Android and iOS using current mobile browsers. The controls are designed for touch, including drag handles and timeline preview. For best results, keep other heavy apps closed while exporting.</div></div>
+      <div class="faq-item"><div class="faq-question">What formats are supported?</div><div class="faq-answer">You can load common audio types such as MP3, WAV, M4A, AAC, OGG, FLAC, and more where browser decoding is available. Export choices include MP3 (compressed) and WAV (lossless). This gives you flexibility for sharing, archiving, or further editing.</div></div>
+      <div class="faq-item"><div class="faq-question">Does trimming change bitrate?</div><div class="faq-answer">Trimming by itself does not automatically lower bitrate. Bitrate changes only if you choose different export quality or a different codec during download. If you want to preserve the original sound profile, keep export settings close to the source.</div></div>
+    </section>
+
     <!-- SECTION 6: INTERNAL LINKS -->
-    <section class="content-section" style="background: var(--surface);">
+    <section class="content-section section-surface">
       <h2>More Free Audio Tools</h2>
-      <p style="margin-bottom: 2rem;">Explore our complete suite of browser-based audio editing tools – all free, private, and requiring no installation:</p>
+      <p>Explore our complete suite of browser-based audio editing tools – all free, private, and requiring no installation:</p>
       
-      <div style="display: grid; gap: 0.75rem; max-width: 600px;">
-        <a href="./convert-mp3-to-wav.html" class="tool-link">
+      <div class="tool-links-grid">
+        <a href="/convert-mp3-to-wav.html" class="tool-link">
           <strong>Convert MP3 to WAV</strong> – Transform compressed MP3 files to lossless WAV format
         </a>
-        <a href="./normalize-audio-volume.html" class="tool-link">
+        <a href="/normalize-audio-volume.html" class="tool-link">
           <strong>Normalize Audio Volume</strong> – Balance volume levels across your audio files
         </a>
-        <a href="./remove-silence-from-audio.html" class="tool-link">
+        <a href="/remove-silence-from-audio.html" class="tool-link">
           <strong>Remove Silence from Audio</strong> – Automatically detect and remove quiet portions
         </a>
-        <a href="./merge-audio-files.html" class="tool-link">
+        <a href="/merge-audio-files.html" class="tool-link">
           <strong>Merge Audio Files</strong> – Combine multiple audio tracks into one file
         </a>
-        <a href="./extract-audio-from-video.html" class="tool-link">
+        <a href="/extract-audio-from-video.html" class="tool-link">
           <strong>Extract Audio from Video</strong> – Pull audio tracks from video files
         </a>
+      </div>
+    </section>
+
+    <section class="content-section" aria-labelledby="latest-audio-guides">
+      <h2 id="latest-audio-guides">Latest Audio Editing Guides</h2>
+      <p>Learn how to trim, convert, normalize and edit audio files with our step-by-step tutorials.</p>
+
+      <div class="blog-grid">
+        <article class="blog-card">
+          <a href="/blog/how-to-trim-mp3-online.html" aria-label="Read How to Trim MP3 Online guide">
+            <img
+              src="/assets/blog/trim-mp3-online-guide.webp"
+              alt="Audio trimming interface guide cover image for trimming MP3 online"
+              loading="lazy"
+              decoding="async"
+              width="280"
+              height="180"
+            />
+            <div class="blog-card-body">
+              <h3>How to Trim MP3 Online</h3>
+              <p>Step-by-step guide to cutting MP3 files directly in your browser.</p>
+              <span class="blog-cta">Read guide</span>
+            </div>
+          </a>
+        </article>
+
+        <article class="blog-card">
+          <a href="/blog/extract-audio-from-video-guide.html" aria-label="Read How to Extract Audio from Video guide">
+            <img
+              src="/assets/blog/extract-audio-from-video-guide.webp"
+              alt="Audio waveform extraction guide cover image for extracting audio from video"
+              loading="lazy"
+              decoding="async"
+              width="280"
+              height="180"
+            />
+            <div class="blog-card-body">
+              <h3>How to Extract Audio from Video</h3>
+              <p>Convert MP4 and MOV files into clean audio tracks.</p>
+              <span class="blog-cta">Read guide</span>
+            </div>
+          </a>
+        </article>
+
+        <article class="blog-card">
+          <a href="/blog/convert-mp3-to-wav-guide.html" aria-label="Read Convert MP3 to WAV guide">
+            <img
+              src="/assets/blog/convert-mp3-to-wav-guide.webp"
+              alt="MP3 to WAV conversion guide cover image for audio format conversion"
+              loading="lazy"
+              decoding="async"
+              width="280"
+              height="180"
+            />
+            <div class="blog-card-body">
+              <h3>Convert MP3 to WAV Guide</h3>
+              <p>Understand format differences and when to use each.</p>
+              <span class="blog-cta">Read guide</span>
+            </div>
+          </a>
+        </article>
       </div>
     </section>
   
   </main>
 
   <!-- RELATED TOOLS -->
-  <section class="content-section" style="background: var(--surface);">
-    <h3>Related Audio Tools</h3>
-    <ul style="margin-left:2rem; margin-top:1rem;">
-      <li><a href="./convert-mp3-to-wav.html">Convert trimmed MP3 to WAV</a></li>
-      <li><a href="./normalize-audio-volume.html">Normalize audio volume</a></li>
-      <li><a href="./remove-silence-from-audio.html">Remove silence from recording</a></li>
-      <li><a href="./merge-audio-files.html">Merge multiple audio clips</a></li>
-      <li><a href="./extract-audio-from-video.html">Extract audio from video</a></li>
-    </ul>
-  </section>
+<section class="content-section related-tools">
+  <h2>Related Audio Tools</h2>
+
+  <div class="tools-grid">
+    <a href="/convert-mp3-to-wav.html" class="tool-card">
+      Convert Trimmed MP3 to WAV
+    </a>
+
+    <a href="/normalize-audio-volume.html" class="tool-card">
+      Normalize Audio Volume
+    </a>
+
+    <a href="/remove-silence-from-audio.html" class="tool-card">
+      Remove Silence from Recording
+    </a>
+
+    <a href="/merge-audio-files.html" class="tool-card">
+      Merge Multiple Audio Clips
+    </a>
+
+    <a href="/extract-audio-from-video.html" class="tool-card">
+      Extract Audio from Video
+    </a>
+  </div>
+</section>
 
   <!-- SECTION 7: FOOTER -->
-  <footer style="background: var(--text); color: white; margin-top: 4rem;">
-    <div class="content-section" style="padding-top: 3rem; padding-bottom: 3rem;">
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
-        <div>
-          <h3 style="font-size: 1.125rem; margin-bottom: 1rem; color: white;">AudioTools</h3>
-          <p style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">Free browser-based audio editing tools. Private, fast, and easy to use.</p>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Tools</h4>
-          <ul style="list-style: none; margin: 0; padding: 0;">
-<li style="margin-bottom: 0.5rem;">
-  <a href="./extract-audio-from-video.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">
-    Extract Audio from Video
-  </a>
-</li>
-
-<li style="margin-bottom: 0.5rem;">
-  <a href="./remove-silence-from-audio.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">
-    Remove Silence
-  </a>
-</li>
-          </ul>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Legal</h4>
-          <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="./privacy-policy.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Privacy Policy</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./terms-of-service.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Terms of Service</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./contact.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Contact</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">About</h4>
-          <p style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">All processing happens in your browser. We never store your files.</p>
-        </div>
+  <footer>
+  <div class="footer-container">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
+      <div>
+        <div class="footer-title">AudioTools</div>
+        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
       </div>
-      <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; text-align: center;">
-        <p style="color: rgba(255,255,255,0.5); font-size: 0.875rem; margin: 0;">© 2026 AudioTools. All rights reserved. Your privacy is our priority.</p>
+      <div>
+        <div class="footer-title">Tools</div>
+        <p><a href="/trim-mp3-online.html" class="footer-text">MP3 Trimmer</a></p>
+        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
+        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
+      </div>
+      <div>
+        <div class="footer-title">Legal</div>
+        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
+        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
+        <p><a href="/contact.html" class="footer-text">Contact</a></p>
       </div>
     </div>
-  </footer>
+    <div class="footer-small">
+      © 2026 AudioTools. All rights reserved.
+    </div>
+  </div>
+</footer>
 
   <!-- Audio Trimmer Tool Component -->
   <script type="text/babel">
@@ -1206,3 +1148,7 @@ function convertFloatToInt16(buffer) {
   <script src="/assets/upload.js"></script>
 </body>
 </html>
+
+
+
+

@@ -1,6 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="preload" href="/assets/logo.svg" as="image" type="image/svg+xml">
+  <link rel="preload" href="/assets/layout.css" as="style">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
@@ -23,80 +29,43 @@
   
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React & ReactDOM -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
-  <!-- Babel Standalone -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <link rel="stylesheet" href="/assets/upload.css">
   
   <!-- Schema.org Structured Data -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Merge Audio Files",
-    "url": "https://freeaudiotrim.com/merge-audio-files.html",
-    "description": "Merge audio files locally in your browser.",
-    "applicationCategory": "MultimediaApplication",
-    "operatingSystem": "Any",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-  }
-  </script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Merge Audio Files","url":"https://freeaudiotrim.com/merge-audio-files.html","description":"Merge audio files locally in your browser.","applicationCategory":"MultimediaApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   
   <!-- FAQ Structured Data -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {"@type":"Question","name":"Does merging reduce audio quality?","acceptedAnswer":{"@type":"Answer","text":"The tool performs straightforward concatenation and exports to WAV, so it avoids extra lossy re-encoding steps during merge. Perceived quality still depends on the original source files."}},
-      {"@type":"Question","name":"Can I merge different audio formats?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can add different formats as long as your browser can decode them. The merged download is provided as WAV."}},
-      {"@type":"Question","name":"Is file order adjustable before merging?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can move files up or down in the list to set the exact order before creating the final merged file."}},
-      {"@type":"Question","name":"What is the maximum file size I can merge?","acceptedAnswer":{"@type":"Answer","text":"There is no fixed site-side upload limit because processing is local, but your browser and device memory set practical limits. For large jobs, merge in smaller batches."}},
-      {"@type":"Question","name":"Is merging private?","acceptedAnswer":{"@type":"Answer","text":"Yes. Files are processed in your browser and are not uploaded to our servers."}},
-      {"@type":"Question","name":"Does it work on mobile devices?","acceptedAnswer":{"@type":"Answer","text":"Yes, it works on modern mobile browsers that support the required audio APIs, though performance depends on device resources."}}
-    ]
-  }
-  </script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does merging reduce audio quality?","acceptedAnswer":{"@type":"Answer","text":"The tool performs straightforward concatenation and exports to WAV, so it avoids extra lossy re-encoding steps during merge. Perceived quality still depends on the original source files."}},{"@type":"Question","name":"Can I merge different audio formats?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can add different formats as long as your browser can decode them. The merged download is provided as WAV."}},{"@type":"Question","name":"Is file order adjustable before merging?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can move files up or down in the list to set the exact order before creating the final merged file."}},{"@type":"Question","name":"What is the maximum file size I can merge?","acceptedAnswer":{"@type":"Answer","text":"There is no fixed site-side upload limit because processing is local, but your browser and device memory set practical limits. For large jobs, merge in smaller batches."}},{"@type":"Question","name":"Is merging private?","acceptedAnswer":{"@type":"Answer","text":"Yes. Files are processed in your browser and are not uploaded to our servers."}},{"@type":"Question","name":"Does it work on mobile devices?","acceptedAnswer":{"@type":"Answer","text":"Yes, it works on modern mobile browsers that support the required audio APIs, though performance depends on device resources."}}]}</script>
   
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap');
     :root { --primary: #2563eb; --primary-dark: #1e40af; --secondary: #10b981; --background: #ffffff; --surface: #f8fafc; --text: #0f172a; --text-secondary: #64748b; --border: #e2e8f0; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; color: var(--text); background: var(--background); }
-    header, footer { background: var(--text); color: white; }
-    .container { max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; }
-    .tool { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
+.tool { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
     .file-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border-radius: 6px; background: #fff; border: 1px solid #e6eef9 }
     #fileInput { display: none; }
+  
+  
   </style>
+  <link rel="stylesheet" href="/assets/layout.css">
 </head>
 <body>
   <!-- Header -->
-  <header style="background: white; border-bottom: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-    <nav class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span style="font-size: 1.5rem;">🎵</span>
-        <span style="font-weight: 700; font-size: 1.25rem; color: var(--text);">AudioTools</span>
-      </div>
-      <div class="flex gap-6 text-sm">
-        <a href="./trim-mp3-online.html" style="color: var(--primary); font-weight: 500; text-decoration: none;">MP3 Trimmer</a>
-        <a href="./privacy-policy.html" style="color: var(--text-secondary); text-decoration: none;">Privacy</a>
-        <a href="./contact.html" style="color: var(--text-secondary); text-decoration: none;">Contact</a>
-      </div>
-    </nav>
-  </header>
+  <header>
+  <div class="header-container">
+    <a href="/" class="logo"><img src="/assets/logo.svg" alt="AudioTools" width="24" height="24" decoding="async"> AudioTools</a>
+    <nav>
+  <a href="/trim-mp3-online.html">MP3 Trimmer</a>
+  <a href="/convert-mp3-to-wav.html">Convert</a>
+  <a href="/normalize-audio-volume.html">Normalize Volume</a>
+  <a href="/blog/">Blog</a>
+</nav>
+  </div>
+</header>
 <main class="container">
   <h1>Merge Audio Files Online – Free Audio Joiner for MP3, WAV and More</h1>
-  <p style="color:#64748b">Need to merge audio files online without opening a heavy editor? This page is built for exactly that workflow. You can combine mp3 files, stack voice notes, and merge multiple audio clips into one downloadable track in minutes. Because processing runs in your browser, your files stay on your device from start to finish. There are no uploads to remote servers, no account setup, and no waiting for cloud rendering. If your goal is to merge mp3 files in browser tabs while working quickly, this tool gives you a direct path: add files, reorder them, merge, and download.</p>
-  <p style="color:#64748b">The editor is intentionally simple, but the result is practical for many real tasks. You might join audio tracks for a podcast intro and episode body, combine language-learning snippets into one lesson, or assemble meeting notes into a single archive. The list interface supports quick reordering so you can control track sequencing before export. That matters when timing, narration order, or musical flow affects the final listening experience. If you've been searching for an audio joiner online that focuses on speed and privacy, this approach keeps the process clean and local.</p>
-  <p style="color:#64748b">This tool is also useful when you want to combine audio without installing software. Browser-based merging is convenient on shared computers, locked-down work devices, and mobile setups where installing desktop applications is not ideal. Since the audio stitching process happens directly with Web Audio APIs, you can produce a single output file with minimal overhead. For creators, teachers, students, marketers, and support teams, that means less time managing apps and more time publishing content.</p>
+  <p>Need to merge audio files online without opening a heavy editor? This page is built for exactly that workflow. You can combine mp3 files, stack voice notes, and merge multiple audio clips into one downloadable track in minutes. Because processing runs in your browser, your files stay on your device from start to finish. There are no uploads to remote servers, no account setup, and no waiting for cloud rendering. If your goal is to merge mp3 files in browser tabs while working quickly, this tool gives you a direct path: add files, reorder them, merge, and download.</p>
+  <p>The editor is intentionally simple, but the result is practical for many real tasks. You might join audio tracks for a podcast intro and episode body, combine language-learning snippets into one lesson, or assemble meeting notes into a single archive. The list interface supports quick reordering so you can control track sequencing before export. That matters when timing, narration order, or musical flow affects the final listening experience. If you've been searching for an audio joiner online that focuses on speed and privacy, this approach keeps the process clean and local. If you want to further prepare your clips before combining them, use <a href="/trim-mp3-online.html">Trim MP3 Online</a>. For consistent output loudness after joining, apply <a href="/normalize-audio-volume.html">Normalize Audio Volume</a>.</p>
+  <p>This tool is also useful when you want to combine audio without installing software. Browser-based merging is convenient on shared computers, locked-down work devices, and mobile setups where installing desktop applications is not ideal. Since the audio stitching process happens directly with Web Audio APIs, you can produce a single output file with minimal overhead. For creators, teachers, students, marketers, and support teams, that means less time managing apps and more time publishing content.</p>
 
   <section class="tool">
     <h2>Tool</h2>
@@ -116,26 +85,26 @@
     </div>
   </section>
 
-  <section style="margin-top:1rem"><h2>When to Merge Audio Files</h2>
+  <section><h2>When to Merge Audio Files</h2>
     <p>Merging is ideal when you have separate recordings that should play as one continuous piece. Common examples include combining interview segments, stitching chapter-based lessons, unifying exported stems from simple projects, or creating one final audio handoff for clients. If your source clips are already edited and you only need a linear sequence, a fast merge workflow is usually better than opening a full digital audio workstation.</p>
     <p>Teams often use this workflow for communication content. Customer support can join short FAQ recordings into a help playlist. Product teams can combine sprint updates into one audio brief. Educators can merge multiple audio clips from class activities into a single file for easy distribution. In each case, the value comes from organization and continuity rather than deep sound design.</p>
     <p>It's also helpful for creators publishing to platforms that prefer one uploaded file. Instead of sending several pieces, you can join audio tracks seamlessly and deliver one polished output. When sequence matters, your audio timeline becomes the core editor: move clips up or down, confirm order, and export. That lightweight control is enough for many production tasks.</p>
   </section>
 
-  <section style="margin-top:1rem"><h2>How Audio Joining Works</h2>
+  <section><h2>How Audio Joining Works</h2>
     <p>At a high level, joining audio means decoding each selected file, arranging clip order, and writing all samples into one larger output buffer. The browser reads each source as audio data, then places it on a virtual audio timeline according to your selected order. This track sequencing stage determines where each clip begins and ends in the final file.</p>
     <p>During assembly, the tool checks file compatibility factors such as channel layout and sample rate handling supported by your browser decoder. If sources differ, the audio engine can resample during processing so playback remains consistent in the merged result. Conceptually, this is audio stitching: each segment is copied into the next available range of the output until all clips are placed.</p>
     <p>For users who need cleaner transitions, advanced workflows often include waveform alignment and optional crossfade between clip boundaries. This page focuses on direct concatenation for speed, but understanding these concepts helps you plan better source material. If clips are trimmed cleanly and normalized beforehand, transitions sound smoother even without additional effects.</p>
     <p>After assembly, the final buffer is encoded and offered as a downloadable file. Nothing is sent to external storage in this implementation. That local-first model is why many people choose to combine audio without installing software: it provides privacy, control, and convenience in one step.</p>
   </section>
 
-  <section style="margin-top:1rem"><h2>Best Practices for Better Merge Results</h2>
+  <section><h2>Best Practices for Better Merge Results</h2>
     <p>For the cleanest output, prepare clips before merging. Remove long silence at the beginning or end of each file, keep loudness relatively consistent, and confirm the intended order before exporting. Small prep steps can significantly improve listening flow, especially for spoken-word content where abrupt level changes are distracting.</p>
     <p>If you're working with music or ambience, preview transitions and verify timing around clip boundaries. Even when using a simple audio joiner online, thoughtful ordering improves narrative clarity and pacing. It is often useful to label files with sequence numbers so the list is easy to scan during arrangement.</p>
     <p>For compatibility, use common formats like MP3 or WAV and test output on your target playback device. If a browser has trouble decoding a rare codec, convert that file first, then re-run the merge. A quick compatibility pass prevents rework later and helps you keep delivery deadlines on track.</p>
   </section>
 
-  <section style="margin-top:1rem"><h2>FAQ</h2>
+  <section><h2>FAQ</h2>
     <details><summary>Does merging reduce audio quality?</summary><p>This tool concatenates decoded audio and exports WAV, which helps avoid additional lossy compression during joining. Final quality still reflects the quality of your source clips.</p></details>
     <details><summary>Can I merge different formats?</summary><p>Yes. You can combine formats like MP3 and WAV when your browser can decode them. The final output is a single WAV file.</p></details>
     <details><summary>Is file order adjustable?</summary><p>Yes. Use the up/down controls to reorder tracks before you merge so playback follows your preferred sequence.</p></details>
@@ -144,72 +113,53 @@
     <details><summary>Does it work on mobile?</summary><p>Yes. It works on modern mobile browsers, although very large merges may perform better on desktop devices with more memory.</p></details>
   </section>
 
-  <section style="margin-top:1rem"><h2>Related Audio Tools</h2><p>If you need cleanup before merging, use the <a href="/trim-mp3-online">MP3 trimmer</a> to cut unwanted parts, then apply the <a href="/audio-volume-normalizer">audio volume normalizer</a> for more consistent loudness. For spoken recordings, the <a href="/remove-silence-from-audio">silence removal tool</a> can tighten pacing, and the <a href="/mp3-to-wav">MP3 to WAV converter</a> helps when you need format-ready source files.</p></section>
+  <section class="related-tools">
+    <h2>Related Audio Tools</h2>
+    <ul>
+      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a> – Cut and edit MP3 files in your browser.</li>
+      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a> – Change MP3 files into WAV audio.</li>
+      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a> – Balance sound levels instantly.</li>
+      <li><a href="/merge-audio-files.html">Merge Audio Files</a> – Combine multiple tracks into one file.</li>
+      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> – Automatically cut silent parts.</li>
+      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> – Convert video files to audio format.</li>
+    </ul>
+  </section>
 </main>
   <!-- SECTION 7: FOOTER -->
-  <footer style="background: var(--text); color: white; margin-top: 4rem;">
-    <div class="container" style="padding-top: 3rem; padding-bottom: 3rem;">
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
-        <div>
-          <h3 style="font-size: 1.125rem; margin-bottom: 1rem; color: white;">AudioTools</h3>
-          <p style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">Free browser-based audio editing tools. Private, fast, and easy to use.</p>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Tools</h4>
-          <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="./trim-mp3-online.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 Trimmer</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./convert-mp3-to-wav.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">MP3 to WAV Converter</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./normalize-audio-volume.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Normalize</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">Legal</h4>
-          <ul style="list-style: none; margin: 0; padding: 0;">
-            <li style="margin-bottom: 0.5rem;"><a href="./privacy-policy.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Privacy Policy</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./terms-of-service.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Terms of Service</a></li>
-            <li style="margin-bottom: 0.5rem;"><a href="./contact.html" style="color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.875rem;">Contact</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem; color: white; text-transform: uppercase; letter-spacing: 0.05em;">About</h4>
-          <p style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">All processing happens in your browser. We never store your files.</p>
-        </div>
+  <footer>
+  <div class="footer-container">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
+      <div>
+        <div class="footer-title">AudioTools</div>
+        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
       </div>
-      <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 2rem; text-align: center;">
-        <p style="color: rgba(255,255,255,0.5); font-size: 0.875rem; margin: 0;">© 2026 AudioTools. All rights reserved. Your privacy is our priority.</p>
+      <div>
+        <div class="footer-title">Tools</div>
+        <p><a href="/trim-mp3-online.html" class="footer-text">MP3 Trimmer</a></p>
+        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
+        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
+      </div>
+      <div>
+        <div class="footer-title">Legal</div>
+        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
+        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
+        <p><a href="/contact.html" class="footer-text">Contact</a></p>
       </div>
     </div>
-  </footer>
-<script>
-const readFile = f => new Promise((r,rej)=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.onerror=rej;fr.readAsArrayBuffer(f)});
-function encodeWAV(audioBuffer){const numChannels=audioBuffer.numberOfChannels;const sampleRate=audioBuffer.sampleRate;let samples; if(numChannels===2){const l=audioBuffer.getChannelData(0), r=audioBuffer.getChannelData(1);samples=new Float32Array(l.length*2);for(let i=0;i<l.length;i++){samples[2*i]=l[i];samples[2*i+1]=r[i];}}else{samples=audioBuffer.getChannelData(0);}const buffer=new ArrayBuffer(44+samples.length*2);const view=new DataView(buffer);function writeStr(o,s){for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i))}let offset=0;writeStr(offset,'RIFF');offset+=4;view.setUint32(offset,36+samples.length*2,true);offset+=4;writeStr(offset,'WAVE');offset+=4;writeStr(offset,'fmt ');offset+=4;view.setUint32(offset,16,true);offset+=4;view.setUint16(offset,1,true);offset+=2;view.setUint16(offset,numChannels,true);offset+=2;view.setUint32(offset,sampleRate,true);offset+=4;view.setUint32(offset,sampleRate*numChannels*2,true);offset+=4;view.setUint16(offset,numChannels*2,true);offset+=2;view.setUint16(offset,16,true);offset+=2;writeStr(offset,'data');offset+=4;view.setUint32(offset,samples.length*2,true);offset+=4;let pos=44;for(let i=0;i<samples.length;i++,pos+=2){let s=Math.max(-1,Math.min(1,samples[i]));view.setInt16(pos,s<0?s*0x8000:s*0x7FFF,true);}return new Blob([view],{type:'audio/wav'});} 
-
-const fileInput=document.getElementById('fileInput'), fileList=document.getElementById('fileList'), mergeBtn=document.getElementById('mergeBtn'), downloadLink=document.getElementById('downloadLink'), status=document.getElementById('status');
-let files=[];
-fileInput.addEventListener('change', ()=>{
-  files = Array.from(fileInput.files);
-  renderList();
-});
-function renderList(){fileList.innerHTML='';files.forEach((f,i)=>{const row=document.createElement('div');row.className='file-row';row.innerHTML=`<strong style="flex:1">${f.name}</strong><button data-i="${i}" class="up">↑</button><button data-i="${i}" class="down">↓</button><button data-i="${i}" class="remove">✕</button>`;fileList.appendChild(row)});
-  fileList.querySelectorAll('button.up').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(i>0){[files[i-1],files[i]]=[files[i],files[i-1]];renderList();}});
-  fileList.querySelectorAll('button.down').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(i<files.length-1){[files[i+1],files[i]]=[files[i],files[i+1]];renderList();}});
-  fileList.querySelectorAll('button.remove').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;files.splice(i,1);renderList();});
-}
-
-mergeBtn.addEventListener('click',async()=>{
-  if(files.length===0){status.textContent='Add files first';return}
-  status.textContent='Decoding files...';try{
-    const ac=new (window.AudioContext||window.webkitAudioContext)();
-    const decodedArr=[];for(const f of files){const ab=await readFile(f);const buf=await ac.decodeAudioData(ab);decodedArr.push(buf);}    
-    // compute total length using sample rate of first
-    const sr=decodedArr[0].sampleRate;let total=0;for(const d of decodedArr){total += Math.round(d.duration*sr);}const out=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(decodedArr[0].numberOfChannels,total,sr);
-    // create buffer and copy
-    const outBuf=out.createBuffer(decodedArr[0].numberOfChannels,total,sr);
-    let offset=0;for(const d of decodedArr){for(let c=0;c<outBuf.numberOfChannels;c++){const src = (c<d.numberOfChannels?d.getChannelData(c):d.getChannelData(0)); const dst=outBuf.getChannelData(c); dst.set(src, offset);} offset += Math.round(d.duration*sr);}
-    const wav=encodeWAV(outBuf); const url=URL.createObjectURL(wav); downloadLink.href=url; downloadLink.download='merged.wav'; downloadLink.style.display='inline-block'; status.textContent='Ready — download merged file.';
-  }catch(e){console.error(e);status.textContent='Error merging files.'}
-});
-</script>
-<script src="/assets/upload.js"></script>
+    <div class="footer-small">
+      © 2026 AudioTools. All rights reserved.
+    </div>
+  </div>
+</footer>
+<script src="/assets/merge-audio-files.js" defer></script>
+<script src="/assets/upload.js" defer></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
