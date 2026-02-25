@@ -1,41 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="preload" href="/assets/logo.svg" as="image" type="image/svg+xml">
+  <meta charset="UTF-8">
+<link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
   <link rel="preload" href="/assets/layout.css" as="style">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <!-- SEO Meta Tags -->
+  
+  <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/brand/favicon-48x48.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/assets/brand/site.webmanifest">
+
+<!-- SEO Meta Tags -->
   <title>Extract Audio from Video Online - Get MP3 from MP4 Instantly</title>
   <meta name="description" content="Extract audio from video files directly in your browser. Convert MP4 video to WAV without uploading your file to any server.">
   <meta name="keywords" content="extract audio from video, mp4 to audio, extract audio online, video to wav">
   <link rel="canonical" href="https://freeaudiotrim.com/extract-audio-from-video.html">
   
   <!-- Open Graph -->
-  <meta property="og:title" content="Extract Audio from Video Online – Get MP3 from MP4 Instantly">
+  <meta property="og:title" content="Extract Audio from Video Online - Get MP3 from MP4 Instantly">
   <meta property="og:description" content="Extract audio from video files directly in your browser. Convert MP4 video to WAV without uploading your file to any server.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://freeaudiotrim.com/extract-audio-from-video.html">
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Extract Audio from Video Online – Get MP3 from MP4 Instantly">
+  <meta name="twitter:title" content="Extract Audio from Video Online - Get MP3 from MP4 Instantly">
   <meta name="twitter:description" content="Extract audio from video files directly in your browser. Convert MP4 video to WAV without uploading your file to any server.">
   
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
   <link rel="stylesheet" href="/assets/upload.css">
   
   <!-- Schema.org Structured Data -->
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Extract Audio from Video","url":"https://freeaudiotrim.com/extract-audio-from-video.html","description":"Extract audio from video locally in your browser.","applicationCategory":"MultimediaApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   
   <!-- FAQ Structured Data -->
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does this upload my video?","acceptedAnswer":{"@type":"Answer","text":"No — extraction runs in your browser only."}},{"@type":"Question","name":"Which video formats are supported?","acceptedAnswer":{"@type":"Answer","text":"Files that your browser can decode, commonly MP4 with AAC audio."}},{"@type":"Question","name":"Can I convert to MP3?","acceptedAnswer":{"@type":"Answer","text":"This tool exports WAV; MP3 export requires additional encoding which can be added client-side but is not included by default."}},{"@type":"Question","name":"Is quality preserved?","acceptedAnswer":{"@type":"Answer","text":"The audio track is preserved as decoded by your browser; exported WAV keeps the PCM audio data."}},{"@type":"Question","name":"Is this free?","acceptedAnswer":{"@type":"Answer","text":"Yes — entirely client-side and free to use."}}]}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does this upload my video?","acceptedAnswer":{"@type":"Answer","text":"No - extraction runs in your browser only."}},{"@type":"Question","name":"Which video formats are supported?","acceptedAnswer":{"@type":"Answer","text":"Files that your browser can decode, commonly MP4 with AAC audio."}},{"@type":"Question","name":"Can I convert to MP3?","acceptedAnswer":{"@type":"Answer","text":"This tool exports WAV; MP3 export requires additional encoding which can be added client-side but is not included by default."}},{"@type":"Question","name":"Is quality preserved?","acceptedAnswer":{"@type":"Answer","text":"The audio track is preserved as decoded by your browser; exported WAV keeps the PCM audio data."}},{"@type":"Question","name":"Is this free?","acceptedAnswer":{"@type":"Answer","text":"Yes - entirely client-side and free to use."}}]}</script>
   
   <style>
     :root { --primary: #2563eb; --primary-dark: #1e40af; --secondary: #10b981; --background: #ffffff; --surface: #f8fafc; --text: #0f172a; --text-secondary: #64748b; --border: #e2e8f0; }
@@ -51,7 +59,7 @@
   <!-- Header -->
   <header>
   <div class="header-container">
-    <a href="/" class="logo"><img src="/assets/logo.svg" alt="AudioTools" width="24" height="24" decoding="async"> AudioTools</a>
+    <a href="/" class="logo"><img src="/assets/brand/logo.svg" alt="Free Audio Trim logo" width="28" height="28" decoding="async"> freeaudiotrim.com</a>
     <nav>
   <a href="/trim-mp3-online.html">MP3 Trimmer</a>
   <a href="/convert-mp3-to-wav.html">Convert</a>
@@ -61,7 +69,7 @@
   </div>
 </header>
 <main class="container">
-  <h1>Extract Audio from Video Online – Get MP3 from MP4 Instantly</h1>
+  <h1>Extract Audio from Video Online - Get MP3 from MP4 Instantly</h1>
   <p>Extract audio from video files directly in your browser. Convert MP4 video to WAV without uploading your file to any server. Processing is done locally using the browser's decoding capabilities. If you want to edit the extracted output right away, use <a href="/trim-mp3-online.html">Trim MP3 Online</a>. For level balancing after extraction, apply <a href="/normalize-audio-volume.html">Normalize Audio Volume</a>.</p>
   <section class="tool">
     <h2>Tool</h2>
@@ -81,15 +89,15 @@
   </section>
 
   <section><h2>How it works</h2>
-    <p>The browser reads the file as an ArrayBuffer and attempts to decode the audio track via the Web Audio API's <code>decodeAudioData</code>. For common containers like MP4 with AAC audio, modern browsers can decode the audio track directly. Once decoded into an AudioBuffer, it is exported as WAV and offered for download — all in memory in the browser.</p>
+    <p>The browser reads the file as an ArrayBuffer and attempts to decode the audio track via the Web Audio API's <code>decodeAudioData</code>. For common containers like MP4 with AAC audio, modern browsers can decode the audio track directly. Once decoded into an AudioBuffer, it is exported as WAV and offered for download - all in memory in the browser.</p>
   </section>
 
   <section><h2>FAQ</h2>
-    <details><summary>Will my file be uploaded?</summary><p>No — the file stays in your browser.</p></details>
+    <details><summary>Will my file be uploaded?</summary><p>No - the file stays in your browser.</p></details>
     <details><summary>Can I get MP3 directly?</summary><p>This tool provides WAV output; MP3 encoding can be added client-side using a JS encoder if desired.</p></details>
     <details><summary>What if decodeAudioData fails?</summary><p>Your browser may not support the audio codec inside the video; try exporting from your video editor to a supported container or use a different browser.</p></details>
     <details><summary>Are there size limits?</summary><p>Browser memory sets practical limits; smaller files are more reliable.</p></details>
-    <details><summary>Is the audio quality preserved?</summary><p>Yes — audio is exported as decoded PCM in WAV format.</p></details>
+    <details><summary>Is the audio quality preserved?</summary><p>Yes - audio is exported as decoded PCM in WAV format.</p></details>
   </section>
 
   <section><h2>Internal Links</h2><ul><li><a href="/trim-mp3-online.html">Trim MP3</a></li><li><a href="/convert-mp3-to-wav.html">Convert MP3→WAV</a></li><li><a href="/normalize-audio-volume.html">Normalize</a></li><li><a href="/remove-silence-from-audio.html">Remove Silence</a></li><li><a href="/merge-audio-files.html">Merge</a></li></ul></section>
@@ -128,12 +136,12 @@ No uploads, no server processing, and no account required.
   <section class="related-tools">
     <h2>Related Audio Tools</h2>
     <ul>
-      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a> – Cut and edit MP3 files in your browser.</li>
-      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a> – Change MP3 files into WAV audio.</li>
-      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a> – Balance sound levels instantly.</li>
-      <li><a href="/merge-audio-files.html">Merge Audio Files</a> – Combine multiple tracks into one file.</li>
-      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> – Automatically cut silent parts.</li>
-      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> – Convert video files to audio format.</li>
+      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a> - Cut and edit MP3 files in your browser.</li>
+      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a> - Change MP3 files into WAV audio.</li>
+      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a> - Balance sound levels instantly.</li>
+      <li><a href="/merge-audio-files.html">Merge Audio Files</a> - Combine multiple tracks into one file.</li>
+      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> - Automatically cut silent parts.</li>
+      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> - Convert video files to audio format.</li>
     </ul>
   </section>
   
@@ -160,7 +168,7 @@ No uploads, no server processing, and no account required.
       </div>
     </div>
     <div class="footer-small">
-      © 2026 AudioTools. All rights reserved.
+      (c) 2026 AudioTools. All rights reserved.
     </div>
   </div>
 </footer>

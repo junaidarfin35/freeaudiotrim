@@ -23,7 +23,7 @@ mergeBtn.addEventListener('click',async()=>{
     // create buffer and copy
     const outBuf=out.createBuffer(decodedArr[0].numberOfChannels,total,sr);
     let offset=0;for(const d of decodedArr){for(let c=0;c<outBuf.numberOfChannels;c++){const src = (c<d.numberOfChannels?d.getChannelData(c):d.getChannelData(0)); const dst=outBuf.getChannelData(c); dst.set(src, offset);} offset += Math.round(d.duration*sr);}
-    const wav=encodeWAV(outBuf); const url=URL.createObjectURL(wav); downloadLink.href=url; downloadLink.download='merged.wav'; downloadLink.style.display='inline-block'; status.textContent='Ready — download merged file.';
+    const wav=encodeWAV(outBuf); const url=URL.createObjectURL(wav); downloadLink.href=url; downloadLink.download='merged.wav'; downloadLink.style.display='inline-block'; status.textContent='Ready - download merged file.';
   }catch(e){console.error(e);status.textContent='Error merging files.'}
 });
 

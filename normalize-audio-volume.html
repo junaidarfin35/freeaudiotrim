@@ -1,26 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="preload" href="/assets/logo.svg" as="image" type="image/svg+xml">
+  <meta charset="UTF-8">
+<link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
   <link rel="preload" href="/assets/layout.css" as="style">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Normalize Audio Volume Online - Balance Sound Instantly</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/brand/favicon-48x48.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/assets/brand/site.webmanifest">
+
+<title>Normalize Audio Volume Online - Balance Sound Instantly</title>
   <meta name="description" content="Adjust and normalize audio volume directly in your browser. Fix low or inconsistent sound levels without uploading your file.">
   <link rel="canonical" href="https://freeaudiotrim.com/normalize-audio-volume.html">
   <meta property="og:url" content="https://freeaudiotrim.com/normalize-audio-volume.html">
   <link rel="stylesheet" href="/assets/upload.css">
   <link rel="stylesheet" href="/assets/layout.css">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does this upload files?","acceptedAnswer":{"@type":"Answer","text":"No — processing is entirely client-side."}},{"@type":"Question","name":"What normalization does this perform?","acceptedAnswer":{"@type":"Answer","text":"It analyses peak levels and applies gain to reach a target loudness without clipping."}},{"@type":"Question","name":"Can I set target level?","acceptedAnswer":{"@type":"Answer","text":"Yes. Use the target dB slider to choose your desired peak level."}},{"@type":"Question","name":"Supported formats?","acceptedAnswer":{"@type":"Answer","text":"Any audio format your browser can decode (MP3, WAV, M4A etc.)."}},{"@type":"Question","name":"Is quality lost?","acceptedAnswer":{"@type":"Answer","text":"We apply gain and re-export as WAV (lossless); you avoid extra lossy encoding unless you choose MP3 later."}}]}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does this upload files?","acceptedAnswer":{"@type":"Answer","text":"No - processing is entirely client-side."}},{"@type":"Question","name":"What normalization does this perform?","acceptedAnswer":{"@type":"Answer","text":"It analyses peak levels and applies gain to reach a target loudness without clipping."}},{"@type":"Question","name":"Can I set target level?","acceptedAnswer":{"@type":"Answer","text":"Yes. Use the target dB slider to choose your desired peak level."}},{"@type":"Question","name":"Supported formats?","acceptedAnswer":{"@type":"Answer","text":"Any audio format your browser can decode (MP3, WAV, M4A etc.)."}},{"@type":"Question","name":"Is quality lost?","acceptedAnswer":{"@type":"Answer","text":"We apply gain and re-export as WAV (lossless); you avoid extra lossy encoding unless you choose MP3 later."}}]}</script>
 </head>
 <body>
 <header>
   <div class="header-container">
-    <a href="/" class="logo"><img src="/assets/logo.svg" alt="AudioTools" width="24" height="24" decoding="async"> AudioTools</a>
+    <a href="/" class="logo"><img src="/assets/brand/logo.svg" alt="Free Audio Trim logo" width="28" height="28" decoding="async"> freeaudiotrim.com</a>
     <nav>
   <a href="/trim-mp3-online.html">MP3 Trimmer</a>
   <a href="/convert-mp3-to-wav.html">Convert</a>
@@ -31,7 +40,7 @@
 </header>
 <main class="container">
   <h1>Normalize Audio Volume Online - Increase or Balance Sound Instantly</h1>
-  <p>Adjust and normalize audio volume directly in your browser. Fix low or inconsistent levels without uploading your file — everything runs locally using the Web Audio API. Whether you're working with a quiet podcast recording that needs a volume boost, balancing tracks for a presentation, or simply correcting uneven sound in a ripped MP3, this online normalizer lets you dial in the peak level in decibels and hear the change instantly. The interface is minimal: pick a file, set your target peak in dBFS, then click Normalize. A WAV download is produced with no third-party server involved. Because the entire process happens in memory, you retain privacy and avoid bandwidth delays. You don't need any special software or accounts — the tool runs in any modern browser and supports all audio formats the browser can decode. Use it as a quick pre‑processing step before editing, mixing, or sharing audio to be sure the volume is consistent and audible.</p>
+  <p>Adjust and normalize audio volume directly in your browser. Fix low or inconsistent levels without uploading your file - everything runs locally using the Web Audio API. Whether you're working with a quiet podcast recording that needs a volume boost, balancing tracks for a presentation, or simply correcting uneven sound in a ripped MP3, this online normalizer lets you dial in the peak level in decibels and hear the change instantly. The interface is minimal: pick a file, set your target peak in dBFS, then click Normalize. A WAV download is produced with no third-party server involved. Because the entire process happens in memory, you retain privacy and avoid bandwidth delays. You don't need any special software or accounts - the tool runs in any modern browser and supports all audio formats the browser can decode. Use it as a quick pre-processing step before editing, mixing, or sharing audio to be sure the volume is consistent and audible.</p>
   <p>This audio volume normalizer online is ideal when you need to increase MP3 volume or simply make audio louder online, whether for a video soundtrack or a voice memo. It handles fixes for low volume audio and provides fast audio loudness adjustment, all without requiring upload. If you need cleanup before balancing levels, use <a href="/remove-silence-from-audio.html">Remove Silence from Audio</a>. To combine finalized clips afterward, try <a href="/merge-audio-files.html">Merge Audio Files</a>.</p>
   <section class="tool">
     <div style="display:grid;gap:0.75rem">
@@ -51,7 +60,7 @@
 
   <section style="margin-top:1rem">
     <h2>How it works</h2>
-    <p>The tool decodes your audio file in the browser using the Web Audio API, measures audio peaks and waveform amplitude, computes the linear gain to reach your target dBFS, applies that gain to the decoded PCM samples, and exports the result as a WAV file. This client-side audio processing analyses the dynamic range of the track and avoids clipping by limiting the gain. All operations are performed in memory within your browser — nothing is uploaded.</p>
+    <p>The tool decodes your audio file in the browser using the Web Audio API, measures audio peaks and waveform amplitude, computes the linear gain to reach your target dBFS, applies that gain to the decoded PCM samples, and exports the result as a WAV file. This client-side audio processing analyses the dynamic range of the track and avoids clipping by limiting the gain. All operations are performed in memory within your browser - nothing is uploaded.</p>
 
     <h3>Step-by-step</h3>
     <ol>
@@ -71,10 +80,10 @@
 
   <section style="margin-top:1rem">
     <h2>What Is Loudness Normalization?</h2>
-    <p>Loudness normalization is the process of adjusting the overall level of an audio file so that its perceived loudness matches a target. It differs from simple gain increases because it takes into account peaks, average levels, and the listener’s perception of loudness in decibels. Using our tool, you can normalize MP3 without distortion, increase volume without clipping, or simply fix a quiet recording by raising the peak while keeping the dynamic range intact.</p>
+    <p>Loudness normalization is the process of adjusting the overall level of an audio file so that its perceived loudness matches a target. It differs from simple gain increases because it takes into account peaks, average levels, and the listener's perception of loudness in decibels. Using our tool, you can normalize MP3 without distortion, increase volume without clipping, or simply fix a quiet recording by raising the peak while keeping the dynamic range intact.</p>
     <p>This is especially useful when you need to adjust audio loudness in browser sessions before uploading to streaming services or working in a DAW. The algorithm measures the peak, calculates the required gain, and applies it, producing a balanced output that sounds natural.
     </p>
-    <p>Because the code runs entirely client-side, you can experiment with multiple settings ultra‑fast: tweak the target level, preview the waveform, and keep an eye on clipping meters without ever sending your file over the network. This quick feedback cycle makes it easy to fix quiet recordings or increase mp3 volume in just a few clicks.</p>
+    <p>Because the code runs entirely client-side, you can experiment with multiple settings ultra-fast: tweak the target level, preview the waveform, and keep an eye on clipping meters without ever sending your file over the network. This quick feedback cycle makes it easy to fix quiet recordings or increase mp3 volume in just a few clicks.</p>
   </section>
 
   <section style="margin-top:1rem">
@@ -102,12 +111,12 @@
   <section class="related-tools">
     <h2>Related Audio Tools</h2>
     <ul>
-      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a> – Cut and edit MP3 files in your browser.</li>
-      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a> – Change MP3 files into WAV audio.</li>
-      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a> – Balance sound levels instantly.</li>
-      <li><a href="/merge-audio-files.html">Merge Audio Files</a> – Combine multiple tracks into one file.</li>
-      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> – Automatically cut silent parts.</li>
-      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> – Convert video files to audio format.</li>
+      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a> - Cut and edit MP3 files in your browser.</li>
+      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a> - Change MP3 files into WAV audio.</li>
+      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a> - Balance sound levels instantly.</li>
+      <li><a href="/merge-audio-files.html">Merge Audio Files</a> - Combine multiple tracks into one file.</li>
+      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> - Automatically cut silent parts.</li>
+      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> - Convert video files to audio format.</li>
     </ul>
   </section>
 </main>
@@ -133,7 +142,7 @@
       </div>
     </div>
     <div class="footer-small">
-      © 2026 AudioTools. All rights reserved.
+      (c) 2026 AudioTools. All rights reserved.
     </div>
   </div>
 </footer>

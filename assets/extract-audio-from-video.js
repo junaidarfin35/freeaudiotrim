@@ -33,7 +33,7 @@ extractBtn.addEventListener('click', async () => {
 
     downloadLink.style.display = 'inline-block';
 
-    status.textContent = 'Ready — download extracted audio.';
+    status.textContent = 'Ready - download extracted audio.';
 
     ac.close();
 

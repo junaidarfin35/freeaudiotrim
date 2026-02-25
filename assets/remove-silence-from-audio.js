@@ -18,7 +18,7 @@ processBtn.addEventListener('click',async()=>{
     let total=0;for(const s of merged)total+=s.end-s.start;const out=new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(decoded.numberOfChannels,total,decoded.sampleRate);const outBuf=out.createBuffer(decoded.numberOfChannels,total,decoded.sampleRate);
     let writePos=0;for(const s of merged){for(let c=0;c<decoded.numberOfChannels;c++){const src=decoded.getChannelData(c);const dst=outBuf.getChannelData(c);for(let k=s.start;k<s.end;k++){dst[writePos+k-s.start]=src[k];}}writePos+=s.end-s.start;}
     // render (not strictly necessary since we already have buffer)
-    const wav=encodeWAV(outBuf); const url=URL.createObjectURL(wav); downloadLink.href=url; downloadLink.download=(f.name.replace(/\.[^/.]+$/,'' )||'clean')+'_nosilence.wav'; downloadLink.style.display='inline-block'; status.textContent='Ready — download cleaned file.';
+    const wav=encodeWAV(outBuf); const url=URL.createObjectURL(wav); downloadLink.href=url; downloadLink.download=(f.name.replace(/\.[^/.]+$/,'' )||'clean')+'_nosilence.wav'; downloadLink.style.display='inline-block'; status.textContent='Ready - download cleaned file.';
   }catch(e){console.error(e);status.textContent='Error processing file.'}}
 , false);
 

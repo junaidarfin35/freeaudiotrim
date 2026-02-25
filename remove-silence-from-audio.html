@@ -1,41 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="preload" href="/assets/logo.svg" as="image" type="image/svg+xml">
+  <meta charset="UTF-8">
+<link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
   <link rel="preload" href="/assets/layout.css" as="style">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <!-- SEO Meta Tags -->
+  
+  <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/brand/favicon-48x48.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/assets/brand/site.webmanifest">
+
+<!-- SEO Meta Tags -->
   <title>Remove Silence from Audio Online - Clean Dead Air Instantly</title>
   <meta name="description" content="Automatically detect and remove silent sections from your audio file directly in your browser. No uploads or external processing required.">
   <meta name="keywords" content="remove silence from audio, silence remover, audio cleaning, remove dead air">
   <link rel="canonical" href="https://freeaudiotrim.com/remove-silence-from-audio.html">
   
   <!-- Open Graph -->
-  <meta property="og:title" content="Remove Silence from Audio Online – Clean Dead Air Instantly">
+  <meta property="og:title" content="Remove Silence from Audio Online - Clean Dead Air Instantly">
   <meta property="og:description" content="Automatically detect and remove silent sections from your audio file directly in your browser. No uploads or external processing required.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://freeaudiotrim.com/remove-silence-from-audio.html">
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Remove Silence from Audio Online – Clean Dead Air Instantly">
+  <meta name="twitter:title" content="Remove Silence from Audio Online - Clean Dead Air Instantly">
   <meta name="twitter:description" content="Automatically detect and remove silent sections from your audio file directly in your browser. No uploads or external processing required.">
   
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
   <link rel="stylesheet" href="/assets/upload.css">
   
   <!-- Schema.org Structured Data -->
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Remove Silence from Audio","url":"https://freeaudiotrim.com/remove-silence-from-audio.html","description":"Remove silence locally in your browser.","applicationCategory":"MultimediaApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   
   <!-- FAQ Structured Data -->
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is my audio uploaded?","acceptedAnswer":{"@type":"Answer","text":"No — we process in the browser only."}},{"@type":"Question","name":"How is silence detected?","acceptedAnswer":{"@type":"Answer","text":"We measure short-term RMS and consider frames below a threshold as silence."}},{"@type":"Question","name":"Can I set sensitivity?","acceptedAnswer":{"@type":"Answer","text":"Yes — use the threshold and minimum silence duration controls."}},{"@type":"Question","name":"What about music with quiet parts?","acceptedAnswer":{"@type":"Answer","text":"Tune the threshold and minimum length to avoid removing desired quiet passages."}},{"@type":"Question","name":"Output format?","acceptedAnswer":{"@type":"Answer","text":"WAV (16-bit PCM) is the exported default to preserve quality."}},{"@type":"Question","name":"Does silence removal affect quality?","acceptedAnswer":{"@type":"Answer","text":"No — removing silent frames doesn\u0027t change the audio data you keep; it simply cuts out empty space."}},{"@type":"Question","name":"Is processing private?","acceptedAnswer":{"@type":"Answer","text":"Yes — everything runs client-side in your browser and no files are uploaded."}},{"@type":"Question","name":"Does it remove background noise?","acceptedAnswer":{"@type":"Answer","text":"Not directly; it only removes sections below the amplitude threshold, but quieter background noise inside voice segments remains."}},{"@type":"Question","name":"Are there file size limits?","acceptedAnswer":{"@type":"Answer","text":"Practical limits are set by browser memory; very large files (hundreds of MB) may be slow or fail."}},{"@type":"Question","name":"Will it work on mobile devices?","acceptedAnswer":{"@type":"Answer","text":"Yes—modern mobile browsers support the required Web Audio APIs, though performance may vary."}}]}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is my audio uploaded?","acceptedAnswer":{"@type":"Answer","text":"No - we process in the browser only."}},{"@type":"Question","name":"How is silence detected?","acceptedAnswer":{"@type":"Answer","text":"We measure short-term RMS and consider frames below a threshold as silence."}},{"@type":"Question","name":"Can I set sensitivity?","acceptedAnswer":{"@type":"Answer","text":"Yes - use the threshold and minimum silence duration controls."}},{"@type":"Question","name":"What about music with quiet parts?","acceptedAnswer":{"@type":"Answer","text":"Tune the threshold and minimum length to avoid removing desired quiet passages."}},{"@type":"Question","name":"Output format?","acceptedAnswer":{"@type":"Answer","text":"WAV (16-bit PCM) is the exported default to preserve quality."}},{"@type":"Question","name":"Does silence removal affect quality?","acceptedAnswer":{"@type":"Answer","text":"No - removing silent frames doesn\u0027t change the audio data you keep; it simply cuts out empty space."}},{"@type":"Question","name":"Is processing private?","acceptedAnswer":{"@type":"Answer","text":"Yes - everything runs client-side in your browser and no files are uploaded."}},{"@type":"Question","name":"Does it remove background noise?","acceptedAnswer":{"@type":"Answer","text":"Not directly; it only removes sections below the amplitude threshold, but quieter background noise inside voice segments remains."}},{"@type":"Question","name":"Are there file size limits?","acceptedAnswer":{"@type":"Answer","text":"Practical limits are set by browser memory; very large files (hundreds of MB) may be slow or fail."}},{"@type":"Question","name":"Will it work on mobile devices?","acceptedAnswer":{"@type":"Answer","text":"Yes-modern mobile browsers support the required Web Audio APIs, though performance may vary."}}]}</script>
   
   <style>
     :root { --primary: #2563eb; --primary-dark: #1e40af; --secondary: #10b981; --background: #ffffff; --surface: #f8fafc; --text: #0f172a; --text-secondary: #64748b; --border: #e2e8f0; }
@@ -51,7 +59,7 @@
   <!-- Header -->
   <header>
   <div class="header-container">
-    <a href="/" class="logo"><img src="/assets/logo.svg" alt="AudioTools" width="24" height="24" decoding="async"> AudioTools</a>
+    <a href="/" class="logo"><img src="/assets/brand/logo.svg" alt="Free Audio Trim logo" width="28" height="28" decoding="async"> freeaudiotrim.com</a>
     <nav>
   <a href="/trim-mp3-online.html">MP3 Trimmer</a>
   <a href="/convert-mp3-to-wav.html">Convert</a>
@@ -61,10 +69,10 @@
   </div>
 </header>
 <main class="container">
-  <h1>Remove Silence from Audio Online – Clean Dead Air Instantly</h1>
+  <h1>Remove Silence from Audio Online - Clean Dead Air Instantly</h1>
   <p>Automatically detect and remove silent sections from your audio file directly in your browser. No uploads or external processing required.</p>
-  <p>This silence remover is a handy tool when you need to remove silence from podcast recordings or cut silent pauses automatically from interviews. You can cut silent parts from audio or trim quiet sections of a speech recording without touching a DAW. This tool is designed to cut silent pauses automatically, so you don’t have to scrub through a waveform manually. Whether you're doing audio cleanup for a lecture, trimming gaps in a voice memo, or cleaning background gaps in a live stream, everything happens locally in your browser so your files never leave your device.</p>
-  <p>Use it as part of your podcast editing workflow to clean dead air before adding music or voice-over; the threshold and minimum silence controls let you fine‑tune how aggressively the audio waveform is scanned. This online tool makes it easy to fix recordings on the fly and keeps the process simple and fast. If you need precision edits after cleanup, continue with <a href="/trim-mp3-online.html">Trim MP3 Online</a>. For final loudness consistency, use <a href="/normalize-audio-volume.html">Normalize Audio Volume</a>.</p>
+  <p>This silence remover is a handy tool when you need to remove silence from podcast recordings or cut silent pauses automatically from interviews. You can cut silent parts from audio or trim quiet sections of a speech recording without touching a DAW. This tool is designed to cut silent pauses automatically, so you don't have to scrub through a waveform manually. Whether you're doing audio cleanup for a lecture, trimming gaps in a voice memo, or cleaning background gaps in a live stream, everything happens locally in your browser so your files never leave your device.</p>
+  <p>Use it as part of your podcast editing workflow to clean dead air before adding music or voice-over; the threshold and minimum silence controls let you fine-tune how aggressively the audio waveform is scanned. This online tool makes it easy to fix recordings on the fly and keeps the process simple and fast. If you need precision edits after cleanup, continue with <a href="/trim-mp3-online.html">Trim MP3 Online</a>. For final loudness consistency, use <a href="/normalize-audio-volume.html">Normalize Audio Volume</a>.</p>
   <section class="tool">
     <h2>Tool</h2>
     <div style="display:grid;gap:0.75rem">
@@ -90,28 +98,28 @@
 
   <section>
     <h2>How Silence Detection Works</h2>
-    <p>Detection starts with an analysis of the audio waveform. The script examines the amplitude of the signal in small frames (typically 20‑40 ms) and converts each frame to a root mean square (RMS) value that represents its average energy. When the RMS level falls below the chosen amplitude threshold, that frame is marked as silence. Consecutive silent frames longer than the minimum silence length trigger a cut.</p>
-    <p>This approach mimics what many professional editors call silence detection or noise gate functionality, but it runs entirely client-side in your browser. You can watch the audio waveform preview as you adjust settings to see exactly which areas will be removed, giving you a visual sense of the gaps in your speech or podcast audio. Typical thresholds are around -40 dB for spoken-word material, but you can lower it for studio-quality speech recording or raise it for noisier environments. Rather than manually dragging trim handles, the automatic algorithm scans for low-energy frames and flags them—this saves time and ensures no silent gap is overlooked.</p>
+    <p>Detection starts with an analysis of the audio waveform. The script examines the amplitude of the signal in small frames (typically 20-40 ms) and converts each frame to a root mean square (RMS) value that represents its average energy. When the RMS level falls below the chosen amplitude threshold, that frame is marked as silence. Consecutive silent frames longer than the minimum silence length trigger a cut.</p>
+    <p>This approach mimics what many professional editors call silence detection or noise gate functionality, but it runs entirely client-side in your browser. You can watch the audio waveform preview as you adjust settings to see exactly which areas will be removed, giving you a visual sense of the gaps in your speech or podcast audio. Typical thresholds are around -40 dB for spoken-word material, but you can lower it for studio-quality speech recording or raise it for noisier environments. Rather than manually dragging trim handles, the automatic algorithm scans for low-energy frames and flags them-this saves time and ensures no silent gap is overlooked.</p>
   </section>
 
   <section>
     <h2>Why Remove Silence from Recordings?</h2>
     <p>Removing silence improves the listener experience and makes spoken-word content feel tighter and more engaging. For podcasters and speech recording enthusiasts, cutting pauses and gaps eliminates awkward dead air between sentences and helps maintain a consistent flow. It also reduces file size by trimming unnecessary portions, which is especially useful when uploading episodes or sending drafts to collaborators.</p>
-    <p>In podcast editing, cleaned audio is easier to mix with music beds or sound effects because you don’t have to manually hunt for empty segments. Audio cleanup with a silence remover also speeds up post-production – instead of scrubbing through hours of footage, you can automatically cut silent sections and jump straight to the content that matters. Removing pauses is especially helpful when editing interviews, allowing you to tighten conversations and improve pacing.</p>
-    <p>Even for casual users, a quick pass with this tool can transform a long lecture or voice memo by removing background gaps and making the recording sound more professional without any specialized software. The same is true for speech recording assignments or online meetings where you want to remove silence from podcast episodes or Zoom recordings before sharing. Beyond aesthetics, cutting quiet sections reduces the final file size and makes uploads faster—important when band‑width or storage space is limited.</p>
+    <p>In podcast editing, cleaned audio is easier to mix with music beds or sound effects because you don't have to manually hunt for empty segments. Audio cleanup with a silence remover also speeds up post-production - instead of scrubbing through hours of footage, you can automatically cut silent sections and jump straight to the content that matters. Removing pauses is especially helpful when editing interviews, allowing you to tighten conversations and improve pacing.</p>
+    <p>Even for casual users, a quick pass with this tool can transform a long lecture or voice memo by removing background gaps and making the recording sound more professional without any specialized software. The same is true for speech recording assignments or online meetings where you want to remove silence from podcast episodes or Zoom recordings before sharing. Beyond aesthetics, cutting quiet sections reduces the final file size and makes uploads faster-important when band-width or storage space is limited.</p>
   </section>
 
   <section><h2>FAQ</h2>
-  <p>If you're working on a podcast or long voice piece, run the detection once then preview to make sure it didn't cut out any spoken words; adjusting the amplitude threshold and minimum silence duration gives you full control. Remember that speech recordings often contain natural breaths and pauses—tuning the threshold lets you preserve those while still eliminating dead air.</p>
+  <p>If you're working on a podcast or long voice piece, run the detection once then preview to make sure it didn't cut out any spoken words; adjusting the amplitude threshold and minimum silence duration gives you full control. Remember that speech recordings often contain natural breaths and pauses-tuning the threshold lets you preserve those while still eliminating dead air.</p>
   <p>A final cleanup pass can make your voice track more engaging and ready for publishing, whether you're removing silence from podcast episodes, cleaning up a webinar recording, or preparing a speech for transcription.</p>
-    <details><summary>Does silence removal affect quality?</summary><p>No — removing silent frames doesn't change the audio data you keep; it simply cuts out empty space.</p></details>
-    <details><summary>Can I set sensitivity?</summary><p>Yes — use the threshold and minimum silence duration controls to fine-tune detection.</p></details>
+    <details><summary>Does silence removal affect quality?</summary><p>No - removing silent frames doesn't change the audio data you keep; it simply cuts out empty space.</p></details>
+    <details><summary>Can I set sensitivity?</summary><p>Yes - use the threshold and minimum silence duration controls to fine-tune detection.</p></details>
     <details><summary>Is processing private?</summary><p>All analysis runs locally in your browser; your file is never uploaded.</p></details>
     <details><summary>Does it remove background noise?</summary><p>Not directly; it only removes sections below the amplitude threshold, but quieter noise in speech segments stays.</p></details>
     <details><summary>Are there file size limits?</summary><p>Browser memory sets practical limits; very large files may struggle.</p></details>
-    <details><summary>Will it work on mobile devices?</summary><p>Yes—modern mobile browsers support Web Audio APIs, though performance may vary.</p></details>
+    <details><summary>Will it work on mobile devices?</summary><p>Yes-modern mobile browsers support Web Audio APIs, though performance may vary.</p></details>
     <details><summary>Will important quiet passages be removed?</summary><p>Adjust threshold and minimum silence duration to protect quiet content; preview before exporting.</p></details>
-    <details><summary>Does it upload my file?</summary><p>No — everything runs locally.</p></details>
+    <details><summary>Does it upload my file?</summary><p>No - everything runs locally.</p></details>
     <details><summary>What about stereo files?</summary><p>The algorithm measures RMS across channels and preserves multi-channel audio when exporting.</p></details>
     <details><summary>Supported inputs?</summary><p>Audio formats the browser can decode; some video containers are supported if they include a decodable audio track.</p></details>
     <details><summary>Can I undo?</summary><p>This page processes files in memory. You can re-open the original file to retry different settings.</p></details>
@@ -122,12 +130,12 @@
   <section class="related-tools">
     <h2>Related Audio Tools</h2>
     <ul>
-      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a> – Cut and edit MP3 files in your browser.</li>
-      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a> – Change MP3 files into WAV audio.</li>
-      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a> – Balance sound levels instantly.</li>
-      <li><a href="/merge-audio-files.html">Merge Audio Files</a> – Combine multiple tracks into one file.</li>
-      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> – Automatically cut silent parts.</li>
-      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> – Convert video files to audio format.</li>
+      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a> - Cut and edit MP3 files in your browser.</li>
+      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV</a> - Change MP3 files into WAV audio.</li>
+      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a> - Balance sound levels instantly.</li>
+      <li><a href="/merge-audio-files.html">Merge Audio Files</a> - Combine multiple tracks into one file.</li>
+      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> - Automatically cut silent parts.</li>
+      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> - Convert video files to audio format.</li>
     </ul>
   </section>
 </main>
@@ -153,7 +161,7 @@
       </div>
     </div>
     <div class="footer-small">
-      © 2026 AudioTools. All rights reserved.
+      (c) 2026 AudioTools. All rights reserved.
     </div>
   </div>
 </footer>

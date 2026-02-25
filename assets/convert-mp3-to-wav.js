@@ -57,7 +57,7 @@
     let pos = 44;
     for (let i = 0; i < samples.length; i++, pos += 2) {
       let s = Math.max(-1, Math.min(1, samples[i]));
-      view.setInt16(pos, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      view.setInt16(pos, s < 0  s * 0x8000 : s * 0x7FFF, true);
     }
     return new Blob([view], { type: 'audio/wav' });
   }
@@ -76,7 +76,7 @@
       downloadLink.href = url;
       downloadLink.download = (file.name.replace(/\.[^/.]+$/, '') || 'output') + '.wav';
       downloadLink.style.display = 'inline-block';
-      status.textContent = 'Ready — click Download WAV.';
+      status.textContent = 'Ready - click Download WAV.';
     } catch (err) {
       console.error(err);
       status.textContent = 'Error decoding file. Your browser may not support this file type.';
