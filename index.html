@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -622,7 +622,7 @@
         } else {
           // If user has selected a region, start from trimStart and loop it.
           const hasSelection = (trimEnd - trimStart) > 0.05;
-          const startFrom = hasSelection  trimStart : Math.max(trimStart, Math.min(currentTime, trimEnd));
+          const startFrom = hasSelection ? trimStart : Math.max(trimStart, Math.min(currentTime, trimEnd));
           setCurrentTime(startFrom);
           setIsLooping(true);
           isLoopingRef.current = true;
@@ -731,9 +731,9 @@
         if (!pointer) return false;
 
         const { isTouch = false, shiftKey = false } = options;
-        const playheadHitX = isTouch  36 : 15;
-        const handleHitX   = isTouch  42 : 15;
-        const handleHitY   = isTouch  60 : 25;
+        const playheadHitX = isTouch ? 36 : 15;
+        const handleHitX   = isTouch ? 42 : 15;
+        const handleHitY   = isTouch ? 60 : 25;
         const { x, y, clickTime, startX, endX, playheadX } = pointer;
 
         if (Math.abs(x - playheadX) < playheadHitX) {
@@ -785,7 +785,7 @@
           setHoveredElement('playhead');
         } else if (updateHover && (Math.abs(x - startX) < 15 || Math.abs(x - endX) < 15) && y < 25) {
           waveformContainerRef.current.style.cursor = 'grab';
-          setHoveredElement(Math.abs(x - startX) < 15  'start' : 'end');
+          setHoveredElement(Math.abs(x - startX) < 15 ? 'start' : 'end');
         } else if (updateHover) {
           waveformContainerRef.current.style.cursor = 'crosshair';
           setHoveredElement(null);
@@ -904,7 +904,7 @@ function encodeMP3(audioBuffer, bitrate) {
 
   const blockSize = 1152;
   const left = audioBuffer.getChannelData(0);
-  const right = numChannels > 1  audioBuffer.getChannelData(1) : left;
+  const right = numChannels > 1 ? audioBuffer.getChannelData(1) : left;
 
   let mp3Data = [];
 
@@ -970,7 +970,7 @@ function convertFloatToInt16(buffer) {
         while (pos < length) {
           for (let i = 0; i < buffer.numberOfChannels; i++) {
             let sample = Math.max(-1, Math.min(1, channels[i][offset]));
-            sample = sample < 0  sample * 0x8000 : sample * 0x7FFF;
+            sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
             view.setInt16(pos, sample, true);
             pos += 2;
           }
@@ -1038,12 +1038,12 @@ function convertFloatToInt16(buffer) {
                   <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Zoom: {zoom.toFixed(1)}x</span>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Shift + Drag to pan</span>
                   <div style={{ flex: 1 }} />
-                  <button onClick={undo} disabled={historyIndex <= 0} style={{ padding: '0.5rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.5rem', cursor: historyIndex <= 0  'not-allowed' : 'pointer', opacity: historyIndex <= 0  0.5 : 1, display: 'flex', alignItems: 'center' }} title="Undo">
+                  <button onClick={undo} disabled={historyIndex <= 0} style={{ padding: '0.5rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.5rem', cursor: historyIndex <= 0 ? 'not-allowed' : 'pointer', opacity: historyIndex <= 0 ? 0.5 : 1, display: 'flex', alignItems: 'center' }} title="Undo">
                     <svg style={{ width: '18px', height: '18px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
                     </svg>
                   </button>
-                  <button onClick={redo} disabled={historyIndex >= history.length - 1} style={{ padding: '0.5rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.5rem', cursor: historyIndex >= history.length - 1  'not-allowed' : 'pointer', opacity: historyIndex >= history.length - 1  0.5 : 1, display: 'flex', alignItems: 'center' }} title="Redo">
+                  <button onClick={redo} disabled={historyIndex >= history.length - 1} style={{ padding: '0.5rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '0.5rem', cursor: historyIndex >= history.length - 1 ? 'not-allowed' : 'pointer', opacity: historyIndex >= history.length - 1 ? 0.5 : 1, display: 'flex', alignItems: 'center' }} title="Redo">
                     <svg style={{ width: '18px', height: '18px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/>
                     </svg>
@@ -1078,7 +1078,7 @@ function convertFloatToInt16(buffer) {
                     </svg>
                   </button>
                   <button onClick={togglePlayPause} style={{ padding: '1.25rem', background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)', color: 'white', border: 'none', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)', transition: 'all 0.2s' }}>
-                    {isPlaying  (
+                    {isPlaying ? (
                       <svg style={{ width: '32px', height: '32px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <rect width="4" height="16" x="6" y="4"/><rect width="4" height="16" x="14" y="4"/>
                       </svg>
@@ -1154,7 +1154,5 @@ function convertFloatToInt16(buffer) {
   <script src="/assets/upload.js"></script>
 </body>
 </html>
-
-
 
 
