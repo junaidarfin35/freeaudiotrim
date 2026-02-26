@@ -130,7 +130,7 @@ nav a.active {
   background: var(--surface);
   border: 2px dashed var(--border);
   border-radius: 12px;
-  padding: 3rem 1rem;
+  padding: 3rem 0rem;
   text-align: center;
   transition: border-color 0.2s ease;
 }
@@ -272,4 +272,10 @@ grid-template-columns: 1fr;
 }
 .related-tools h2 {
   text-align: center;
+}
+
+/* Fix homepage section alignment */
+.section-surface {
+  max-width: 900px;
+  margin: 0 auto;
 }
