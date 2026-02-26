@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
   <url>
     <loc>https://freeaudiotrim.com/</loc>
   </url>
+
+  <!-- Tool Pages -->
   <url>
     <loc>https://freeaudiotrim.com/trim-mp3-online.html</loc>
   </url>
@@ -21,4 +24,28 @@
   <url>
     <loc>https://freeaudiotrim.com/extract-audio-from-video.html</loc>
   </url>
+
+  <!-- Blog -->
+  <url>
+    <loc>https://freeaudiotrim.com/blog/</loc>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/blog/audio-editing-guide.html</loc>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/blog/convert-mp3-to-wav-guide.html</loc>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/blog/extract-audio-from-video-guide.html</loc>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/blog/how-to-make-audio-louder.html</loc>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/blog/how-to-trim-mp3-online.html</loc>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/blog/remove-silence-from-audio-guide.html</loc>
+  </url>
+
 </urlset>
