@@ -57,7 +57,7 @@
     let pos = 44;
     for (let i = 0; i < samples.length; i++, pos += 2) {
       let s = Math.max(-1, Math.min(1, samples[i]));
-      view.setInt16(pos, s < 0  s * 0x8000 : s * 0x7FFF, true);
+      view.setInt16(pos, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
     }
     return new Blob([view], { type: 'audio/wav' });
   }

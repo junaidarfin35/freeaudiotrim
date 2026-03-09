@@ -1,0 +1,273 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
+  <link rel="preload" href="/assets/layout.css" as="style">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+  <link rel="stylesheet" href="/assets/upload.css">
+  <link rel="stylesheet" href="/assets/layout.css">
+
+  <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+  <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/assets/brand/site.webmanifest">
+
+  <title>Audio Pitch Changer Online - Shift Pitch +/-12 Semitones</title>
+  <meta name="description" content="Shift audio pitch up or down by up to 12 semitones in your browser, preview before export, and download the modified file with no uploads.">
+  <link rel="canonical" href="https://freeaudiotrim.com/audio-pitch-changer.html">
+
+  <style>
+    .content-section { margin-bottom: 2rem; }
+    .tool-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; }
+    .tool-grid { display: grid; gap: 0.9rem; }
+    .control-label { display: grid; gap: 0.35rem; font-size: 0.92rem; color: #334155; }
+    .range-row { display: flex; gap: 0.6rem; align-items: center; }
+    .range-row input[type="range"] { flex: 1; }
+    .value-chip { min-width: 72px; font-family: "JetBrains Mono", monospace; color: #0f172a; }
+    .button-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .btn { border: 1px solid #2563eb; background: #2563eb; color: #fff; border-radius: 8px; padding: 0.5rem 0.9rem; cursor: pointer; font-size: 0.95rem; }
+    .btn:hover { background: #1d4ed8; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-ghost { background: #fff; border-color: #cbd5e1; color: #1e293b; }
+    .status-text { color: #334155; font-size: 0.92rem; }
+    .meta-grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); }
+    .meta-item { padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+<header>
+  <div class="header-container">
+    <a href="/" class="logo"><img src="/assets/brand/logo.svg" alt="Free Audio Trim logo" width="28" height="28" decoding="async"> freeaudiotrim.com</a>
+    <nav>
+      <a href="/trim-mp3-online.html">MP3 Trimmer</a>
+      <a href="/convert-mp3-to-wav.html">Convert</a>
+      <a href="/normalize-audio-volume.html">Normalize Volume</a>
+      <a href="/blog/">Blog</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <section class="content-section">
+    <h1>Audio Pitch Changer – Change Pitch of Audio Files Online</h1>
+    <p>An audio pitch changer allows you to raise or lower the pitch of an audio file without significantly changing playback speed. This can be useful for musicians, producers, and creators who want to adjust recordings for practice, mixing, or creative editing.</p>
+    <p>With this browser-based pitch changer, you can upload a file, adjust its pitch level, preview the result, and export the modified audio instantly.</p>
+  </section>
+
+  <section class="content-section">
+    <h2>How Audio Pitch Shifting Works</h2>
+
+    <p>Audio pitch shifting changes the frequency of sound waves in a recording. Increasing pitch raises the perceived tone of the sound, while lowering pitch produces deeper tones.</p>
+
+    <p>Modern pitch-shifting algorithms analyze the waveform and modify frequencies without significantly changing playback speed. This allows musicians, creators, and editors to experiment with audio while preserving rhythm and timing.</p>
+
+    <p>Pitch shifting is widely used in music production, podcast editing, sound design, and vocal processing workflows.</p>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Pitch vs Musical Key</h2>
+
+    <p>Pitch shifting can also change the musical key of a song. For example, raising pitch by one semitone moves the entire recording up by one musical step.</p>
+
+    <p>This technique allows singers to match songs to their vocal range and musicians to practice pieces in different keys.</p>
+
+    <p>Music producers often adjust pitch creatively to produce vocal effects, harmonies, or remix tracks.</p>
+  </section>
+
+  <section class="content-section">
+    <h2>Common Uses for Changing Audio Pitch</h2>
+
+    <ul>
+      <li>Changing the key of a song</li>
+      <li>Correcting vocal pitch</li>
+      <li>Practicing music in different keys</li>
+      <li>Creating sound design effects</li>
+      <li>Adjusting recordings for remixing</li>
+    </ul>
+
+    <p>Pitch adjustment is frequently used in music production, podcast editing, and creative audio design.</p>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Supported Audio Formats</h2>
+
+    <p>This pitch changer works with most common audio formats supported by modern browsers.</p>
+
+    <ul>
+      <li>MP3</li>
+      <li>WAV</li>
+      <li>M4A</li>
+      <li>AAC</li>
+      <li>FLAC</li>
+      <li>OGG</li>
+    </ul>
+
+    <p>Audio processing happens directly in your browser, which means your files remain private and are never uploaded to external servers.</p>
+  </section>
+
+  <section class="content-section">
+    <h2>Upload Box</h2>
+    <input id="fileInput" type="file" accept="audio/*" hidden>
+    <div class="upload-box" id="uploadDropzone" role="button" tabindex="0" aria-label="Drop audio file here or click to upload">
+      <div class="upload-content">
+        <div class="upload-icon">&#9729;&#65039;</div>
+        <h2>Drop audio file here or click to browse</h2>
+        <p>MP3, WAV, M4A, FLAC and more</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section">
+    <h2>Tool Interface</h2>
+    <div class="tool-card">
+      <div class="tool-grid">
+        <label class="control-label" for="semitoneRange">
+          Pitch Shift (Semitones)
+          <div class="range-row">
+            <input id="semitoneRange" type="range" min="-12" max="12" step="1" value="0">
+            <span class="value-chip" id="semitoneValue">+0 st</span>
+          </div>
+        </label>
+
+        <div class="meta-grid">
+          <div class="meta-item" id="rateValue">Playback Rate: 1.000x</div>
+          <div class="meta-item" id="originalDuration">Original Duration: -</div>
+          <div class="meta-item" id="newDuration">Estimated New Duration: -</div>
+        </div>
+
+        <div class="button-row">
+          <button class="btn" id="previewBtn" type="button">Preview</button>
+          <button class="btn btn-ghost" id="pauseBtn" type="button">Pause</button>
+          <button class="btn btn-ghost" id="stopBtn" type="button">Stop</button>
+          <button class="btn" id="exportBtn" type="button">Export Audio</button>
+          <a id="downloadLink" class="btn btn-ghost" style="display:none;text-decoration:none" aria-label="Download modified audio">Download</a>
+        </div>
+
+        <p id="status" class="status-text">Upload a file to start.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section">
+    <h2>What Is Pitch Shifting</h2>
+    <p>Pitch shifting changes the frequency of audio so it sounds higher or lower.</p>
+    <p>Increasing pitch raises the tone, while lowering pitch produces a deeper sound.</p>
+  </section>
+
+  <section class="content-section">
+    <h2>Pitch vs Speed</h2>
+    <p>Pitch controls tone while speed controls playback rate.</p>
+    <p>For example:</p>
+    <ul>
+      <li>Increasing pitch raises the tone</li>
+      <li>Decreasing pitch lowers the tone</li>
+      <li>Changing speed affects playback time</li>
+    </ul>
+    <p>To adjust playback rate instead, try our <a href="/audio-speed-changer.html">Audio Speed Changer</a>.</p>
+  </section>
+
+  <section class="content-section">
+    <h2>Common Uses for Pitch Adjustment</h2>
+    <ul>
+      <li>Changing the key of a song</li>
+      <li>Adjusting vocal pitch</li>
+      <li>Practicing music in different keys</li>
+      <li>Sound design effects</li>
+      <li>Creating alternate versions of recordings</li>
+    </ul>
+  </section>
+
+  <section class="content-section">
+    <h2>Browser-Based Audio Editing</h2>
+    <p>This pitch changer works entirely inside your browser. Your files are processed locally, which provides:</p>
+    <ul>
+      <li>Faster processing</li>
+      <li>Improved privacy</li>
+      <li>No installation required</li>
+      <li>Compatibility with desktop and mobile devices</li>
+    </ul>
+  </section>
+
+  <section class="content-section related-tools">
+    <h2>Related Audio Tools</h2>
+    <ul>
+      <li><a href="/free-mp3-cutter.html">Free MP3 Cutter</a></li>
+      <li><a href="/normalize-audio-volume.html">Normalize Audio Volume</a></li>
+      <li><a href="/merge-audio-files.html">Merge Audio Files</a></li>
+      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a></li>
+    </ul>
+  </section>
+
+  <section class="content-section">
+    <h2>FAQ</h2>
+    <details>
+      <summary>What is an audio pitch changer?</summary>
+      <p>A pitch changer modifies the tonal frequency of audio, making it sound higher or lower.</p>
+    </details>
+    <details>
+      <summary>Can pitch be changed without altering speed?</summary>
+      <p>Yes. Modern pitch-shifting algorithms allow pitch adjustments without affecting playback speed.</p>
+    </details>
+    <details>
+      <summary>Why do musicians change pitch?</summary>
+      <p>Musicians adjust pitch to change the key of songs or make practice easier.</p>
+    </details>
+    <details>
+      <summary>Can MP3 files have their pitch changed?</summary>
+      <p>Yes. Most pitch changers support MP3 and other common audio formats.</p>
+    </details>
+    <details>
+      <summary>Is pitch shifting safe for audio quality?</summary>
+      <p>Small pitch adjustments typically maintain good audio quality.</p>
+    </details>
+    <details>
+      <summary>What is an audio pitch changer?</summary>
+      <p>An audio pitch changer adjusts the frequency of sound so that audio becomes higher or lower in tone.</p>
+    </details>
+    <details>
+      <summary>Can pitch be changed without affecting speed?</summary>
+      <p>Yes. Modern pitch shifting algorithms allow pitch to be adjusted independently from playback speed.</p>
+    </details>
+    <details>
+      <summary>Why do musicians change pitch?</summary>
+      <p>Musicians adjust pitch to change the musical key, match vocals to instruments, or create creative sound effects.</p>
+    </details>
+  </section>
+</main>
+
+<footer>
+  <div class="footer-container">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
+      <div>
+        <div class="footer-title">AudioTools</div>
+        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
+      </div>
+      <div>
+        <div class="footer-title">Tools</div>
+        <p><a href="/trim-mp3-online.html" class="footer-text">MP3 Trimmer</a></p>
+        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
+        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
+      </div>
+      <div>
+        <div class="footer-title">Legal</div>
+        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
+        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
+        <p><a href="/contact.html" class="footer-text">Contact</a></p>
+      </div>
+    </div>
+    <div class="footer-small">
+      (c) 2026 AudioTools. All rights reserved.
+    </div>
+  </div>
+</footer>
+
+<script src="/assets/pitch-tool.js" defer></script>
+<script src="/assets/upload.js" defer></script>
+</body>
+</html>
