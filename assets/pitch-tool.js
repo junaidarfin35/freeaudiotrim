@@ -1,4 +1,4 @@
-﻿(() => {
+(() => {
   "use strict";
 
   const fileInput = document.getElementById("fileInput");
@@ -14,6 +14,7 @@
   const status = document.getElementById("status");
   const originalDuration = document.getElementById("originalDuration");
   const newDuration = document.getElementById("newDuration");
+  const BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
 
   let audioContext = null;
   let audioBuffer = null;
@@ -95,7 +96,7 @@
       setStatus("File ready. Adjust semitones, preview, then export.");
     } catch (error) {
       console.error(error);
-      setStatus("Could not decode this file in your browser.");
+      setStatus(`This audio format is not supported by your browser. ${BROWSER_SUPPORT_MESSAGE}`);
     }
   }
 

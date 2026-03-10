@@ -3,6 +3,7 @@
   const convertBtn = document.getElementById('convertBtn');
   const downloadLink = document.getElementById('downloadLink');
   const status = document.getElementById('status');
+  const BROWSER_SUPPORT_MESSAGE = 'Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.';
 
   const readFileAsArrayBuffer = (file) => new Promise((res, rej) => {
     const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsArrayBuffer(file);
@@ -79,7 +80,7 @@
       status.textContent = 'Ready - click Download WAV.';
     } catch (err) {
       console.error(err);
-      status.textContent = 'Error decoding file. Your browser may not support this file type.';
+      status.textContent = 'This audio format is not supported by your browser. ' + BROWSER_SUPPORT_MESSAGE;
     }
   });
 

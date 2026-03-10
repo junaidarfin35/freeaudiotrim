@@ -3,6 +3,7 @@
 
   var STYLE_ID = "audio-tool-styles";
   var ENCODER_PATH = "/assets/encoders/mp3-encoder.js";
+  var BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
 
   function formatTime(seconds) {
     var total = Math.max(0, Number(seconds) || 0);
@@ -725,7 +726,7 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
       this.updateTimeText();
       this.statusEl.textContent = "Ready. Drag handles to trim and press Play.";
     } catch (err) {
-      this.statusEl.textContent = "Unable to decode this file.";
+      this.statusEl.textContent = "This audio format is not supported by your browser. " + BROWSER_SUPPORT_MESSAGE;
       this.duration = 0;
       this._setControlsEnabled(false);
     }

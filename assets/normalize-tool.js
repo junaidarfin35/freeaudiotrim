@@ -3,16 +3,7 @@
 
   const MAX_FILES = 10;
   const MAX_FILE_SIZE = 200 * 1024 * 1024;
-  const SUPPORTED_EXTENSIONS = ["mp3", "wav", "aac", "m4a", "flac", "ogg"];
-  const SUPPORTED_MIME_PREFIXES = [
-    "audio/mpeg",
-    "audio/wav",
-    "audio/x-wav",
-    "audio/aac",
-    "audio/mp4",
-    "audio/flac",
-    "audio/ogg"
-  ];
+  const BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
   const DB_FLOOR = -48;
   const LUFS_OFFSET = -0.691;
 
@@ -231,7 +222,7 @@
         stopPlayback();
       } catch (error) {
         console.error(error);
-        warnings.push(`${file.name}: Could not decode this file in your browser.`);
+        warnings.push(`${file.name}: This audio format is not supported by your browser. ${BROWSER_SUPPORT_MESSAGE}`);
       }
       renderWarnings(warnings);
       renderQueue();
@@ -276,7 +267,7 @@
         });
       } catch (error) {
         console.error(error);
-        warnings.push(`${file.name}: Could not decode this file in your browser.`);
+        warnings.push(`${file.name}: This audio format is not supported by your browser. ${BROWSER_SUPPORT_MESSAGE}`);
       }
     }
 
@@ -293,13 +284,6 @@
   function validateFile(file) {
     if (file.size > MAX_FILE_SIZE) {
       return "exceeds 200MB limit.";
-    }
-    const extension = file.name.split(".").pop()?.toLowerCase() || "";
-    const mime = (file.type || "").toLowerCase();
-    const extOk = SUPPORTED_EXTENSIONS.includes(extension);
-    const mimeOk = SUPPORTED_MIME_PREFIXES.some((prefix) => mime.startsWith(prefix));
-    if (!extOk && !mimeOk) {
-      return "unsupported format (use MP3, WAV, AAC, M4A, FLAC, OGG).";
     }
     return "";
   }
@@ -458,7 +442,7 @@
     state.rafId = 0;
     elements.meterFill.style.height = "0%";
     elements.meterFill.style.background = "transparent";
-    elements.meterValue.textContent = "-∞ dB";
+    elements.meterValue.textContent = "-Ã¢Ë†Å¾ dB";
 
     const selected = getSelected();
     if (selected) {
@@ -529,7 +513,7 @@
     if (!state.analyser || !state.isPlaying) {
       elements.meterFill.style.height = "0%";
       elements.meterFill.style.background = "transparent";
-      elements.meterValue.textContent = "-∞ dB";
+      elements.meterValue.textContent = "-Ã¢Ë†Å¾ dB";
       return;
     }
 
@@ -580,8 +564,8 @@
     const secondary = root.querySelector(".upload-dropzone__secondary");
     if (secondary) {
       secondary.textContent = isBatch
-        ? "Batch mode: up to 10 files, 200MB each. MP3, WAV, AAC, M4A, FLAC, OGG."
-        : "Single mode: choose one file. MP3, WAV, AAC, M4A, FLAC, OGG.";
+        ? "Batch mode: up to 10 files, 200MB each. Supported formats depend on your browser. MP3, WAV, and M4A work on most devices."
+        : "Single mode: choose one file. Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
     }
     renderQueue();
   }
@@ -1161,7 +1145,7 @@
 
   function formatDb(value) {
     if (!Number.isFinite(value)) {
-      return "-∞";
+      return "-Ã¢Ë†Å¾";
     }
     return value.toFixed(1);
   }
@@ -1187,10 +1171,10 @@
             </select>
           </label>
           <label class="upload-dropzone" data-dropzone tabindex="0" role="button" aria-label="Upload audio files">
-            <input data-input type="file" accept=".mp3,.wav,.aac,.m4a,.flac,.ogg,audio/*" multiple hidden>
+            <input data-input type="file" accept="audio/*" multiple hidden>
             <div class="upload-dropzone__content">
               <strong class="upload-dropzone__primary">Drop audio files here or click to browse</strong>
-              <span class="upload-dropzone__secondary">Up to 10 files, 200MB each. MP3, WAV, AAC, M4A, FLAC, OGG.</span>
+              <span class="upload-dropzone__secondary">Up to 10 files, 200MB each. Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.</span>
             </div>
           </label>
           <div data-warnings></div>
@@ -1237,7 +1221,7 @@
               </div>
             </div>
           </div>
-          <div class="normalize-meter-db" data-meter-value>-∞ dB</div>
+          <div class="normalize-meter-db" data-meter-value>-Ã¢Ë†Å¾ dB</div>
           <input data-seek type="range" min="0" max="1" step="0.001" value="0" aria-label="Seek timeline">
           <div class="normalize-controls">
             <button type="button" class="normalize-btn" data-play>Play</button>

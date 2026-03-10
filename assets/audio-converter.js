@@ -1,17 +1,18 @@
-﻿(() => {
+(() => {
   "use strict";
 
   const conversionMap = {
-    "mp3-to-wav": { inputExt: "mp3", outputExt: "wav" },
-    "wav-to-mp3": { inputExt: "wav", outputExt: "mp3" },
-    "m4a-to-mp3": { inputExt: "m4a", outputExt: "mp3" },
-    "flac-to-mp3": { inputExt: "flac", outputExt: "mp3" }
+    "mp3-to-wav": { outputExt: "wav" },
+    "wav-to-mp3": { outputExt: "mp3" },
+    "m4a-to-mp3": { outputExt: "mp3" },
+    "flac-to-mp3": { outputExt: "mp3" }
   };
 
   const state = {
     queue: [],
     audioContext: null
   };
+  const BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
 
   const elements = {
     fileInput: document.getElementById("fileInput"),
@@ -118,7 +119,7 @@
       state.queue.push(item);
     }
 
-    setStatus(`${files.length} file(s) added. Choose conversion type and click Convert Files.`);
+    setStatus(`${files.length} file(s) added. Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.`);
     renderQueue();
   }
 
@@ -139,7 +140,6 @@
     elements.convertAllBtn.disabled = true;
 
     let convertedCount = 0;
-    let skippedCount = 0;
 
     try {
       const ctx = getAudioContext();
@@ -149,14 +149,6 @@
         cleanupOutput(item);
         item.outputExt = rule.outputExt;
         item.error = "";
-
-        if (item.inputExt !== rule.inputExt) {
-          item.status = `Skipped (needs .${rule.inputExt})`;
-          item.error = `File extension is .${item.inputExt || "unknown"}`;
-          skippedCount += 1;
-          renderQueue();
-          continue;
-        }
 
         item.status = "Decoding";
         renderQueue();
@@ -181,13 +173,13 @@
           convertedCount += 1;
         } catch (error) {
           item.status = "Failed";
-          item.error = error instanceof Error ? error.message : "Conversion error";
+          item.error = `This audio format is not supported by your browser. ${BROWSER_SUPPORT_MESSAGE}`;
         }
 
         renderQueue();
       }
 
-      setStatus(`Done. Converted: ${convertedCount}. Skipped: ${skippedCount}.`);
+      setStatus(`Done. Converted: ${convertedCount}. Files that failed could not be decoded by this browser.`);
     } finally {
       elements.convertAllBtn.disabled = false;
     }
