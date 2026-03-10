@@ -603,7 +603,7 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     this.root.innerHTML = [
       '<div class="at-root">',
       '  <div class="at-row">',
-      '    <input class="at-file" type="file" accept="audio/*" aria-label="Upload audio file">',
+      '    <input class="at-file" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" aria-label="Upload audio file">',
       "  </div>",
       '  <div class="at-row at-wave-wrap">',
       '    <canvas class="at-wave" aria-label="Waveform view"></canvas>',

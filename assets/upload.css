@@ -11,7 +11,7 @@
   align-items: center;
   justify-content: center;
   min-height: 128px;
-  width: 100%;
+  width: auto;
   border: 2px dashed var(--upload-border);
   border-radius: 12px;
   background: var(--upload-bg);

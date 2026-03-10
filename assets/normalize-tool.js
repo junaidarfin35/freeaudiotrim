@@ -1171,7 +1171,7 @@
             </select>
           </label>
           <label class="upload-dropzone" data-dropzone tabindex="0" role="button" aria-label="Upload audio files">
-            <input data-input type="file" accept="audio/*" multiple hidden>
+            <input data-input type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" multiple hidden>
             <div class="upload-dropzone__content">
               <strong class="upload-dropzone__primary">Drop audio files here or click to browse</strong>
               <span class="upload-dropzone__secondary">Up to 10 files, 200MB each. Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.</span>
