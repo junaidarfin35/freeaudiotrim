@@ -8,7 +8,7 @@ fileInput.addEventListener('change', ()=>{
   files = Array.from(fileInput.files);
   renderList();
 });
-function renderList(){fileList.innerHTML='';files.forEach((f,i)=>{const row=document.createElement('div');row.className='file-row';row.innerHTML=`<strong style="flex:1">${f.name}</strong><button data-i="${i}" class="up">Ã¢â€ â€˜</button><button data-i="${i}" class="down">Ã¢â€ â€œ</button><button data-i="${i}" class="remove">Ã¢Å“â€¢</button>`;fileList.appendChild(row)});
+function renderList(){fileList.innerHTML='';files.forEach((f,i)=>{const row=document.createElement('div');row.className='file-row';row.innerHTML=`<strong style="flex:1">${f.name}</strong><button data-i="${i}" class="up">\u2191</button><button data-i="${i}" class="down">\u2193</button><button data-i="${i}" class="remove">\u2715</button>`;fileList.appendChild(row)});
   fileList.querySelectorAll('button.up').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(i>0){[files[i-1],files[i]]=[files[i],files[i-1]];renderList();}});
   fileList.querySelectorAll('button.down').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(i<files.length-1){[files[i+1],files[i]]=[files[i],files[i+1]];renderList();}});
   fileList.querySelectorAll('button.remove').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;files.splice(i,1);renderList();});
