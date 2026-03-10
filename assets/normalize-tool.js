@@ -1406,14 +1406,16 @@
       .normalize-waveform-wrap {
         flex: 1;
         width: 100%;
+        min-width: 0;
         border: 1px solid #e2e8f0;
         border-radius: 10px;
         overflow: hidden;
         background: #f8fafc;
       }
       .normalize-waveform-row {
-        display: flex;
-        gap: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 56px;
+        gap: 0.5rem;
         align-items: stretch;
       }
       .normalize-waveform-wrap canvas {
@@ -1469,9 +1471,9 @@
         gap: 0.35rem;
       }
       .normalize-meter--inline {
-        width: 20px;
-        flex: 0 0 20px;
-        margin-left: 4px;
+        width: 56px;
+        flex: 0 0 56px;
+        margin-left: 0;
       }
       .normalize-meter-scale {
         height: 220px;
@@ -1541,7 +1543,7 @@
       }
       @media (max-width: 700px) {
         .normalize-waveform-row {
-          flex-direction: column;
+          grid-template-columns: 1fr;
         }
         .normalize-meter--inline {
           width: 100%;
