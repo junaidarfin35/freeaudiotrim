@@ -561,11 +561,11 @@
   function updateUploadModeUI() {
     const isBatch = state.uploadMode === "batch";
     elements.input.multiple = isBatch;
-    const secondary = root.querySelector(".upload-dropzone__secondary");
-    if (secondary) {
-      secondary.textContent = isBatch
-        ? "Batch mode: up to 10 files, 200MB each. Supported formats depend on your browser. MP3, WAV, and M4A work on most devices."
-        : "Single mode: choose one file. Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
+    const warnings = elements.warnings;
+    if (warnings) {
+      warnings.innerHTML = isBatch
+        ? '<p class="normalize-muted">Batch mode is enabled. You can add up to 10 files.</p>'
+        : '<p class="normalize-muted">Single mode is enabled. Add one file at a time.</p>';
     }
     renderQueue();
   }
@@ -1123,6 +1123,12 @@
 
   function setStatus(message) {
     elements.status.textContent = message;
+    const text = String(message || "").toLowerCase();
+    elements.status.dataset.statusState =
+      /error|failed|unknown error/.test(text) ? "error" :
+      /complete|download|ready/.test(text) ? "success" :
+      /processing|analyzing|building zip|build zip/.test(text) ? "processing" :
+      "idle";
   }
 
   function stripExtension(name) {
@@ -1165,19 +1171,22 @@
         <section class="normalize-card">
           <label class="normalize-upload-mode">
             Upload Mode
-            <select data-upload-mode>
-              <option value="single" selected>Single File</option>
-              <option value="batch">Batch Processing</option>
-            </select>
-          </label>
-          <label class="upload-dropzone" data-dropzone tabindex="0" role="button" aria-label="Upload audio files">
-            <input data-input type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" multiple hidden>
-            <div class="upload-dropzone__content">
-              <strong class="upload-dropzone__primary">Drop audio files here or click to browse</strong>
-              <span class="upload-dropzone__secondary">Up to 10 files, 200MB each. Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.</span>
-            </div>
-          </label>
-          <div data-warnings></div>
+              <select data-upload-mode>
+                <option value="single" selected>Single File</option>
+                <option value="batch">Batch Processing</option>
+              </select>
+            </label>
+            <label class="upload-dropzone" data-dropzone tabindex="0" role="button" aria-label="Upload audio files">
+              <input data-input type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" multiple hidden>
+              <div class="upload-dropzone__content">
+                <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
+                <strong class="upload-dropzone__primary">Drop audio file here or click to upload</strong>
+                <span class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</span>
+                <small class="upload-dropzone__meta">Max file size: 200MB</small>
+                <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
+              </div>
+            </label>
+            <div data-warnings></div>
         </section>
 
         <section class="normalize-card">
@@ -1308,10 +1317,11 @@
         gap: 1rem;
       }
       .normalize-card {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 1rem;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem;
+        box-shadow: var(--color-shadow);
       }
       .normalize-card h3 {
         margin: 0 0 0.75rem;
@@ -1328,7 +1338,7 @@
       .preset-panel > label{
         display:block;
         margin-bottom:8px;
-        color:#334155;
+        color:var(--color-text-muted);
         font-size:0.9rem;
         font-weight:600;
       }
@@ -1338,29 +1348,23 @@
         flex-wrap:wrap;
       }
       .preset-buttons button{
-        padding:6px 10px;
-        border-radius:6px;
-        border:1px solid #d0d7de;
-        background:#f6f8fa;
-        cursor:pointer;
-        color:#1e293b;
+        min-height: 2.5rem;
+        padding: 0.55rem 0.85rem;
         font-size:0.86rem;
-      }
-      .preset-buttons button:hover{
-        background:#eaeef2;
       }
       .normalize-upload-mode {
         display: inline-grid;
         gap: 0.35rem;
         margin-bottom: 0.75rem;
         font-size: 0.9rem;
-        color: #334155;
+        color: var(--color-text-muted);
       }
       .normalize-upload-mode select {
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
         padding: 0.4rem 0.5rem;
         font-size: 0.9rem;
+        background: var(--color-surface-muted);
       }
       .normalize-table-wrap {
         overflow-x: auto;
@@ -1381,22 +1385,23 @@
         font-size: 0.82rem;
         text-transform: uppercase;
         letter-spacing: 0.03em;
-        color: #475569;
+        color: var(--color-text-muted);
       }
       .normalize-table tr.is-selected {
-        background: #eff6ff;
+        background: var(--color-primary-soft);
       }
       .normalize-muted {
-        color: #64748b;
+        color: var(--color-text-muted);
         margin: 0.5rem 0 0;
       }
       .normalize-badge {
         font-size: 0.75rem;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--color-border);
         border-radius: 999px;
         padding: 0.2rem 0.45rem;
         margin-right: 0.35rem;
         display: inline-block;
+        background: var(--color-surface-muted);
       }
       .normalize-badge--ok {
         border-color: #16a34a;
@@ -1407,10 +1412,10 @@
         flex: 1;
         width: 100%;
         min-width: 0;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
         overflow: hidden;
-        background: #f8fafc;
+        background: var(--color-surface-muted);
       }
       .normalize-waveform-row {
         display: grid;
@@ -1433,36 +1438,17 @@
       .normalize-time {
         margin-left: auto;
         font-family: "JetBrains Mono", monospace;
-        color: #475569;
+        color: var(--color-text-muted);
         font-size: 0.9rem;
-      }
-      .normalize-btn {
-        border: 1px solid #2563eb;
-        background: #2563eb;
-        color: #fff;
-        border-radius: 8px;
-        padding: 0.45rem 0.8rem;
-        cursor: pointer;
-        font-size: 0.92rem;
-      }
-      .normalize-btn:hover {
-        background: #1d4ed8;
       }
       .normalize-btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
       }
-      .normalize-btn--ghost {
-        background: #fff;
-        color: #1e293b;
-        border-color: #cbd5e1;
-      }
-      .normalize-btn--ghost:hover {
-        background: #f8fafc;
-      }
       .normalize-btn--tiny {
         padding: 0.2rem 0.45rem;
         font-size: 0.78rem;
+        min-height: 2rem;
       }
       .normalize-meter {
         display: grid;
@@ -1483,15 +1469,15 @@
         font-family: "JetBrains Mono", monospace;
         font-size: 10px;
         line-height: 1;
-        color: #64748b;
+        color: var(--color-text-muted);
       }
       .normalize-meter-track {
         width: 20px;
         height: 220px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--color-border);
         border-radius: 6px;
         overflow: hidden;
-        background: #e2e8f0;
+        background: var(--color-border);
         position: relative;
       }
       .normalize-meter-fill {
@@ -1506,7 +1492,7 @@
       .normalize-meter-db {
         font-family: "JetBrains Mono", monospace;
         font-size: 0.8rem;
-        color: #334155;
+        color: var(--color-text);
         margin-top: 0.45rem;
       }
       .normalize-grid {
@@ -1518,28 +1504,33 @@
         display: grid;
         gap: 0.35rem;
         font-size: 0.88rem;
-        color: #334155;
+        color: var(--color-text-muted);
       }
       .normalize-grid select,
       .normalize-grid input {
-        border: 1px solid #cbd5e1;
-        border-radius: 8px;
-        padding: 0.45rem 0.55rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        padding: 0.7rem 0.8rem;
         font-size: 0.9rem;
+        background: var(--color-surface-muted);
       }
       .normalize-grid--nested {
         grid-column: 1 / -1;
       }
       .normalize-actions {
         margin-top: 0.85rem;
-        display: flex;
-        align-items: center;
+        display: grid;
         gap: 0.5rem;
-        flex-wrap: wrap;
+        padding: 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        background: var(--color-surface-muted);
+      }
+      .normalize-actions .normalize-btn {
+        justify-self: start;
       }
       .normalize-status {
-        color: #334155;
-        font-size: 0.9rem;
+        width: 100%;
       }
       @media (max-width: 700px) {
         .normalize-waveform-row {

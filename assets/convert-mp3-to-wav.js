@@ -4,6 +4,15 @@
   const downloadLink = document.getElementById('downloadLink');
   const status = document.getElementById('status');
   const BROWSER_SUPPORT_MESSAGE = 'Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.';
+  const setStatus = (message) => {
+    status.textContent = message;
+    const text = String(message || '').toLowerCase();
+    status.dataset.statusState =
+      /error|failed|not supported/.test(text) ? 'error' :
+      /ready|download/.test(text) ? 'success' :
+      /decoding|encoding|reading|processing/.test(text) ? 'processing' :
+      'idle';
+  };
 
   const readFileAsArrayBuffer = (file) => new Promise((res, rej) => {
     const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsArrayBuffer(file);
@@ -65,22 +74,22 @@
 
   convertBtn.addEventListener('click', async () => {
     const file = fileInput.files[0];
-    if (!file) { status.textContent = 'Choose a file first.'; return; }
-    status.textContent = 'Decoding...';
+    if (!file) { setStatus('Choose a file first.'); return; }
+    setStatus('Decoding...');
     try {
       const arrayBuffer = await readFileAsArrayBuffer(file);
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-      status.textContent = 'Encoding WAV...';
+      setStatus('Encoding WAV...');
       const wavBlob = encodeWAV(audioBuffer);
       const url = URL.createObjectURL(wavBlob);
       downloadLink.href = url;
       downloadLink.download = (file.name.replace(/\.[^/.]+$/, '') || 'output') + '.wav';
       downloadLink.style.display = 'inline-block';
-      status.textContent = 'Ready - click Download WAV.';
+      setStatus('Ready - click Download WAV.');
     } catch (err) {
       console.error(err);
-      status.textContent = 'This audio format is not supported by your browser. ' + BROWSER_SUPPORT_MESSAGE;
+      setStatus('This audio format is not supported by your browser. ' + BROWSER_SUPPORT_MESSAGE);
     }
   });
 

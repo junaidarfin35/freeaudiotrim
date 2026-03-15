@@ -84,47 +84,63 @@
   </div>
 </header>
 <main class="container">
+  <section class="content-section section-intro section-surface hero">
   <h1>Remove Silence from Audio Online - Clean Dead Air Instantly</h1>
   <p>Automatically detect and remove silent sections from your audio file directly in your browser. No uploads or external processing required.</p>
   <p>This silence remover is a handy tool when you need to remove silence from podcast recordings or cut silent pauses automatically from interviews. You can cut silent parts from audio or trim quiet sections of a speech recording without touching a DAW. This tool is designed to cut silent pauses automatically, so you don't have to scrub through a waveform manually. Whether you're doing audio cleanup for a lecture, trimming gaps in a voice memo, or cleaning background gaps in a live stream, everything happens locally in your browser so your files never leave your device.</p>
-<p>Use it as part of your podcast editing workflow to clean dead air before adding music or voice-over; the threshold and minimum silence controls let you fine-tune how aggressively the audio waveform is scanned. This online tool makes it easy to fix recordings on the fly and keeps the process simple and fast. If you need precision edits after cleanup, continue with <a href="/trim-mp3-online.html">Trim MP3 Online</a>. For final loudness consistency, use <a href="/normalize-audio-volume.html">fix uneven audio levels</a>, and if you are assembling episodes or segments afterward you can <a href="/merge-audio-files.html">combine audio tracks</a> into one track.</p>
-  <section class="tool">
-    <h2>Tool</h2>
-    <div style="display:grid;gap:0.75rem">
-<input type="file" id="fileInput" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" />
-      <div class="upload-box">
+<p>Use it as part of your podcast editing workflow to clean dead air before adding music or voice-over; the threshold and minimum silence controls let you fine-tune how aggressively the audio waveform is scanned. This online tool makes it easy to fix recordings on the fly and keeps the process simple and fast.</p>
+<ul class="tool-links">
+  <li>If you need precision edits after cleanup, continue with <a href="/trim-mp3-online.html">Trim MP3 Online</a>.</li>
+  <li>For final loudness consistency, use <a href="/normalize-audio-volume.html">fix uneven audio levels</a>.</li>
+  <li>If you are assembling episodes or segments afterward you can <a href="/merge-audio-files.html">combine audio tracks</a> into one track.</li>
+</ul>
+  </section>
+  <section class="content-section section-surface tool-ui">
+    <h2>Upload Audio</h2>
+    <div class="tool-stack">
+      <input type="file" id="fileInput" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" />
+      <div class="upload-box" aria-label="Drop audio file here or click to upload">
         <div class="upload-content">
-          <div class="upload-icon">&#9729;&#65039;</div>
-          <h2>Upload Audio File</h2>
-          <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
+          <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
+          <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
+          <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
+          <small class="upload-dropzone__meta">Max file size: 200MB</small>
+          <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
         </div>
       </div>
-      <label>Silence threshold (dB): <input id="thresholdDb" type="range" min="-80" max="-20" value="-45" step="1"></label>
-      <label>Min silence length (ms): <input id="minMs" type="number" value="300" /></label>
-      <div style="display:flex;gap:0.5rem"><button id="processBtn" style="background:#2563eb;color:#fff;padding:0.5rem;border-radius:6px;border:none">Remove Silence</button><a id="downloadLink" style="display:none;padding:0.5rem 1rem;border-radius:6px;border:1px solid #e2e8f0;color:#0f172a;text-decoration:none;background:#fff">Download</a></div>
-      <div id="status" style="color:#64748b"></div>
+      <label class="field-label">Silence threshold (dB): <input id="thresholdDb" type="range" min="-80" max="-20" value="-45" step="1"></label>
+      <label class="field-label">Min silence length (ms): <input id="minMs" type="number" value="300" /></label>
+      <div class="result-panel">
+        <div class="result-actions"><button id="processBtn" class="btn btn-primary" type="button">Remove Silence</button><a id="downloadLink" class="btn btn-secondary" style="display:none" href="#">Download</a></div>
+        <div id="status" class="status-text" data-status-state="idle"></div>
+      </div>
     </div>
   </section>
 
-  <section>
+  <section class="section-shell section-surface content-section">
     <h2>How it works</h2>
     <p>The tool decodes audio into an AudioBuffer and computes short-time RMS over sliding windows. Segments with RMS below the threshold for at least the minimum duration are considered silence and removed. The non-silent segments are concatenated into a single audio buffer and exported as WAV, all in the browser using Web Audio APIs.</p>
+    <ol class="step-list">
+      <li>Upload an audio file from your device.</li>
+      <li>Set the silence threshold and minimum silence length.</li>
+      <li>Run the cleanup and download the WAV with dead air removed.</li>
+    </ol>
   </section>
 
-  <section>
+  <section class="section-surface content-section">
     <h2>How Silence Detection Works</h2>
     <p>Detection starts with an analysis of the audio waveform. The script examines the amplitude of the signal in small frames (typically 20-40 ms) and converts each frame to a root mean square (RMS) value that represents its average energy. When the RMS level falls below the chosen amplitude threshold, that frame is marked as silence. Consecutive silent frames longer than the minimum silence length trigger a cut.</p>
     <p>This approach mimics what many professional editors call silence detection or noise gate functionality, but it runs entirely client-side in your browser. You can watch the audio waveform preview as you adjust settings to see exactly which areas will be removed, giving you a visual sense of the gaps in your speech or podcast audio. Typical thresholds are around -40 dB for spoken-word material, but you can lower it for studio-quality speech recording or raise it for noisier environments. Rather than manually dragging trim handles, the automatic algorithm scans for low-energy frames and flags them-this saves time and ensures no silent gap is overlooked.</p>
   </section>
 
-  <section>
+  <section class="section-surface content-section">
     <h2>Why Remove Silence from Recordings?</h2>
     <p>Removing silence improves the listener experience and makes spoken-word content feel tighter and more engaging. For podcasters and speech recording enthusiasts, cutting pauses and gaps eliminates awkward dead air between sentences and helps maintain a consistent flow. It also reduces file size by trimming unnecessary portions, which is especially useful when uploading episodes or sending drafts to collaborators.</p>
     <p>In podcast editing, cleaned audio is easier to mix with music beds or sound effects because you don't have to manually hunt for empty segments. Audio cleanup with a silence remover also speeds up post-production - instead of scrubbing through hours of footage, you can automatically cut silent sections and jump straight to the content that matters. Removing pauses is especially helpful when editing interviews, allowing you to tighten conversations and improve pacing.</p>
     <p>Even for casual users, a quick pass with this tool can transform a long lecture or voice memo by removing background gaps and making the recording sound more professional without any specialized software. The same is true for speech recording assignments or online meetings where you want to remove silence from podcast episodes or Zoom recordings before sharing. Beyond aesthetics, cutting quiet sections reduces the final file size and makes uploads faster-important when band-width or storage space is limited.</p>
   </section>
 
-  <section><h2>FAQ</h2>
+  <section class="section-surface content-section"><h2>FAQ</h2>
   <p>If you're working on a podcast or long voice piece, run the detection once then preview to make sure it didn't cut out any spoken words; adjusting the amplitude threshold and minimum silence duration gives you full control. Remember that speech recordings often contain natural breaths and pauses-tuning the threshold lets you preserve those while still eliminating dead air.</p>
   <p>A final cleanup pass can make your voice track more engaging and ready for publishing, whether you're removing silence from podcast episodes, cleaning up a webinar recording, or preparing a speech for transcription.</p>
     <details><summary>Does silence removal affect quality?</summary><p>No - removing silent frames doesn't change the audio data you keep; it simply cuts out empty space.</p></details>
@@ -140,7 +156,7 @@
     <details><summary>Can I undo?</summary><p>This page processes files in memory. You can re-open the original file to retry different settings.</p></details>
   </section>
 
-  <section><h2>Internal Links</h2><ul><li><a href="/trim-mp3-online.html">Trim MP3</a></li><li><a href="/convert-mp3-to-wav.html">Convert MP3-&gt;WAV</a></li><li><a href="/normalize-audio-volume.html">Normalize</a></li><li><a href="/merge-audio-files.html">Merge</a></li><li><a href="/extract-audio-from-video.html">Extract</a></li></ul></section>
+  <section class="section-surface content-section"><h2>Internal Links</h2><ul><li><a href="/trim-mp3-online.html">Trim MP3</a></li><li><a href="/convert-mp3-to-wav.html">Convert MP3-&gt;WAV</a></li><li><a href="/normalize-audio-volume.html">Normalize</a></li><li><a href="/merge-audio-files.html">Merge</a></li><li><a href="/extract-audio-from-video.html">Extract</a></li></ul></section>
 
   <div id="related-tools"></div>
 </main>

@@ -69,13 +69,59 @@
 </header>
 
 <main class="container">
-  <section class="content-section">
+  <section class="content-section section-intro section-surface hero">
     <h1>Audio Pitch Changer – Change Pitch of Audio Files Online</h1>
     <p>An audio pitch changer allows you to raise or lower the pitch of an audio file without significantly changing playback speed. This can be useful for musicians, producers, and creators who want to adjust recordings for practice, mixing, or creative editing.</p>
     <p>With this browser-based pitch changer, you can upload a file, adjust its pitch level, preview the result, and export the modified audio instantly.</p>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-surface tool-ui">
+    <h2>Upload Audio</h2>
+    <input id="fileInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" hidden>
+    <div class="upload-box" id="uploadDropzone" role="button" tabindex="0" aria-label="Drop audio file here or click to upload">
+      <div class="upload-content">
+        <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
+        <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
+        <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
+        <small class="upload-dropzone__meta">Max file size: 200MB</small>
+        <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section section-surface tool-ui">
+    <h2>Adjust Settings</h2>
+    <div class="tool-card">
+      <div class="tool-grid">
+        <label class="control-label" for="semitoneRange">
+          Pitch Shift (Semitones)
+          <div class="range-row">
+            <input id="semitoneRange" type="range" min="-12" max="12" step="1" value="0">
+            <span class="value-chip" id="semitoneValue">+0 st</span>
+          </div>
+        </label>
+
+        <div class="meta-grid">
+          <div class="meta-item" id="rateValue">Playback Rate: 1.000x</div>
+          <div class="meta-item" id="originalDuration">Original Duration: -</div>
+          <div class="meta-item" id="newDuration">Estimated New Duration: -</div>
+        </div>
+
+        <div class="result-panel">
+          <div class="result-actions">
+            <button class="btn btn-secondary" id="previewBtn" type="button">Preview</button>
+            <button class="btn btn-secondary" id="pauseBtn" type="button">Pause</button>
+            <button class="btn btn-secondary" id="stopBtn" type="button">Stop</button>
+            <button class="btn btn-primary" id="exportBtn" type="button">Export Audio</button>
+            <a id="downloadLink" class="btn btn-secondary" style="display:none;text-decoration:none" aria-label="Download modified audio">Download</a>
+          </div>
+          <p id="status" class="status-text" data-status-state="idle">Upload a file to start.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section section-surface">
     <h2>How Audio Pitch Shifting Works</h2>
 
     <p>Audio pitch shifting changes the frequency of sound waves in a recording. Increasing pitch raises the perceived tone of the sound, while lowering pitch produces deeper tones.</p>
@@ -85,25 +131,25 @@
     <p>Pitch shifting is widely used in music production, podcast editing, sound design, and vocal processing workflows.</p>
   </section>
 
-  <section class="content-section section-surface">
+  <section class="content-section section-shell section-surface">
     <h2>Pitch vs Musical Key</h2>
 
-    <p>Pitch shifting can also change the musical key of a song. For example, raising pitch by one semitone moves the entire recording up by one musical step.</p>
-
-    <p>This technique allows singers to match songs to their vocal range and musicians to practice pieces in different keys.</p>
-
-    <p>Music producers often adjust pitch creatively to produce vocal effects, harmonies, or remix tracks.</p>
+    <ul class="feature-list feature-list--icon">
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M9 6h6"/><path d="M7 18h10"/></svg></span><span>Pitch shifting can also change the musical key of a song. For example, raising pitch by one semitone moves the entire recording up by one musical step.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>This technique allows singers to match songs to their vocal range and musicians to practice pieces in different keys.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 8-8"/><path d="M20 12a8 8 0 0 1-8 8"/><path d="m15 5 1-3 3 1"/><path d="m9 19-1 3-3-1"/></svg></span><span>Music producers often adjust pitch creatively to produce vocal effects, harmonies, or remix tracks.</span></li>
+    </ul>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-shell section-surface">
     <h2>Common Uses for Changing Audio Pitch</h2>
 
-    <ul>
-      <li>Changing the key of a song</li>
-      <li>Correcting vocal pitch</li>
-      <li>Practicing music in different keys</li>
-      <li>Creating sound design effects</li>
-      <li>Adjusting recordings for remixing</li>
+    <ul class="icon-list">
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M9 6h6"/><path d="M7 18h10"/></svg></span><span>Changing the key of a song</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>Correcting vocal pitch</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3"/><path d="M9 8v8"/><path d="M15 5v14"/><path d="M21 10v4"/></svg></span><span>Practicing music in different keys</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 8-8"/><path d="M20 12a8 8 0 0 1-8 8"/><path d="m15 5 1-3 3 1"/><path d="m9 19-1 3-3-1"/></svg></span><span>Creating sound design effects</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><span>Adjusting recordings for remixing</span></li>
     </ul>
 
     <p>Pitch adjustment is frequently used in music production, podcast editing, and creative audio design.</p>
@@ -126,56 +172,18 @@
     <p>Audio processing happens directly in your browser, which means your files remain private and are never uploaded to external servers.</p>
   </section>
 
-  <section class="content-section">
-    <h2>Upload Box</h2>
-    <input id="fileInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" hidden>
-    <div class="upload-box" id="uploadDropzone" role="button" tabindex="0" aria-label="Drop audio file here or click to upload">
-      <div class="upload-content">
-        <div class="upload-icon">&#9729;&#65039;</div>
-        <h2>Drop audio file here or click to browse</h2>
-        <p>MP3, WAV, M4A, FLAC and more</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="content-section">
-    <h2>Tool Interface</h2>
-    <div class="tool-card">
-      <div class="tool-grid">
-        <label class="control-label" for="semitoneRange">
-          Pitch Shift (Semitones)
-          <div class="range-row">
-            <input id="semitoneRange" type="range" min="-12" max="12" step="1" value="0">
-            <span class="value-chip" id="semitoneValue">+0 st</span>
-          </div>
-        </label>
-
-        <div class="meta-grid">
-          <div class="meta-item" id="rateValue">Playback Rate: 1.000x</div>
-          <div class="meta-item" id="originalDuration">Original Duration: -</div>
-          <div class="meta-item" id="newDuration">Estimated New Duration: -</div>
-        </div>
-
-        <div class="button-row">
-          <button class="btn" id="previewBtn" type="button">Preview</button>
-          <button class="btn btn-ghost" id="pauseBtn" type="button">Pause</button>
-          <button class="btn btn-ghost" id="stopBtn" type="button">Stop</button>
-          <button class="btn" id="exportBtn" type="button">Export Audio</button>
-          <a id="downloadLink" class="btn btn-ghost" style="display:none;text-decoration:none" aria-label="Download modified audio">Download</a>
-        </div>
-
-        <p id="status" class="status-text">Upload a file to start.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="content-section">
+  <section class="content-section section-shell section-surface">
     <h2>What Is Pitch Shifting</h2>
     <p>Pitch shifting changes the frequency of audio so it sounds higher or lower.</p>
     <p>Increasing pitch raises the tone, while lowering pitch produces a deeper sound.</p>
+    <ol class="step-list">
+      <li>Upload an audio file from your device.</li>
+      <li>Set the semitone shift you want to apply.</li>
+      <li>Preview the result and export the modified WAV when it sounds right.</li>
+    </ol>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-surface">
     <h2>Pitch vs Speed</h2>
     <p>Pitch controls tone while speed controls playback rate.</p>
     <p>For example:</p>
@@ -187,7 +195,7 @@
     <p>To adjust playback rate instead, try our <a href="/audio-speed-changer.html">Audio Speed Changer</a>.</p>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-surface">
     <h2>Common Uses for Pitch Adjustment</h2>
     <ul>
       <li>Changing the key of a song</li>
@@ -198,7 +206,7 @@
     </ul>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-surface">
     <h2>Browser-Based Audio Editing</h2>
     <p>This pitch changer works entirely inside your browser. Once you change the pitch of an audio file you can <a href="/free-mp3-cutter.html">cut MP3</a> sections or <a href="/normalize-audio-volume.html">adjust audio loudness</a> to balance the volume before downloading the final file. Your files are processed locally, which provides:</p>
     <ul>
@@ -211,7 +219,7 @@
 
   <div id="related-tools"></div>
 
-  <section class="content-section">
+  <section class="content-section section-surface">
     <h2>FAQ</h2>
     <details>
       <summary>What is an audio pitch changer?</summary>

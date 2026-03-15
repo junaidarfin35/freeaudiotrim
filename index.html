@@ -135,27 +135,6 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* FAQ Styles */
-    .faq-item {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 0.75rem;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
-    }
-    
-    .faq-question {
-      font-weight: 600;
-      font-size: 1.125rem;
-      color: var(--text);
-      margin-bottom: 0.75rem;
-    }
-    
-    .faq-answer {
-      color: var(--text-secondary);
-      line-height: 1.7;
-    }
-
     /* Privacy Badge */
     .privacy-badge {
       display: inline-flex;
@@ -189,7 +168,7 @@
   <!-- Main Content -->
   <main class="container">
     <!-- SECTION 1: H1 + SHORT INTRO -->
-    <section class="content-section section-intro">
+    <section class="content-section section-intro section-surface hero">
       <h1>
         Trim MP3 Online Free - Cut Audio Files in Your Browser
       </h1>
@@ -203,13 +182,13 @@
         100% Client-Side Processing
       </div>
     </section>
-    <section class="content-section">
+    <section class="content-section section-surface">
   <h2>Quick Answer: How to Trim MP3 Online</h2>
   <p>To trim MP3 online, upload your audio file, drag the start and end markers on the waveform, preview the selected section, and export as MP3 or WAV. The entire process runs in your browser without uploading your file to a server.</p>
 </section>
 
     <!-- SECTION 2: TOOL INTERFACE -->
-    <section class="content-section section-surface">
+    <section class="content-section section-surface tool-ui">
       <div id="audio-tool"></div>
       <p class="tool-shell-note">
         <strong>Your files never leave your device. No uploads. No account required.</strong>
@@ -217,10 +196,10 @@
     </section>
 
     <!-- SECTION 3: HOW TO TRIM MP3 ONLINE -->
-    <section class="content-section">
+    <section class="content-section section-shell section-surface">
       <h2>How to Trim MP3 Online</h2>
       <p>Just three quick actions let you trim mp3 online in minutes using this free mp3 cutter and audio trimmer online:</p>
-      <ol>
+      <ol class="step-list">
         <li>Upload your MP3, WAV, M4A, AAC (etc.) file; it's decoded instantly in-browser.</li>
         <li>Drag the waveform handles or click to set start and end points for the segment you want.</li>
         <li>Preview with play/spacebar, then hit <strong>Export &amp; Download</strong> to save as MP3 or WAV - you can cut mp3 file or cut audio online with zero fuss.</li>
@@ -236,7 +215,7 @@
     </section>
 
     <!-- SECTION 4B: Need more than just trimming -->
-    <section class="content-section">
+    <section class="content-section section-surface">
       <h2>Need More Than Just Trimming?</h2>
       <p>
       Need more than just trimming You can also 
@@ -255,35 +234,35 @@
 
 
     <!-- SECTION 5A: WHY TRIM WITHOUT UPLOADING -->
-    <section class="content-section">
+    <section class="content-section section-surface">
       <h2>Why Trim MP3 Without Uploading?</h2>
       <p>Choosing to trim mp3 without uploading means your private recordings stay private. No server, no account, no transfer - you cut mp3 file fragments right in the browser. That makes it a naturally secure option for anyone who needs to edit audio without installing software or trusting a third party. It's also much faster; you don't wait for large files to upload before you can begin to edit a clip.</p>
       <p>Local processing helps you cut mp3 without losing quality because your source file stays on your device from start to finish. You can review every selection before export, keep quality settings under your control, and avoid unnecessary transfers when you only need a short segment.</p>
     </section>
 
     <!-- SECTION 5B: COMMON USE CASES -->
-    <section class="content-section section-surface">
+    <section class="content-section section-shell section-surface">
       <h2>Common Use Cases for Trimming Audio</h2>
-      <ul>
-        <li>Emailing or messaging a clip Cut mp3 without losing quality and keep file size down.</li>
-        <li>Making a ringtone Cut mp3 file to the perfect length with precise duration control.</li>
-        <li>Preparing podcast teasers Use the audio trimmer online to slice out intros or ads quickly.</li>
-        <li>Sharing a voice memo Shorten mp3 file online and send over mobile without re-encoding.</li>
-        <li>Editing a lecture or interview The waveform editor helps you select important sections fast.</li>
-        <li>Working on mobile Trim mp3 on mobile browser while commuting or in a café.</li>
-        <li>Need a quick preview Cut audio online in seconds to check bitrate or compression effects before finalizing.</li>
+      <ul class="icon-list">
+        <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4"/><path d="M10 12H2"/><path d="m14 8 4 4-4 4"/><path d="M10 4H6a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h4"/></svg></span><span>Emailing or messaging a clip Cut mp3 without losing quality and keep file size down.</span></li>
+        <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v18"/><path d="m8 5 10 3-10 3"/><path d="m8 14 10 3-10 3"/></svg></span><span>Making a ringtone Cut mp3 file to the perfect length with precise duration control.</span></li>
+        <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><span>Preparing podcast teasers Use the audio trimmer online to slice out intros or ads quickly.</span></li>
+        <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Sharing a voice memo Shorten mp3 file online and send over mobile without re-encoding.</span></li>
+        <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg></span><span>Editing a lecture or interview The waveform editor helps you select important sections fast.</span></li>
+        <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span><span>Working on mobile Trim mp3 on mobile browser while commuting or in a café.</span></li>
+        <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h6"/><path d="M15 12h6"/><path d="m9 8 6 4-6 4"/></svg></span><span>Need a quick preview Cut audio online in seconds to check bitrate or compression effects before finalizing.</span></li>
       </ul>
     </section>
 
     <!-- SECTION 5C: VISIBLE FAQ -->
-    <section class="content-section">
+    <section class="content-section section-surface">
       <h2>Frequently Asked Questions</h2>
-      <div class="faq-item"><div class="faq-question">Does trimming reduce audio quality?</div><div class="faq-answer">Trimming removes the parts you do not want but keeps the selected section intact. In normal use, the audible quality of that kept section stays the same. Quality only changes when you export with lower settings or switch to a more compressed format.</div></div>
-      <div class="faq-item"><div class="faq-question">Is trimming private?</div><div class="faq-answer">Yes. This tool processes audio in your browser, so your file is not sent to our servers for editing. When you close the tab, temporary data from the session is cleared by the browser environment.</div></div>
-      <div class="faq-item"><div class="faq-question">What's the maximum file size?</div><div class="faq-answer">A practical limit is around 200 MB for smooth editing in most modern devices. Larger files can still open, but response time depends on your RAM and browser performance. If playback feels slow, split the recording into smaller parts first.</div></div>
-      <div class="faq-item"><div class="faq-question">Can I trim on mobile?</div><div class="faq-answer">Yes, you can trim audio on Android and iOS using current mobile browsers. The controls are designed for touch, including drag handles and timeline preview. For best results, keep other heavy apps closed while exporting.</div></div>
-      <div class="faq-item"><div class="faq-question">What formats are supported?</div><div class="faq-answer">You can load common audio types such as MP3, WAV, M4A, AAC, OGG, FLAC, and more where browser decoding is available. Export choices include MP3 (compressed) and WAV (lossless). This gives you flexibility for sharing, archiving, or further editing.</div></div>
-      <div class="faq-item"><div class="faq-question">Does trimming change bitrate?</div><div class="faq-answer">Trimming by itself does not automatically lower bitrate. Bitrate changes only if you choose different export quality or a different codec during download. If you want to preserve the original sound profile, keep export settings close to the source.</div></div>
+      <details><summary>Does trimming reduce audio quality?</summary><p>Trimming removes the parts you do not want but keeps the selected section intact. In normal use, the audible quality of that kept section stays the same. Quality only changes when you export with lower settings or switch to a more compressed format.</p></details>
+      <details><summary>Is trimming private?</summary><p>Yes. This tool processes audio in your browser, so your file is not sent to our servers for editing. When you close the tab, temporary data from the session is cleared by the browser environment.</p></details>
+      <details><summary>What's the maximum file size?</summary><p>A practical limit is around 200 MB for smooth editing in most modern devices. Larger files can still open, but response time depends on your RAM and browser performance. If playback feels slow, split the recording into smaller parts first.</p></details>
+      <details><summary>Can I trim on mobile?</summary><p>Yes, you can trim audio on Android and iOS using current mobile browsers. The controls are designed for touch, including drag handles and timeline preview. For best results, keep other heavy apps closed while exporting.</p></details>
+      <details><summary>What formats are supported?</summary><p>You can load common audio types such as MP3, WAV, M4A, AAC, OGG, FLAC, and more where browser decoding is available. Export choices include MP3 (compressed) and WAV (lossless). This gives you flexibility for sharing, archiving, or further editing.</p></details>
+      <details><summary>Does trimming change bitrate?</summary><p>Trimming by itself does not automatically lower bitrate. Bitrate changes only if you choose different export quality or a different codec during download. If you want to preserve the original sound profile, keep export settings close to the source.</p></details>
     </section>
 
     <!-- SECTION 6: INTERNAL LINKS -->
@@ -310,13 +289,13 @@
       </div>
     </section>
 
-    <section class="content-section">
+    <section class="content-section section-surface">
       <h2>Free Online Audio Tools for Editing Sound in Your Browser</h2>
       <p>FreeAudioTrim provides a collection of powerful <a href="/audio-converter.html">online audio tools</a> that run entirely in your browser. You can <a href="/free-mp3-cutter.html">trim audio files</a>, convert audio formats, <a href="/normalize-audio-volume.html">normalize sound levels</a>, <a href="/merge-audio-files.html">merge tracks</a>, <a href="/remove-silence-from-audio.html">remove silence</a>, change playback speed, adjust pitch, and <a href="/extract-audio-from-video.html">extract audio from video</a> without installing any software.</p>
       <p>These browser-based audio tools make it easy to edit sound files quickly and privately. Because all processing happens locally in your browser, your files never need to be uploaded to a server. This makes the tools fast, secure, and accessible on any device including desktops, tablets, and smartphones.</p>
     </section>
 
-    <section class="content-section">
+    <section class="content-section section-surface">
       <h2>What You Can Do With Our Online Audio Editor</h2>
       <p>Our collection of audio editing tools covers the most common audio processing tasks used by creators, podcasters, musicians, and video editors. With these tools you can quickly trim MP3 files, convert audio formats, adjust loudness levels, remove silence from recordings, merge multiple audio clips, and modify playback speed or pitch.</p>
       <ul>
@@ -331,7 +310,7 @@
       <p>Each tool focuses on one specific task, making it easier and faster to edit audio without complicated software.</p>
     </section>
 
-    <section class="content-section">
+    <section class="content-section section-surface">
       <h2>How Our Browser-Based Audio Tools Work</h2>
       <p>All audio processing on FreeAudioTrim runs directly in your browser using modern Web Audio APIs. When you upload a file, it is decoded locally and processed in memory without being sent to external servers.</p>
       <p>This approach provides several advantages:</p>
@@ -344,7 +323,7 @@
       <p>Whether you need a quick audio trim, format conversion, or volume adjustment, these tools provide a simple and efficient way to edit sound online.</p>
     </section>
 
-    <section class="content-section" aria-labelledby="latest-audio-guides">
+    <section class="content-section section-surface" aria-labelledby="latest-audio-guides">
       <h2 id="latest-audio-guides">Latest Audio Editing Guides</h2>
       <p>Learn how to trim, convert, normalize and edit audio files with our step-by-step tutorials.</p>
 
@@ -408,7 +387,7 @@
   </main>
 
   <!-- RELATED TOOLS -->
-<section class="content-section related-tools">
+<section class="container content-section section-surface related-tools">
   <h2>Related Audio Tools</h2>
 
   <div class="related-grid">
@@ -425,7 +404,7 @@
   </div>
 </section>
 
-  <section class="content-section">
+  <section class="container content-section section-surface">
     <h2>Audio Editing Guides</h2>
     <ul>
       <li><a href="/blog/how-to-trim-mp3-online.html">How to Trim MP3 Online</a></li>
@@ -1051,13 +1030,15 @@ function convertFloatToInt16(buffer) {
       return (
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           {!audioFile && (
-            <div style={{ border: '2px dashed var(--border)', borderRadius: '1rem', padding: '3rem 2rem', textAlign: 'center', background: 'white' }}>
+            <div style={{ padding: '0', textAlign: 'center', background: 'transparent' }}>
               <input type="file" accept={supportedFormats.join(',')} onChange={handleFileUpload} style={{ display: 'none' }} id="fileInput" />
               <div className="upload-box">
                 <div className="upload-content">
-                  <div className="upload-icon">☁️</div>
-                  <h2>Upload Audio File</h2>
-                  <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
+                  <div className="upload-icon" aria-hidden="true"><svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
+                  <h2 className="upload-dropzone__primary">Drop audio file here or click to upload</h2>
+                  <p className="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
+                  <small className="upload-dropzone__meta">Max file size: 200MB</small>
+                  <small className="upload-dropzone__privacy">Files processed locally in your browser</small>
                 </div>
               </div>
             </div>

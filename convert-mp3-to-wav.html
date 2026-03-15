@@ -93,31 +93,37 @@
 </header>
 
   <main class="container">
+    <section class="content-section section-intro section-surface hero">
     <h1>Convert MP3-&gt;WAV Online Free - No Upload Required</h1>
 <p>Use our mp3 to wav converter online to change MP3 to WAV format without uploading. The tool converts audio in the browser so files never leave your device. For quick edits you can <a href="/trim-mp3-online.html">Trim MP3 Online</a> before conversion, or run a <a href="/normalize-audio-volume.html">balance audio volume</a> pass to even out levels.</p>
+    </section>
 
-    <section class="tool" aria-labelledby="tool">
-      <h2 id="tool">Tool</h2>
+    <section class="content-section section-surface tool-ui" aria-labelledby="tool">
+      <h2 id="tool">Upload Audio</h2>
       <p>Select an MP3 file and convert it to WAV. The page decodes and re-encodes audio entirely in your browser using the Web Audio API.</p>
 
-      <div style="display:grid;gap:0.75rem">
+      <div class="tool-stack">
         <input type="file" id="fileInput" accept="audio/*" />
-        <div class="upload-box">
+        <div class="upload-box" aria-label="Drop audio file here or click to upload">
           <div class="upload-content">
-            <div class="upload-icon">&#9729;&#65039;</div>
-            <h2>Upload Audio File</h2>
-            <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
+            <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
+            <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
+            <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
+            <small class="upload-dropzone__meta">Max file size: 200MB</small>
+            <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
           </div>
         </div>
-        <div style="display:flex;gap:0.5rem">
-          <button id="convertBtn" style="background:var(--primary);color:#fff;padding:0.5rem 1rem;border-radius:6px;border:none">Convert to WAV</button>
-          <a id="downloadLink" style="display:none;padding:0.5rem 1rem;border-radius:6px;border:1px solid var(--border);text-decoration:none;color:var(--text);background:#fff">Download WAV</a>
+        <div class="result-panel">
+          <div class="result-actions">
+            <button id="convertBtn" class="btn btn-primary" type="button">Convert to WAV</button>
+            <a id="downloadLink" class="btn btn-secondary" style="display:none" href="#">Download WAV</a>
+          </div>
+          <div id="status" class="status-text" data-status-state="idle"></div>
         </div>
-        <div id="status" style="color:var(--text-secondary)"></div>
       </div>
     </section>
 
-    <section>
+    <section class="section-shell section-surface content-section">
       <h2>How it works</h2>
 <p>This page uses the Web Audio API to decode the uploaded MP3 into an AudioBuffer in memory. Because MP3 is a lossy, compressed format, converting it to WAV won't restore lost detail; WAV simply wraps the decoded PCM audio in an uncompressed, lossless container. The export preserves the original sample rate and bit depth (typically 16-bit PCM) rather than applying any compression or bitrate change. We then convert the floating point PCM data to 16-bit PCM and wrap it in a WAV container (RIFF) entirely in JavaScript. You can then download the file. All processing runs locally - if there are gaps, use <a href="/remove-silence-from-audio.html">trim silence</a> or <a href="/merge-audio-files.html">combine audio tracks</a> before converting.</p>
 
@@ -125,24 +131,25 @@
       <p>Local conversion keeps your audio private, fast, and offline without network latency or signup. You don't need to trust a third party with your files, and you can convert mp3 without losing quality since no external processing occurs.</p>
 
       <h3>Step-by-step</h3>
-      <ol>
+      <ol class="step-list">
         <li>Choose an MP3 file using the file control.</li>
         <li>Click "Convert to WAV" - the browser decodes and converts the file.</li>
         <li>When finished, click Download to save the WAV file to your device.</li>
       </ol>
     </section>
 
-    <section>
+    <section class="section-surface content-section">
       <h2>Why Convert MP3-&gt;WAV?</h2>
       <p>Many users look for a reliable <em>mp3 to wav converter online</em> when they need a WAV copy for editing, archiving, or professional use. WAV is a lossless format and does not use the compression or bitrate schemes that MP3 employs, so the uncompressed file can be easier to work with in audio software. Though the resulting WAV will have a larger file size difference compared to the original MP3, the sample rate and bit depth remain identical, and you won't lose any additional quality during the change.</p>
       <p>Because this tool works in-browser and entirely client-side, you can transform mp3 into lossless WAV without uploading, and maintain full control over the conversion process.</p>
     </section>
 
-    <section>
+    <section class="section-surface content-section">
       <h2>MP3 vs WAV - What's the Difference?</h2>
       <p>MP3 is a lossy, compressed container that reduces bitrate by discarding data deemed inaudible; it's efficient for distribution but not ideal for editing. WAV, on the other hand, is an uncompressed container that stores raw PCM audio. When you use this converter to change MP3 to WAV format, you're not improving the audio quality - the MP3's compression artifacts and original bitrate are baked in - but you are moving the audio into a format better suited for post-production or compatibility with professional software.</p>
       <p>In essence, a WAV file produced by our converter retains the original sample rate and reproduces the decoded audio exactly, which is why people say you can <strong>convert mp3 without losing quality</strong> when using a browser tool like this; there's simply no additional re-encoding. The primary differences are about compression, container type, and potential file size.</p>
     </section>
+    <section class="section-surface content-section">
       <p>
       After converting your file, you can further edit it using our 
       <a href="/">Trim MP3 Online tool</a> 
@@ -150,8 +157,9 @@
 <a href="/normalize-audio-volume.html">adjust audio loudness</a>
       to improve loudness and clarity.
       </p>
+    </section>
 
-    <section>
+    <section class="section-surface content-section">
       <h2>FAQ</h2>
       <details><summary>Does this upload my file?</summary><p>No - conversion happens locally and nothing is uploaded.</p></details>
       <details><summary>What bitrate will the WAV have?</summary><p>WAV is lossless container; we export 16-bit PCM at the original sample rate decoded by your browser.</p></details>

@@ -84,30 +84,45 @@
   </div>
 </header>
 <main class="container">
+  <section class="content-section section-intro section-surface hero">
   <h1>Extract Audio from Video Online - Get MP3 from MP4 Instantly</h1>
-<p>Extract audio from video files directly in your browser. Convert MP4 video to WAV without uploading your file to any server. Processing is done locally using the browser's decoding capabilities. If you want to edit the extracted output right away, use <a href="/free-mp3-cutter.html">audio cutter</a> for quick trims or <a href="/trim-mp3-online.html">Trim MP3 Online</a> for additional waveform editing. For level balancing after extraction, apply <a href="/normalize-audio-volume.html">adjust audio loudness</a>.</p>
-  <section class="tool">
-    <h2>Tool</h2>
-    <div style="display:grid;gap:0.75rem">
+<p>Extract audio from video files directly in your browser. Convert MP4 video to WAV without uploading your file to any server. Processing is done locally using the browser's decoding capabilities.</p>
+<ul class="tool-links">
+  <li>If you want to edit the extracted output right away, use <a href="/free-mp3-cutter.html">audio cutter</a> for quick trims.</li>
+  <li>Use <a href="/trim-mp3-online.html">Trim MP3 Online</a> for additional waveform editing.</li>
+  <li>For level balancing after extraction, apply <a href="/normalize-audio-volume.html">adjust audio loudness</a>.</li>
+</ul>
+  </section>
+  <section class="content-section section-surface tool-ui">
+    <h2>Upload Audio</h2>
+    <div class="tool-stack">
       <input type="file" id="fileInput" accept="video/*,audio/*" />
-      <div class="upload-box">
+      <div class="upload-box" aria-label="Drop audio file here or click to upload">
         <div class="upload-content">
-          <div class="upload-icon">&#9729;&#65039;</div>
-          <h2>Upload Video File</h2>
-          <p>Supports MP4, MOV, MKV, WEBM and other common video formats</p>
-          
+          <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
+          <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
+          <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
+          <small class="upload-dropzone__meta">Max file size: 200MB</small>
+          <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
         </div>
       </div>
-      <div style="display:flex;gap:0.5rem"><button id="extractBtn" style="background:#2563eb;color:#fff;padding:0.5rem;border-radius:6px;border:none">Extract Audio</button><a id="downloadLink" style="display:none;padding:0.5rem 1rem;border-radius:6px;border:1px solid #e2e8f0;color:#0f172a;text-decoration:none;background:#fff">Download</a></div>
-      <div id="status" style="color:#64748b"></div>
+      <div class="result-panel">
+        <div class="result-actions"><button id="extractBtn" class="btn btn-primary" type="button">Extract Audio</button><a id="downloadLink" class="btn btn-secondary" style="display:none" href="#">Download</a></div>
+        <div id="status" class="status-text" data-status-state="idle"></div>
+      </div>
     </div>
   </section>
 
-  <section><h2>How it works</h2>
+  <section class="section-shell section-surface content-section"><h2>How it works</h2>
     <p>The browser reads the file as an ArrayBuffer and attempts to decode the audio track via the Web Audio API's <code>decodeAudioData</code>. For common containers like MP4 with AAC audio, modern browsers can decode the audio track directly. Once decoded into an AudioBuffer, it is exported as WAV and offered for download - all in memory in the browser.</p>
+    <ol class="step-list">
+      <li>Choose a video file from your device.</li>
+      <li>The browser decodes the embedded audio track locally.</li>
+      <li>The decoded audio is exported as WAV and prepared for download.</li>
+    </ol>
   </section>
 
-  <section><h2>FAQ</h2>
+  <section class="section-surface content-section"><h2>FAQ</h2>
     <details><summary>Will my file be uploaded?</summary><p>No - the file stays in your browser.</p></details>
     <details><summary>Can I get MP3 directly?</summary><p>This tool provides WAV output; MP3 encoding can be added client-side using a JS encoder if desired.</p></details>
     <details><summary>What if decodeAudioData fails?</summary><p>Your browser may not support the audio codec inside the video; try exporting from your video editor to a supported container or use a different browser.</p></details>
@@ -115,8 +130,8 @@
     <details><summary>Is the audio quality preserved?</summary><p>Yes - audio is exported as decoded PCM in WAV format.</p></details>
   </section>
 
-  <section><h2>Internal Links</h2><ul><li><a href="/trim-mp3-online.html">Trim MP3</a></li><li><a href="/convert-mp3-to-wav.html">Convert MP3-&gt;WAV</a></li><li><a href="/normalize-audio-volume.html">Normalize</a></li><li><a href="/remove-silence-from-audio.html">Remove Silence</a></li><li><a href="/merge-audio-files.html">Merge</a></li></ul></section>
- <section>
+  <section class="section-surface content-section"><h2>Internal Links</h2><ul><li><a href="/trim-mp3-online.html">Trim MP3</a></li><li><a href="/convert-mp3-to-wav.html">Convert MP3-&gt;WAV</a></li><li><a href="/normalize-audio-volume.html">Normalize</a></li><li><a href="/remove-silence-from-audio.html">Remove Silence</a></li><li><a href="/merge-audio-files.html">Merge</a></li></ul></section>
+ <section class="section-shell section-surface content-section">
   <h2>Extract Audio from MP4 Video Online</h2>
 
   <p>
@@ -134,12 +149,12 @@ No uploads, no server processing, and no account required.
   </p>
 
   <h3>How It Works</h3>
-  <ul>
-    <li>Select your video file (MP4 recommended)</li>
-    <li>The browser decodes the audio track locally</li>
-    <li>The extracted audio is converted to WAV format</li>
-    <li>Download your audio file instantly</li>
-  </ul>
+  <ol class="step-list">
+    <li>Select your video file (MP4 recommended).</li>
+    <li>The browser decodes the audio track locally.</li>
+    <li>The extracted audio is converted to WAV format.</li>
+    <li>Download your audio file instantly.</li>
+  </ol>
 
   <h3>Privacy First</h3>
   <p>

@@ -50,9 +50,17 @@
       "#audio-tool .at-wave-wrap{position:relative;width:100%;touch-action:none}" +
       "#audio-tool canvas.at-wave{width:100%;height:180px;display:block;background:#fafafa;border:1px solid #e4e4e7;border-radius:12px}" +
       "#audio-tool .at-times{display:flex;justify-content:space-between;color:#18181b;font-weight:500;font-variant-numeric:tabular-nums;margin-top:6px}" +
-      "#audio-tool .at-status{min-height:20px;color:#3f3f46}" +
+      "#audio-tool .at-status{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:12px 14px;border:1px solid #dbe4f0;border-radius:12px;background:#fff;color:#5b6b82}" +
+      "#audio-tool .at-status::before{content:'';width:10px;height:10px;border-radius:999px;background:#b7c6d9;flex:0 0 auto}" +
+      "#audio-tool .at-status[data-status-state='processing']{border-color:rgba(37,99,235,.22);background:#eaf2ff;color:#1d4ed8}" +
+      "#audio-tool .at-status[data-status-state='processing']::before{background:transparent;border:2px solid rgba(37,99,235,.25);border-top-color:#2563eb;animation:atSpin .8s linear infinite}" +
+      "#audio-tool .at-status[data-status-state='success']{border-color:rgba(22,163,74,.22);background:#ecfdf5;color:#166534}" +
+      "#audio-tool .at-status[data-status-state='success']::before{background:#16a34a;box-shadow:0 0 0 4px rgba(22,163,74,.12)}" +
+      "#audio-tool .at-status[data-status-state='error']{border-color:rgba(185,28,28,.2);background:#fef2f2;color:#991b1b}" +
+      "#audio-tool .at-status[data-status-state='error']::before{background:#dc2626;box-shadow:0 0 0 4px rgba(220,38,38,.12)}" +
       "#audio-tool .at-help{color:#52525b;font-size:12px}" +
       "#audio-tool .at-checkbox{display:inline-flex;gap:6px;align-items:center;user-select:none}" +
+      "@keyframes atSpin{to{transform:rotate(360deg)}}" +
       "@media (max-width:640px){#audio-tool .at-root{padding:12px}#audio-tool canvas.at-wave{height:150px}#audio-tool .at-btn{padding:8px 10px}}";
     document.head.appendChild(style);
   }
@@ -705,13 +713,23 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     this.exportMp3Btn.disabled = !enabled;
   };
 
+  UIController.prototype.setStatus = function (message) {
+    this.statusEl.textContent = message;
+    var text = String(message || "").toLowerCase();
+    this.statusEl.dataset.statusState =
+      /error|failed|not supported/.test(text) ? "error" :
+      /ready|download started|reset/.test(text) ? "success" :
+      /decoding|encoding|loading/.test(text) ? "processing" :
+      "idle";
+  };
+
   UIController.prototype.onFileChange = async function () {
     var file = this.fileInput.files && this.fileInput.files[0];
     if (!file) {
       return;
     }
     this.currentFile = file;
-    this.statusEl.textContent = "Decoding audio...";
+    this.setStatus("Decoding audio...");
     this._setControlsEnabled(false);
     this.audio.stop();
     this.stopAnimationLoop();
@@ -724,9 +742,9 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
       this.renderer.setPeaksFromBuffer(buffer);
       this._setControlsEnabled(true);
       this.updateTimeText();
-      this.statusEl.textContent = "Ready. Drag handles to trim and press Play.";
+      this.setStatus("Ready. Drag handles to trim and press Play.");
     } catch (err) {
-      this.statusEl.textContent = "This audio format is not supported by your browser. " + BROWSER_SUPPORT_MESSAGE;
+      this.setStatus("This audio format is not supported by your browser. " + BROWSER_SUPPORT_MESSAGE);
       this.duration = 0;
       this._setControlsEnabled(false);
     }
@@ -796,7 +814,7 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     this.trim.reset();
     this.audio.resetPosition(0);
     this.renderer.setPlayhead(0);
-    this.statusEl.textContent = "Trim region reset.";
+    this.setStatus("Trim region reset.");
   };
 
   UIController.prototype._downloadBlob = function (blob, filename) {
@@ -819,9 +837,9 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
       var wav = this.audio.exportWav(selection.start, selection.end);
       var base = this.currentFile.name.replace(/\.[^/.]+$/, "") || "trimmed";
       this._downloadBlob(wav, base + "-trimmed.wav");
-      this.statusEl.textContent = "WAV ready. Download started.";
+      this.setStatus("WAV ready. Download started.");
     } catch (err) {
-      this.statusEl.textContent = "WAV export failed.";
+      this.setStatus("WAV export failed.");
     }
   };
 
@@ -829,15 +847,15 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     if (!this.duration || !this.currentFile) {
       return;
     }
-    this.statusEl.textContent = "Encoding MP3...";
+    this.setStatus("Encoding MP3...");
     try {
       var selection = this._getSelection();
       var mp3 = await this.audio.exportMp3(selection.start, selection.end, 192);
       var base = this.currentFile.name.replace(/\.[^/.]+$/, "") || "trimmed";
       this._downloadBlob(mp3, base + "-trimmed.mp3");
-      this.statusEl.textContent = "MP3 ready. Download started.";
+      this.setStatus("MP3 ready. Download started.");
     } catch (err) {
-      this.statusEl.textContent = "MP3 export failed: " + err.message;
+      this.setStatus("MP3 export failed: " + err.message);
     }
   };
 

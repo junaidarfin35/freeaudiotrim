@@ -15,6 +15,15 @@
   const originalDuration = document.getElementById("originalDuration");
   const newDuration = document.getElementById("newDuration");
   const BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
+  function setStatus(message) {
+    status.textContent = message;
+    const text = String(message || "").toLowerCase();
+    status.dataset.statusState =
+      /error|failed|not supported/.test(text) ? "error" :
+      /ready|previewing|download/.test(text) ? "success" :
+      /decoding|rendering|export/.test(text) ? "processing" :
+      "idle";
+  }
 
   let audioContext = null;
   let audioBuffer = null;
@@ -342,10 +351,6 @@
     }
     downloadLink.style.display = "none";
     downloadLink.removeAttribute("href");
-  }
-
-  function setStatus(message) {
-    status.textContent = message;
   }
 
   function clamp(value, min, max) {

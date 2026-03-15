@@ -85,49 +85,64 @@
   </div>
 </header>
 <main class="container">
+  <section class="content-section section-intro section-surface hero">
   <h1>Merge Audio Files Online - Free Audio Joiner for MP3, WAV and More</h1>
   <p>Need to merge audio files online without opening a heavy editor This page is built for exactly that workflow. You can combine mp3 files, stack voice notes, and merge multiple audio clips into one downloadable track in minutes. Because processing runs in your browser, your files stay on your device from start to finish. There are no uploads to remote servers, no account setup, and no waiting for cloud rendering. If your goal is to merge mp3 files in browser tabs while working quickly, this tool gives you a direct path: add files, reorder them, merge, and download.</p>
 <p>The editor is intentionally simple, but the result is practical for many real tasks. You might join audio tracks for a podcast intro and episode body, combine language-learning snippets into one lesson, or assemble meeting notes into a single archive. The list interface supports quick reordering so you can control track sequencing before export. That matters when timing, narration order, or musical flow affects the final listening experience. If you've been searching for an audio joiner online that focuses on speed and privacy, this approach keeps the process clean and local. If you want to further prepare your clips before combining them, use <a href="/trim-mp3-online.html">Trim MP3 Online</a>. For consistent output loudness after joining, apply <a href="/normalize-audio-volume.html">fix uneven audio levels</a>.</p>
 <p>This tool is also useful when you want to combine audio without installing software. Browser-based merging is convenient on shared computers, locked-down work devices, and mobile setups where installing desktop applications is not ideal. Since the audio stitching process happens directly with Web Audio APIs, you can produce a single output file with minimal overhead. For creators, teachers, students, marketers, and support teams, that means less time managing apps and more time publishing content. If you need a different output format after joining clips, run the result through our <a href="/audio-converter.html">audio format converter</a>.</p>
+  </section>
 
-  <section class="tool">
-    <h2>Tool</h2>
+  <section class="content-section section-surface tool-ui">
+    <h2>Upload Audio</h2>
     <p>Add multiple files, reorder them, and merge into a single WAV file.</p>
-    <div style="display:grid;gap:0.75rem">
-<input type="file" id="fileInput" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" multiple />
-      <div class="upload-box">
+    <div class="tool-stack">
+      <input type="file" id="fileInput" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" multiple />
+      <div class="upload-box" aria-label="Drop audio file here or click to upload">
         <div class="upload-content">
-          <div class="upload-icon">&#9729;&#65039;</div>
-          <h2>Upload Audio File</h2>
-          <p>MP3, WAV, AAC, M4A, FLAC, OGG and more</p>
+          <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
+          <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
+          <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
+          <small class="upload-dropzone__meta">Max file size: 200MB</small>
+          <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
         </div>
       </div>
       <div id="fileList"></div>
-      <div style="display:flex;gap:0.5rem"><button id="mergeBtn" style="background:#2563eb;color:#fff;padding:0.5rem;border-radius:6px;border:none">Merge Files</button><a id="downloadLink" style="display:none;padding:0.5rem 1rem;border-radius:6px;border:1px solid #e2e8f0;color:#0f172a;text-decoration:none;background:#fff">Download</a></div>
-      <div id="status" style="color:#64748b"></div>
+      <div class="result-panel">
+        <div class="result-actions"><button id="mergeBtn" class="btn btn-primary" type="button">Merge Files</button><a id="downloadLink" class="btn btn-secondary" style="display:none" href="#">Download</a></div>
+        <div id="status" class="status-text" data-status-state="idle"></div>
+      </div>
     </div>
   </section>
 
-  <section><h2>When to Merge Audio Files</h2>
-    <p>Merging is ideal when you have separate recordings that should play as one continuous piece. Common examples include combining interview segments, stitching chapter-based lessons, unifying exported stems from simple projects, or creating one final audio handoff for clients. If your source clips are already edited and you only need a linear sequence, a fast merge workflow is usually better than opening a full digital audio workstation.</p>
-    <p>Teams often use this workflow for communication content. Customer support can join short FAQ recordings into a help playlist. Product teams can combine sprint updates into one audio brief. Educators can merge multiple audio clips from class activities into a single file for easy distribution. In each case, the value comes from organization and continuity rather than deep sound design.</p>
-    <p>It's also helpful for creators publishing to platforms that prefer one uploaded file. Instead of sending several pieces, you can join audio tracks seamlessly and deliver one polished output. When sequence matters, your audio timeline becomes the core editor: move clips up or down, confirm order, and export. That lightweight control is enough for many production tasks.</p>
+  <section class="section-shell section-surface content-section"><h2>Common Use Cases for Merging Audio Files</h2>
+    <p>Merging is ideal when you have separate recordings that should play as one continuous piece. If your source clips are already edited and you only need a linear sequence, a fast merge workflow is usually better than opening a full digital audio workstation.</p>
+    <ul class="icon-list">
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7"/><path d="M13 17h7"/><path d="m11 4 3 3-3 3"/><path d="m13 14-3 3 3 3"/></svg></span><span>Combine interview segments into one continuous track.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Stitch chapter-based lessons or meeting notes into a single archive.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><span>Join podcast intros, ads, and episode bodies for publishing.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>Create one polished delivery file when sequence and continuity matter.</span></li>
+    </ul>
   </section>
 
-  <section><h2>How Audio Joining Works</h2>
+  <section class="section-shell section-surface content-section"><h2>How It Works</h2>
     <p>At a high level, joining audio means decoding each selected file, arranging clip order, and writing all samples into one larger output buffer. The browser reads each source as audio data, then places it on a virtual audio timeline according to your selected order. This track sequencing stage determines where each clip begins and ends in the final file.</p>
     <p>During assembly, the tool checks file compatibility factors such as channel layout and sample rate handling supported by your browser decoder. If sources differ, the audio engine can resample during processing so playback remains consistent in the merged result. Conceptually, this is audio stitching: each segment is copied into the next available range of the output until all clips are placed.</p>
     <p>For users who need cleaner transitions, advanced workflows often include waveform alignment and optional crossfade between clip boundaries. This page focuses on direct concatenation for speed, but understanding these concepts helps you plan better source material. If clips are trimmed cleanly and normalized beforehand, transitions sound smoother even without additional effects.</p>
     <p>After assembly, the final buffer is encoded and offered as a downloadable file. Nothing is sent to external storage in this implementation. That local-first model is why many people choose to combine audio without installing software: it provides privacy, control, and convenience in one step.</p>
+    <ol class="step-list">
+      <li>Upload the clips you want to combine.</li>
+      <li>Arrange the files in the order you want them to play.</li>
+      <li>The browser decodes and stitches the clips into one WAV for download.</li>
+    </ol>
   </section>
 
-  <section><h2>Best Practices for Better Merge Results</h2>
+  <section class="section-surface content-section"><h2>Best Practices for Better Merge Results</h2>
     <p>For the cleanest output, prepare clips before merging. Remove long silence at the beginning or end of each file, keep loudness relatively consistent, and confirm the intended order before exporting. Small prep steps can significantly improve listening flow, especially for spoken-word content where abrupt level changes are distracting.</p>
     <p>If you're working with music or ambience, preview transitions and verify timing around clip boundaries. Even when using a simple audio joiner online, thoughtful ordering improves narrative clarity and pacing. It is often useful to label files with sequence numbers so the list is easy to scan during arrangement.</p>
     <p>For compatibility, use common formats like MP3 or WAV and test output on your target playback device. If a browser has trouble decoding a rare codec, convert that file first, then re-run the merge. A quick compatibility pass prevents rework later and helps you keep delivery deadlines on track.</p>
   </section>
 
-  <section><h2>FAQ</h2>
+  <section class="section-surface content-section"><h2>FAQ</h2>
     <details><summary>Does merging reduce audio quality?</summary><p>This tool concatenates decoded audio and exports WAV, which helps avoid additional lossy compression during joining. Final quality still reflects the quality of your source clips.</p></details>
     <details><summary>Can I merge different formats?</summary><p>Yes. You can combine formats like MP3 and WAV when your browser can decode them. The final output is a single WAV file.</p></details>
     <details><summary>Is file order adjustable?</summary><p>Yes. Use the up/down controls to reorder tracks before you merge so playback follows your preferred sequence.</p></details>

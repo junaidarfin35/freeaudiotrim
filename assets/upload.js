@@ -3,10 +3,19 @@
 
   const DROPZONE_SELECTOR = '[data-upload-dropzone], .upload-dropzone, .upload-box';
   const PROCESSED_FLAG = 'uploadComponentBound';
+  const DEFAULT_PRIMARY_TEXT = 'Drop audio file here or click to upload';
+  const DEFAULT_FORMAT_TEXT = 'MP3, WAV, M4A, AAC, FLAC, OGG';
+  const DEFAULT_META_TEXT = 'Max file size: 200MB';
+  const DEFAULT_PRIVACY_TEXT = 'Files processed locally in your browser';
 
   const formatFileSizeMB = (bytes) => {
     const mb = Number(bytes || 0) / (1024 * 1024);
     return `${mb.toFixed(2)} MB`;
+  };
+
+  const formatFilesSizeMB = (files) => {
+    const totalBytes = Array.from(files || []).reduce((sum, file) => sum + Number(file?.size || 0), 0);
+    return formatFileSizeMB(totalBytes);
   };
 
   const matchesAcceptToken = (file, token) => {
@@ -82,14 +91,71 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
   };
 
-  const updateDropzoneLabel = (dropzone, fileName) => {
+  const ensureContentStructure = (dropzone) => {
+    let content = dropzone.querySelector('.upload-content, .upload-dropzone__content');
+    if (!content) {
+      content = document.createElement('div');
+      content.className = dropzone.classList.contains('upload-dropzone')
+        ? 'upload-dropzone__content'
+        : 'upload-content';
+      while (dropzone.firstChild) {
+        content.appendChild(dropzone.firstChild);
+      }
+      dropzone.appendChild(content);
+    }
+
+    let icon = content.querySelector('.upload-icon');
+    if (!icon) {
+      icon = document.createElement('div');
+      icon.className = 'upload-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg>';
+      content.prepend(icon);
+    }
+
+    let primary = content.querySelector('.upload-dropzone__primary, h2');
+    if (!primary) {
+      primary = document.createElement('h2');
+      content.appendChild(primary);
+    }
+    primary.className = 'upload-dropzone__primary';
+    primary.textContent = DEFAULT_PRIMARY_TEXT;
+
+    let secondary = content.querySelector('.upload-dropzone__secondary, p');
+    if (!secondary) {
+      secondary = document.createElement('p');
+      content.appendChild(secondary);
+    }
+    secondary.className = 'upload-dropzone__secondary';
+    secondary.textContent = DEFAULT_FORMAT_TEXT;
+
+    let meta = content.querySelector('.upload-dropzone__meta');
+    if (!meta) {
+      meta = document.createElement('small');
+      meta.className = 'upload-dropzone__meta';
+      content.appendChild(meta);
+    }
+    meta.textContent = DEFAULT_META_TEXT;
+
+    let privacy = content.querySelector('.upload-dropzone__privacy');
+    if (!privacy) {
+      privacy = document.createElement('small');
+      privacy.className = 'upload-dropzone__privacy';
+      content.appendChild(privacy);
+    }
+    privacy.textContent = DEFAULT_PRIVACY_TEXT;
+
+    return { content, primary, secondary, meta, privacy };
+  };
+
+  const updateDropzoneLabel = (dropzone, labelText) => {
     const primary = dropzone.querySelector('.upload-dropzone__primary, .upload-content h2, h2');
     if (!primary) {
       return;
     }
 
-    if (fileName) {
-      primary.textContent = fileName;
+    if (labelText) {
+      primary.textContent = labelText;
       dropzone.classList.add('has-file');
       return;
     }
@@ -106,8 +172,42 @@
     const content = dropzone.querySelector('.upload-content, .upload-dropzone__content') || dropzone;
     secondary = document.createElement('small');
     secondary.className = 'upload-file-meta';
+    secondary.hidden = true;
     content.appendChild(secondary);
     return secondary;
+  };
+
+  const ensureActionsContainer = (dropzone) => {
+    let actions = dropzone.querySelector('.upload-actions');
+    if (actions) {
+      return actions;
+    }
+
+    const content = dropzone.querySelector('.upload-content, .upload-dropzone__content') || dropzone;
+    actions = document.createElement('div');
+    actions.className = 'upload-actions';
+    content.appendChild(actions);
+    return actions;
+  };
+
+  const ensureBrowseButton = (dropzone, input) => {
+    let button = dropzone.querySelector('.upload-action');
+    if (button) {
+      return button;
+    }
+
+    const actions = ensureActionsContainer(dropzone);
+    button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'upload-action';
+    button.textContent = 'Choose file';
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      input.click();
+    });
+    actions.appendChild(button);
+    return button;
   };
 
   const ensureChangeFileButton = (dropzone, input) => {
@@ -116,18 +216,12 @@
       return button;
     }
 
-    const content = dropzone.querySelector('.upload-content, .upload-dropzone__content') || dropzone;
+    const actions = ensureActionsContainer(dropzone);
     button = document.createElement('button');
     button.type = 'button';
     button.className = 'upload-change-file';
     button.textContent = 'Change file';
-    button.style.display = 'none';
-    button.style.marginTop = '0.5rem';
-    button.style.padding = '0.35rem 0.7rem';
-    button.style.border = '1px solid currentColor';
-    button.style.borderRadius = '999px';
-    button.style.background = 'transparent';
-    button.style.cursor = 'pointer';
+    button.hidden = true;
 
     button.addEventListener('click', (event) => {
       event.preventDefault();
@@ -135,29 +229,62 @@
       input.click();
     });
 
-    content.appendChild(button);
+    actions.appendChild(button);
     return button;
   };
 
   const updateDropzoneState = (dropzone, file) => {
     const secondary = ensureSecondaryInfoElement(dropzone);
+    const browseButton = dropzone.querySelector('.upload-action');
     const changeButton = dropzone.querySelector('.upload-change-file');
+    const meta = dropzone.querySelector('.upload-dropzone__meta');
+    const privacy = dropzone.querySelector('.upload-dropzone__privacy');
+    const input = findTargetInput(dropzone);
+    const selectedFiles = Array.from(input?.files || []);
 
     if (file) {
-      updateDropzoneLabel(dropzone, file.name);
-      secondary.textContent = `Size: ${formatFileSizeMB(file.size)}`;
+      if (selectedFiles.length > 1) {
+        updateDropzoneLabel(dropzone, `${selectedFiles.length} files selected`);
+        secondary.textContent = `Total size: ${formatFilesSizeMB(selectedFiles)}`;
+      } else {
+        updateDropzoneLabel(dropzone, file.name);
+        secondary.textContent = `File size: ${formatFileSizeMB(file.size)}`;
+      }
+      secondary.hidden = false;
       dropzone.classList.add('has-file', 'is-confirmed');
+      if (meta) {
+        meta.hidden = true;
+      }
+      if (privacy) {
+        privacy.hidden = true;
+      }
+      if (browseButton) {
+        browseButton.hidden = true;
+      }
       if (changeButton) {
-        changeButton.style.display = 'inline-block';
+        changeButton.hidden = false;
       }
       return;
     }
 
-    const defaultMeta = dropzone.dataset.uploadDefaultMeta || 'Max file size: 200MB';
-    secondary.textContent = defaultMeta;
+    updateDropzoneLabel(dropzone, DEFAULT_PRIMARY_TEXT);
+    secondary.textContent = '';
+    secondary.hidden = true;
     dropzone.classList.remove('has-file', 'is-confirmed');
+    if (meta) {
+      meta.hidden = false;
+      meta.textContent = DEFAULT_META_TEXT;
+    }
+    if (privacy) {
+      privacy.hidden = false;
+      privacy.textContent = DEFAULT_PRIVACY_TEXT;
+    }
+    if (browseButton) {
+      browseButton.hidden = false;
+      browseButton.textContent = 'Choose file';
+    }
     if (changeButton) {
-      changeButton.style.display = 'none';
+      changeButton.hidden = true;
     }
   };
 
@@ -172,15 +299,16 @@
     }
 
     ensureAudioAccept(input);
+    ensureContentStructure(dropzone);
+    ensureBrowseButton(dropzone, input);
     ensureChangeFileButton(dropzone, input);
 
-    const initialMetaElement = dropzone.querySelector('.upload-content small, .upload-dropzone__secondary');
-    dropzone.dataset.uploadDefaultMeta = (initialMetaElement?.textContent || 'Max file size: 200MB').trim();
     updateDropzoneState(dropzone, Array.from(input.files || [])[0] || null);
 
     dropzone.dataset[PROCESSED_FLAG] = 'true';
     dropzone.setAttribute('role', dropzone.getAttribute('role') || 'button');
     dropzone.setAttribute('tabindex', dropzone.getAttribute('tabindex') || '0');
+    dropzone.setAttribute('aria-label', DEFAULT_PRIMARY_TEXT);
 
     dropzone.addEventListener('click', () => {
       input.click();

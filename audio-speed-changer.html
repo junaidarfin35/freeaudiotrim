@@ -69,26 +69,28 @@
 </header>
 
 <main class="container">
-  <section class="content-section">
+  <section class="content-section section-intro section-surface hero">
     <h1>Audio Speed Changer – Speed Up or Slow Down Audio Online</h1>
     <p>An audio speed changer allows you to adjust how fast or slow an audio recording plays. This can be helpful when learning music, studying lectures, reviewing podcasts, or editing voice recordings.</p>
     <p>This browser-based tool allows you to speed up or slow down audio quickly without installing software. The processing happens directly on your device, keeping your audio private and making adjustments instantly.</p>
   </section>
 
-  <section class="content-section">
-    <h2>Upload Box</h2>
+  <section class="content-section section-surface tool-ui">
+    <h2>Upload Audio</h2>
     <input id="fileInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" hidden>
     <div class="upload-box" id="uploadDropzone" role="button" tabindex="0" aria-label="Drop audio file here or click to upload">
       <div class="upload-content">
-        <div class="upload-icon">&#9729;&#65039;</div>
-        <h2>Drop audio file here or click to browse</h2>
-        <p>MP3, WAV, M4A, FLAC and more</p>
+        <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
+        <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
+        <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
+        <small class="upload-dropzone__meta">Max file size: 200MB</small>
+        <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
       </div>
     </div>
   </section>
 
-  <section class="content-section">
-    <h2>Tool Interface</h2>
+  <section class="content-section section-surface tool-ui">
+    <h2>Adjust Settings</h2>
     <div class="tool-card">
       <div class="tool-grid">
         <label class="control-label" for="speedRange">
@@ -104,22 +106,23 @@
           <div class="meta-item" id="newDuration">Estimated New Duration: -</div>
         </div>
 
-        <div class="button-row">
-          <button class="btn" id="previewBtn" type="button">Preview</button>
-          <button class="btn btn-ghost" id="pauseBtn" type="button">Pause</button>
-          <button class="btn btn-ghost" id="stopBtn" type="button">Stop</button>
-          <button class="btn" id="exportBtn" type="button">Export Modified File</button>
-          <a id="downloadLink" class="btn btn-ghost" style="display:none;text-decoration:none" aria-label="Download modified audio">Download</a>
+        <div class="result-panel">
+          <div class="result-actions">
+            <button class="btn btn-secondary" id="previewBtn" type="button">Preview</button>
+            <button class="btn btn-secondary" id="pauseBtn" type="button">Pause</button>
+            <button class="btn btn-secondary" id="stopBtn" type="button">Stop</button>
+            <button class="btn btn-primary" id="exportBtn" type="button">Export Modified File</button>
+            <a id="downloadLink" class="btn btn-secondary" style="display:none;text-decoration:none" aria-label="Download modified audio">Download</a>
+          </div>
+          <p id="status" class="status-text" data-status-state="idle">Upload a file to start.</p>
         </div>
-
-        <p id="status" class="status-text">Upload a file to start.</p>
       </div>
     </div>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-shell section-surface">
     <h2>How to Change Audio Speed</h2>
-    <ol>
+    <ol class="step-list">
       <li>Upload your audio file.</li>
       <li>Adjust the playback speed using the control slider.</li>
       <li>Preview the audio to hear the change.</li>
@@ -127,7 +130,7 @@
     </ol>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-surface">
     <h2>Recommended Audio Speed Settings</h2>
 
     <p>Different playback speeds work better for different types of audio content. Adjusting audio speed carefully helps maintain clarity while improving listening efficiency.</p>
@@ -142,17 +145,17 @@
     <p>Many users speed up spoken recordings while slowing down music passages to better understand musical details.</p>
   </section>
 
-  <section class="content-section section-surface">
+  <section class="content-section section-shell section-surface">
     <h2>Audio Speed vs Pitch</h2>
 
-    <p>Audio speed and pitch are two different sound properties. Speed controls how fast audio plays, while pitch determines how high or low the tone sounds.</p>
-
-    <p>Traditional playback methods change both speed and pitch together. For example, speeding up audio would also make voices sound higher. Modern audio processing can preserve pitch while adjusting speed.</p>
-
-    <p>If you want to modify the tonal pitch instead of playback speed, you can use our <a href="/audio-pitch-changer.html">Audio Pitch Changer</a>.</p>
+    <ul class="feature-list feature-list--icon">
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M8 8v8"/><path d="M16 6v12"/></svg></span><span>Audio speed and pitch are two different sound properties. Speed controls how fast audio plays, while pitch determines how high or low the tone sounds.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17V7"/><path d="M7 14V10"/><path d="M11 19V5"/><path d="M15 12V8"/><path d="M19 16V8"/></svg></span><span>Traditional playback methods change both speed and pitch together. For example, speeding up audio would also make voices sound higher. Modern audio processing can preserve pitch while adjusting speed.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7h8"/><path d="M6 17h12"/></svg></span><span>If you want to modify the tonal pitch instead of playback speed, you can use our <a href="/audio-pitch-changer.html">Audio Pitch Changer</a>.</span></li>
+    </ul>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-surface">
     <h2>Supported Audio Formats</h2>
 
     <p>This audio speed changer works with most common audio formats supported by modern browsers.</p>
@@ -169,47 +172,47 @@
     <p>Compatibility depends on your browser’s audio decoding capabilities. Modern browsers such as Chrome, Edge, Firefox, and Safari support most of these formats.</p>
   </section>
 
-  <section class="content-section section-surface">
+  <section class="content-section section-shell section-surface">
     <h2>Common Uses for Changing Audio Speed</h2>
 
     <p>Changing playback speed is useful in many everyday scenarios. Students, creators, and professionals frequently adjust audio speed to improve productivity or learning.</p>
 
-    <ul>
-      <li>Listening to podcasts faster</li>
-      <li>Reviewing recorded lectures</li>
-      <li>Transcribing speech recordings</li>
-      <li>Practicing musical instruments</li>
-      <li>Analyzing vocal recordings</li>
+    <ul class="icon-list">
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><span>Listening to podcasts faster</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Reviewing recorded lectures</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></span><span>Transcribing speech recordings</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3"/><path d="M9 8v8"/><path d="M15 5v14"/><path d="M21 10v4"/></svg></span><span>Practicing musical instruments</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>Analyzing vocal recordings</span></li>
     </ul>
 
     <p>Speed control is especially helpful for spoken content where clarity remains strong even at faster playback speeds.</p>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-shell section-surface">
     <h2>When to Speed Up Audio</h2>
     <p>Speeding up audio can help you consume content faster or shorten recordings.</p>
     <p>Common uses include:</p>
-    <ul>
-      <li>Listening to podcasts faster</li>
-      <li>Reviewing lectures quickly</li>
-      <li>Adjusting narration timing in video projects</li>
-      <li>Compressing spoken recordings</li>
+    <ul class="icon-list">
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><span>Listening to podcasts faster</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Reviewing lectures quickly</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7"/><path d="M13 17h7"/><path d="m11 4 3 3-3 3"/><path d="m13 14-3 3 3 3"/></svg></span><span>Adjusting narration timing in video projects</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3"/><path d="M9 8v8"/><path d="M15 5v14"/><path d="M21 10v4"/></svg></span><span>Compressing spoken recordings</span></li>
     </ul>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-shell section-surface">
     <h2>When to Slow Down Audio</h2>
     <p>Slowing down audio makes it easier to hear details.</p>
     <p>Typical uses include:</p>
-    <ul>
-      <li>Music practice</li>
-      <li>Learning instruments</li>
-      <li>Language learning</li>
-      <li>Speech transcription</li>
+    <ul class="icon-list">
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3"/><path d="M9 8v8"/><path d="M15 5v14"/><path d="M21 10v4"/></svg></span><span>Music practice</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>Learning instruments</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></span><span>Language learning</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Speech transcription</span></li>
     </ul>
   </section>
 
-  <section class="content-section">
+  <section class="content-section section-surface">
     <h2>Speed vs Pitch</h2>
     <p>Playback speed controls how fast audio plays, while pitch controls how high or low the sound is. After adjusting playback speed you may want to <a href="/normalize-audio-volume.html">balance audio volume</a> to smooth out loudness or trim the recording using the <a href="/free-mp3-cutter.html">trim audio file</a> workflow before exporting.</p>
     <p>If you need to adjust pitch instead of speed, you can use our <a href="/audio-pitch-changer.html">Audio Pitch Changer</a>.</p>
@@ -217,7 +220,7 @@
 
   <div id="related-tools"></div>
 
-  <section class="content-section">
+  <section class="content-section section-surface">
     <h2>FAQ</h2>
     <details>
       <summary>How do I speed up audio online?</summary>
