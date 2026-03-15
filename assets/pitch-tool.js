@@ -1,347 +1,210 @@
 (() => {
   "use strict";
 
-  const fileInput = document.getElementById("fileInput");
-  const uploadDropzone = document.getElementById("uploadDropzone");
-  const semitoneRange = document.getElementById("semitoneRange");
-  const semitoneValue = document.getElementById("semitoneValue");
-  const rateValue = document.getElementById("rateValue");
-  const previewBtn = document.getElementById("previewBtn");
-  const pauseBtn = document.getElementById("pauseBtn");
-  const stopBtn = document.getElementById("stopBtn");
-  const exportBtn = document.getElementById("exportBtn");
-  const downloadLink = document.getElementById("downloadLink");
-  const status = document.getElementById("status");
-  const originalDuration = document.getElementById("originalDuration");
-  const newDuration = document.getElementById("newDuration");
-  const BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
-  function setStatus(message) {
-    status.textContent = message;
-    const text = String(message || "").toLowerCase();
-    status.dataset.statusState =
-      /error|failed|not supported/.test(text) ? "error" :
-      /ready|previewing|download/.test(text) ? "success" :
-      /decoding|rendering|export/.test(text) ? "processing" :
-      "idle";
-  }
-
-  let audioContext = null;
-  let audioBuffer = null;
-  let currentFileName = "audio";
-  let sourceNode = null;
-  let startedAt = 0;
-  let pausedOffset = 0;
-  let isPlaying = false;
-  let downloadUrl = "";
-
-  if (!fileInput || !uploadDropzone || !semitoneRange) {
+  const engineApi = window.FreeAudioTrimAudioEngine;
+  if (!engineApi) {
     return;
   }
 
+  const fileInput = document.getElementById("fileInput");
+  const semitoneRange = document.getElementById("semitoneRange");
+  const semitoneValue = document.getElementById("semitoneValue");
+  const linkedSpeedRange = document.getElementById("linkedSpeedRange");
+  const linkedSpeedValue = document.getElementById("linkedSpeedValue");
+  const alsoAdjustSpeed = document.getElementById("alsoAdjustSpeed");
+  const speedControlGroup = document.getElementById("speedControlGroup");
+  const semitoneMode = document.getElementById("semitoneMode");
+  const previewBtn = document.getElementById("previewBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const jumpStartBtn = document.getElementById("jumpStartBtn");
+  const exportBtn = document.getElementById("exportBtn");
+  const downloadLink = document.getElementById("downloadLink");
+  const status = document.getElementById("status");
+  const waveformCanvas = document.getElementById("waveformCanvas");
+  const waveformTime = document.getElementById("waveformTime");
+  const transportTime = document.getElementById("transportTime");
+  const originalDuration = document.getElementById("originalDuration");
+  const newDuration = document.getElementById("newDuration");
+  const rateValue = document.getElementById("rateValue");
+  const keyValue = document.getElementById("keyValue");
+  const bpmValue = document.getElementById("bpmValue");
+  const originalModeBtn = document.getElementById("originalModeBtn");
+  const modifiedModeBtn = document.getElementById("modifiedModeBtn");
+
+  if (!fileInput || !semitoneRange || !previewBtn || !exportBtn) {
+    return;
+  }
+
+  let downloadUrl = "";
+
+  const engine = new engineApi.AudioEngine({
+    canvas: waveformCanvas,
+    timeOutputs: [waveformTime, transportTime],
+    onStatus: setStatus,
+    onAnalysis: ({ key, bpm }) => {
+      keyValue.textContent = key || "Unknown";
+      bpmValue.textContent = bpm ? String(bpm) : "-";
+    },
+    onBuffer: ({ originalDuration: sourceDuration, processedDuration }) => {
+      originalDuration.textContent = `Original Duration: ${engineApi.formatTime(sourceDuration)}`;
+      newDuration.textContent = `Processed Duration: ${engineApi.formatTime(processedDuration)}`;
+    },
+    onStateChange: updateState,
+  });
+
   bindEvents();
-  updatePitchLabels();
+  updatePitchSliderUI();
+  updateSpeedUI();
+  applySettings();
 
   function bindEvents() {
-    uploadDropzone.addEventListener("click", () => fileInput.click());
-
-    uploadDropzone.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        fileInput.click();
-      }
-    });
-
-    uploadDropzone.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      uploadDropzone.classList.add("is-dragover");
-    });
-
-    uploadDropzone.addEventListener("dragleave", () => {
-      uploadDropzone.classList.remove("is-dragover");
-    });
-
-    uploadDropzone.addEventListener("drop", (event) => {
-      event.preventDefault();
-      uploadDropzone.classList.remove("is-dragover");
-      const files = event.dataTransfer ? event.dataTransfer.files : null;
-      if (files && files[0]) {
-        void loadFile(files[0]);
-      }
-    });
-
     fileInput.addEventListener("change", () => {
       const file = fileInput.files && fileInput.files[0];
       if (file) {
-        void loadFile(file);
+        clearDownload();
+        void engine.loadFile(file).then(() => {
+          applySettings();
+        });
       }
       fileInput.value = "";
     });
 
     semitoneRange.addEventListener("input", () => {
-      if (isPlaying && sourceNode && audioBuffer) {
-        pausedOffset = clamp(getPlaybackTime(), 0, audioBuffer.duration);
-        startSource(pausedOffset);
-      }
-      updatePitchLabels();
+      pauseBeforeUpdate();
+      updatePitchSliderUI();
+      applySettings();
     });
 
-    previewBtn.addEventListener("click", () => void previewAudio());
-    pauseBtn.addEventListener("click", pauseAudio);
-    stopBtn.addEventListener("click", stopAudio);
+    linkedSpeedRange.addEventListener("input", () => {
+      pauseBeforeUpdate();
+      updateSpeedUI();
+      applySettings();
+    });
+
+    alsoAdjustSpeed.addEventListener("change", () => {
+      pauseBeforeUpdate();
+      speedControlGroup.hidden = !alsoAdjustSpeed.checked;
+      updateSpeedUI();
+      applySettings();
+    });
+
+    semitoneMode.addEventListener("change", () => {
+      pauseBeforeUpdate();
+      syncPitchScaleMode();
+      updatePitchSliderUI();
+      applySettings();
+    });
+
+    previewBtn.addEventListener("click", () => void engine.play());
+    pauseBtn.addEventListener("click", () => engine.pause());
+    stopBtn.addEventListener("click", () => engine.stop());
+    jumpStartBtn.addEventListener("click", () => engine.jumpToStart());
+    originalModeBtn.addEventListener("click", () => void engine.setMode("original"));
+    modifiedModeBtn.addEventListener("click", () => void engine.setMode("modified"));
     exportBtn.addEventListener("click", () => void exportAudio());
-  }
 
-  async function loadFile(file) {
-    try {
-      stopAudio();
-      clearDownload();
-      setStatus("Decoding audio...");
-      const arrayBuffer = await file.arrayBuffer();
-      const decoded = await getContext().decodeAudioData(arrayBuffer.slice(0));
-      audioBuffer = decoded;
-      currentFileName = stripExtension(file.name || "audio");
-      pausedOffset = 0;
-      updateDurations();
-      setStatus("File ready. Adjust semitones, preview, then export.");
-    } catch (error) {
-      console.error(error);
-      setStatus(`This audio format is not supported by your browser. ${BROWSER_SUPPORT_MESSAGE}`);
-    }
-  }
-
-  async function previewAudio() {
-    if (!audioBuffer) {
-      setStatus("Upload an audio file first.");
-      return;
-    }
-
-    const ctx = getContext();
-    if (ctx.state === "suspended") {
-      await ctx.resume();
-    }
-
-    startSource(pausedOffset);
-    setStatus(`Previewing at ${getSemitoneLabel()} (${getPlaybackRate().toFixed(3)}x rate)`);
-  }
-
-  function startSource(offsetSeconds) {
-    stopSourceOnly();
-
-    const ctx = getContext();
-    const source = ctx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.playbackRate.setValueAtTime(getPlaybackRate(), ctx.currentTime);
-    source.connect(ctx.destination);
-    source.start(0, Math.max(0, offsetSeconds));
-
-    source.onended = () => {
-      if (!isPlaying) {
+    document.addEventListener("keydown", (event) => {
+      if (event.code !== "Space" || isTypingTarget(event.target)) {
         return;
       }
-      const played = getPlaybackTime();
-      if (audioBuffer && played >= audioBuffer.duration - 0.02) {
-        stopAudio();
-      }
-    };
-
-    sourceNode = source;
-    pausedOffset = offsetSeconds;
-    startedAt = ctx.currentTime - offsetSeconds / getPlaybackRate();
-    isPlaying = true;
+      event.preventDefault();
+      void engine.togglePlayPause();
+    });
   }
 
-  function pauseAudio() {
-    if (!isPlaying || !audioBuffer) {
+  function pauseBeforeUpdate() {
+    if (engine.getPlaybackState().isPlaying) {
+      engine.pause();
+    }
+    clearDownload();
+  }
+
+  function syncPitchScaleMode() {
+    const currentSemitones = getPitchSemitones();
+    if (semitoneMode.checked) {
+      semitoneRange.min = "-12";
+      semitoneRange.max = "12";
+      semitoneRange.step = "1";
+      semitoneRange.value = String(Math.round(currentSemitones));
       return;
     }
-
-    pausedOffset = clamp(getPlaybackTime(), 0, audioBuffer.duration);
-    isPlaying = false;
-    stopSourceOnly();
-    setStatus("Preview paused.");
+    semitoneRange.min = "50";
+    semitoneRange.max = "200";
+    semitoneRange.step = "1";
+    semitoneRange.value = String(Math.round(Math.pow(2, currentSemitones / 12) * 100));
   }
 
-  function stopAudio() {
-    isPlaying = false;
-    pausedOffset = 0;
-    stopSourceOnly();
+  function getPitchSemitones() {
+    if (semitoneMode.checked) {
+      return Number(semitoneRange.value) || 0;
+    }
+    const ratio = Math.max(0.5, (Number(semitoneRange.value) || 100) / 100);
+    return 12 * Math.log2(ratio);
   }
 
-  function stopSourceOnly() {
-    if (!sourceNode) {
-      return;
+  function updatePitchSliderUI() {
+    const pitch = getPitchSemitones();
+    if (semitoneMode.checked) {
+      semitoneValue.textContent = `${pitch >= 0 ? "+" : ""}${Math.round(pitch)} st`;
+    } else {
+      semitoneValue.textContent = `${Math.pow(2, pitch / 12).toFixed(2)}x`;
     }
+  }
 
-    try {
-      sourceNode.onended = null;
-      sourceNode.stop();
-    } catch (error) {
-      // Ignore stop race.
-    }
+  function updateSpeedUI() {
+    linkedSpeedValue.textContent = `${getSpeed().toFixed(2)}x`;
+  }
 
-    sourceNode.disconnect();
-    sourceNode = null;
+  function getSpeed() {
+    return alsoAdjustSpeed.checked ? Math.max(0.5, Number(linkedSpeedRange.value) || 1) : 1;
+  }
+
+  function applySettings() {
+    engine.setSettings({
+      pitchSemitones: getPitchSemitones(),
+      speed: getSpeed(),
+    });
+    rateValue.textContent = `Preview Mode: ${engine.getPlaybackState().mode === "original" ? "Original" : "Modified"}`;
+    setStatus("Settings updated. Press Preview or Spacebar.");
   }
 
   async function exportAudio() {
-    if (!audioBuffer) {
-      setStatus("Upload an audio file first.");
+    clearDownload();
+    const result = await engine.exportProcessed();
+    if (!result) {
       return;
     }
-
-    try {
-      setStatus("Rendering pitch-shifted audio...");
-      clearDownload();
-
-      const rate = getPlaybackRate();
-      const targetFrames = Math.max(1, Math.ceil(audioBuffer.length / rate));
-      const offline = new OfflineAudioContext(audioBuffer.numberOfChannels, targetFrames, audioBuffer.sampleRate);
-      const source = offline.createBufferSource();
-      source.buffer = audioBuffer;
-      source.playbackRate.setValueAtTime(rate, 0);
-      source.connect(offline.destination);
-      source.start(0);
-
-      const rendered = await offline.startRendering();
-      const wavBlob = encodeWav(rendered);
-      downloadUrl = URL.createObjectURL(wavBlob);
-
-      downloadLink.href = downloadUrl;
-      downloadLink.download = `${currentFileName}_pitch_${getSemitoneFilenamePart()}.wav`;
-      downloadLink.style.display = "inline-block";
-
-      setStatus("Export ready. Click Download.");
-    } catch (error) {
-      console.error(error);
-      setStatus("Export failed. Try a smaller file or another browser.");
-    }
+    downloadUrl = URL.createObjectURL(result.blob);
+    downloadLink.href = downloadUrl;
+    downloadLink.download = result.fileName.replace("_processed", `_pitch_${formatPitchFilePart()}`);
+    downloadLink.style.display = "inline-flex";
   }
 
-  function encodeWav(buffer) {
-    const channels = Math.min(buffer.numberOfChannels, 2);
-    const sampleRate = buffer.sampleRate;
-    const frames = buffer.length;
-    const bytesPerSample = 2;
-    const blockAlign = channels * bytesPerSample;
-    const dataSize = frames * blockAlign;
-
-    const out = new ArrayBuffer(44 + dataSize);
-    const view = new DataView(out);
-    let offset = 0;
-
-    const writeString = (value) => {
-      for (let i = 0; i < value.length; i += 1) {
-        view.setUint8(offset + i, value.charCodeAt(i));
-      }
-      offset += value.length;
-    };
-
-    writeString("RIFF");
-    view.setUint32(offset, 36 + dataSize, true);
-    offset += 4;
-    writeString("WAVE");
-    writeString("fmt ");
-    view.setUint32(offset, 16, true);
-    offset += 4;
-    view.setUint16(offset, 1, true);
-    offset += 2;
-    view.setUint16(offset, channels, true);
-    offset += 2;
-    view.setUint32(offset, sampleRate, true);
-    offset += 4;
-    view.setUint32(offset, sampleRate * blockAlign, true);
-    offset += 4;
-    view.setUint16(offset, blockAlign, true);
-    offset += 2;
-    view.setUint16(offset, 16, true);
-    offset += 2;
-    writeString("data");
-    view.setUint32(offset, dataSize, true);
-    offset += 4;
-
-    const channelData = [];
-    for (let ch = 0; ch < channels; ch += 1) {
-      channelData.push(buffer.getChannelData(ch));
-    }
-
-    for (let i = 0; i < frames; i += 1) {
-      for (let ch = 0; ch < channels; ch += 1) {
-        const sample = clamp(channelData[ch][i], -1, 1);
-        view.setInt16(offset, sample < 0 ? sample * 32768 : sample * 32767, true);
-        offset += 2;
-      }
-    }
-
-    return new Blob([out], { type: "audio/wav" });
+  function formatPitchFilePart() {
+    const pitch = getPitchSemitones();
+    return `${pitch >= 0 ? "plus" : "minus"}${Math.abs(Math.round(pitch))}st`;
   }
 
-  function getContext() {
-    if (!audioContext) {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) {
-        throw new Error("Web Audio API is not supported in this browser.");
-      }
-      audioContext = new Ctx();
-    }
-    return audioContext;
+  function updateState(state) {
+    rateValue.textContent = `Preview Mode: ${state.mode === "original" ? "Original" : "Modified"}`;
+    setModeButtonState(originalModeBtn, state.mode === "original");
+    setModeButtonState(modifiedModeBtn, state.mode === "modified");
   }
 
-  function getSemitones() {
-    return Number(semitoneRange.value) || 0;
+  function setModeButtonState(button, isActive) {
+    button.classList.toggle("btn-primary", isActive);
+    button.classList.toggle("btn-secondary", !isActive);
   }
 
-  function getPlaybackRate() {
-    return Math.pow(2, getSemitones() / 12);
-  }
-
-  function getSemitoneLabel() {
-    const value = getSemitones();
-    return `${value >= 0 ? "+" : ""}${value} st`;
-  }
-
-  function getSemitoneFilenamePart() {
-    const value = getSemitones();
-    return `${value >= 0 ? "plus" : "minus"}${Math.abs(value)}st`;
-  }
-
-  function getPlaybackTime() {
-    if (!isPlaying || !audioBuffer) {
-      return pausedOffset;
-    }
-    const elapsed = getContext().currentTime - startedAt;
-    const activeRate = sourceNode ? sourceNode.playbackRate.value : getPlaybackRate();
-    return pausedOffset + elapsed * activeRate;
-  }
-
-  function updatePitchLabels() {
-    semitoneValue.textContent = getSemitoneLabel();
-    rateValue.textContent = `Playback Rate: ${getPlaybackRate().toFixed(3)}x`;
-    updateDurations();
-  }
-
-  function updateDurations() {
-    if (!audioBuffer) {
-      originalDuration.textContent = "Original Duration: -";
-      newDuration.textContent = "Estimated New Duration: -";
-      return;
-    }
-
-    const original = audioBuffer.duration;
-    const adjusted = original / getPlaybackRate();
-
-    originalDuration.textContent = `Original Duration: ${formatTime(original)}`;
-    newDuration.textContent = `Estimated New Duration: ${formatTime(adjusted)}`;
-  }
-
-  function formatTime(seconds) {
-    const total = Math.max(0, Math.floor(seconds));
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  }
-
-  function stripExtension(name) {
-    return String(name || "audio").replace(/\.[^./\\]+$/, "");
+  function setStatus(message) {
+    status.textContent = message;
+    const text = String(message || "").toLowerCase();
+    status.dataset.statusState =
+      /error|failed|not supported/.test(text) ? "error" :
+      /ready|preview|download|updated/.test(text) ? "success" :
+      /decoding|rendering|processing/.test(text) ? "processing" :
+      "idle";
   }
 
   function clearDownload() {
@@ -353,7 +216,10 @@
     downloadLink.removeAttribute("href");
   }
 
-  function clamp(value, min, max) {
-    return Math.min(max, Math.max(min, value));
+  function isTypingTarget(target) {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+    return target.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(target.tagName);
   }
 })();

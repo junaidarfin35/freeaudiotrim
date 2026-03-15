@@ -116,9 +116,9 @@
   <section class="section-shell section-surface content-section"><h2>How it works</h2>
     <p>The browser reads the file as an ArrayBuffer and attempts to decode the audio track via the Web Audio API's <code>decodeAudioData</code>. For common containers like MP4 with AAC audio, modern browsers can decode the audio track directly. Once decoded into an AudioBuffer, it is exported as WAV and offered for download - all in memory in the browser.</p>
     <ol class="step-list">
-      <li>Choose a video file from your device.</li>
-      <li>The browser decodes the embedded audio track locally.</li>
-      <li>The decoded audio is exported as WAV and prepared for download.</li>
+      <li><span class="step-title">Choose your file</span><span class="step-description">Select the video file that contains the audio you want to extract.</span></li>
+      <li><span class="step-title">Decode the audio track</span><span class="step-description">The browser reads and decodes the embedded audio locally in memory.</span></li>
+      <li><span class="step-title">Download the WAV</span><span class="step-description">Export the decoded audio as a WAV file and save it to your device.</span></li>
     </ol>
   </section>
 

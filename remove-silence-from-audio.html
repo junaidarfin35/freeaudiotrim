@@ -121,9 +121,9 @@
     <h2>How it works</h2>
     <p>The tool decodes audio into an AudioBuffer and computes short-time RMS over sliding windows. Segments with RMS below the threshold for at least the minimum duration are considered silence and removed. The non-silent segments are concatenated into a single audio buffer and exported as WAV, all in the browser using Web Audio APIs.</p>
     <ol class="step-list">
-      <li>Upload an audio file from your device.</li>
-      <li>Set the silence threshold and minimum silence length.</li>
-      <li>Run the cleanup and download the WAV with dead air removed.</li>
+      <li><span class="step-title">Upload your recording</span><span class="step-description">Choose the audio file you want to clean up directly from your device.</span></li>
+      <li><span class="step-title">Adjust detection settings</span><span class="step-description">Set the silence threshold and minimum silence length for the cleanup pass.</span></li>
+      <li><span class="step-title">Process and download</span><span class="step-description">Run the remover and save the WAV output with dead air trimmed away.</span></li>
     </ol>
   </section>
 

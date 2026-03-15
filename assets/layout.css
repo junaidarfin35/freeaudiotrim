@@ -675,6 +675,7 @@ button:disabled,
 .step-list {
   counter-reset: step;
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-3);
   margin-top: var(--space-4);
 }
@@ -682,17 +683,22 @@ button:disabled,
 .step-list li {
   counter-increment: step;
   position: relative;
-  min-height: 1.75rem;
+  display: grid;
+  gap: var(--space-2);
+  min-height: 100%;
   margin-bottom: 0;
-  padding-left: calc(1.75rem + var(--space-2));
-  line-height: 1.6;
+  padding: var(--space-4);
+  padding-left: calc(var(--space-4) + 2.5rem);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
 }
 
 .step-list li::before {
   content: counter(step);
   position: absolute;
-  left: 0;
-  top: 0.05rem;
+  left: var(--space-4);
+  top: var(--space-4);
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 999px;
@@ -704,6 +710,21 @@ button:disabled,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.step-title {
+  display: block;
+  margin: 0;
+  color: var(--color-text);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.step-description {
+  display: block;
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.6;
 }
 
 .tool-links-grid,

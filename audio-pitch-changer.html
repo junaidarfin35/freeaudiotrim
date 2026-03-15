@@ -25,19 +25,33 @@
   <style>
     .content-section { margin-bottom: 2rem; }
     .tool-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; }
-    .tool-grid { display: grid; gap: 0.9rem; }
+    .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 1rem; }
+    .editor-main,
+    .control-stack,
+    .waveform-shell { display: grid; gap: 0.9rem; }
     .control-label { display: grid; gap: 0.35rem; font-size: 0.92rem; color: #334155; }
     .range-row { display: flex; gap: 0.6rem; align-items: center; }
     .range-row input[type="range"] { flex: 1; }
     .value-chip { min-width: 72px; font-family: "JetBrains Mono", monospace; color: #0f172a; }
-    .button-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .btn { border: 1px solid #2563eb; background: #2563eb; color: #fff; border-radius: 8px; padding: 0.5rem 0.9rem; cursor: pointer; font-size: 0.95rem; }
-    .btn:hover { background: #1d4ed8; }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .btn-ghost { background: #fff; border-color: #cbd5e1; color: #1e293b; }
-    .status-text { color: #334155; font-size: 0.92rem; }
+    .toggle-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; color: #334155; }
+    .secondary-control[hidden] { display: none; }
     .meta-grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); }
     .meta-item { padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 0.9rem; }
+    .waveform-shell { padding: 1rem; border: 1px solid #dbe4f0; border-radius: 12px; background: #fff; }
+    .waveform-canvas { width: 100%; height: 180px; display: block; border-radius: 10px; }
+    .time-display { margin: 0; color: #52637a; font-size: 0.92rem; font-family: "JetBrains Mono", monospace; }
+    .transport-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+    .ab-toggle { display: inline-flex; gap: 0.45rem; margin-left: auto; }
+    .analysis-card { padding: 1rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
+    .analysis-card h3 { margin-bottom: 0.75rem; }
+    .analysis-grid { display: grid; gap: 0.75rem; }
+    .analysis-item { padding: 0.75rem; border: 1px solid #dbe4f0; border-radius: 10px; background: #fff; }
+    .analysis-label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; }
+    .analysis-value { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+    .status-text { color: #334155; font-size: 0.92rem; }
+    @media (max-width: 900px) {
+      .editor-layout { grid-template-columns: 1fr; }
+    }
   </style>
 <script type="application/ld+json">
 {
@@ -92,31 +106,79 @@
   <section class="content-section section-surface tool-ui">
     <h2>Adjust Settings</h2>
     <div class="tool-card">
-      <div class="tool-grid">
-        <label class="control-label" for="semitoneRange">
-          Pitch Shift (Semitones)
-          <div class="range-row">
-            <input id="semitoneRange" type="range" min="-12" max="12" step="1" value="0">
-            <span class="value-chip" id="semitoneValue">+0 st</span>
-          </div>
-        </label>
+      <div class="editor-layout">
+        <div class="editor-main">
+          <div class="control-stack">
+            <label class="control-label" for="semitoneRange">
+              Pitch Shift
+              <div class="range-row">
+                <input id="semitoneRange" type="range" min="-12" max="12" step="1" value="0">
+                <span class="value-chip" id="semitoneValue">+0 st</span>
+              </div>
+            </label>
 
-        <div class="meta-grid">
-          <div class="meta-item" id="rateValue">Playback Rate: 1.000x</div>
-          <div class="meta-item" id="originalDuration">Original Duration: -</div>
-          <div class="meta-item" id="newDuration">Estimated New Duration: -</div>
+            <label class="toggle-row" for="alsoAdjustSpeed">
+              <input id="alsoAdjustSpeed" type="checkbox">
+              <span>Also adjust speed</span>
+            </label>
+
+            <label class="control-label secondary-control" id="speedControlGroup" for="linkedSpeedRange" hidden>
+              Speed
+              <div class="range-row">
+                <input id="linkedSpeedRange" type="range" min="0.5" max="2" step="0.05" value="1">
+                <span class="value-chip" id="linkedSpeedValue">1.00x</span>
+              </div>
+            </label>
+
+            <div class="meta-grid">
+              <div class="meta-item" id="rateValue">Preview Mode: Modified</div>
+              <div class="meta-item" id="originalDuration">Original Duration: -</div>
+              <div class="meta-item" id="newDuration">Processed Duration: -</div>
+            </div>
+          </div>
+
+          <div class="waveform-shell">
+            <canvas id="waveformCanvas" class="waveform-canvas" aria-label="Waveform preview"></canvas>
+            <p id="waveformTime" class="time-display">00:00 / 00:00</p>
+            <div class="transport-bar">
+              <button class="btn btn-secondary" id="jumpStartBtn" type="button">Jump to Start</button>
+              <button class="btn btn-secondary" id="previewBtn" type="button">Preview</button>
+              <button class="btn btn-secondary" id="pauseBtn" type="button">Pause</button>
+              <button class="btn btn-secondary" id="stopBtn" type="button">Stop</button>
+              <span id="transportTime" class="time-display">00:00 / 00:00</span>
+              <div class="ab-toggle">
+                <button class="btn btn-secondary" id="originalModeBtn" type="button">A Original</button>
+                <button class="btn btn-primary" id="modifiedModeBtn" type="button">B Modified</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="result-panel">
+            <div class="result-actions">
+              <button class="btn btn-primary" id="exportBtn" type="button">Export Audio</button>
+              <a id="downloadLink" class="btn btn-secondary" style="display:none;text-decoration:none" aria-label="Download modified audio">Download</a>
+            </div>
+            <p id="status" class="status-text" data-status-state="idle">Upload a file to start.</p>
+          </div>
         </div>
 
-        <div class="result-panel">
-          <div class="result-actions">
-            <button class="btn btn-secondary" id="previewBtn" type="button">Preview</button>
-            <button class="btn btn-secondary" id="pauseBtn" type="button">Pause</button>
-            <button class="btn btn-secondary" id="stopBtn" type="button">Stop</button>
-            <button class="btn btn-primary" id="exportBtn" type="button">Export Audio</button>
-            <a id="downloadLink" class="btn btn-secondary" style="display:none;text-decoration:none" aria-label="Download modified audio">Download</a>
+        <aside class="analysis-card">
+          <h3>Analysis</h3>
+          <div class="analysis-grid">
+            <div class="analysis-item">
+              <span class="analysis-label">Key</span>
+              <span class="analysis-value" id="keyValue">Waiting for file</span>
+            </div>
+            <label class="toggle-row" for="semitoneMode">
+              <input id="semitoneMode" type="checkbox" checked>
+              <span>semitones</span>
+            </label>
+            <div class="analysis-item">
+              <span class="analysis-label">BPM</span>
+              <span class="analysis-value" id="bpmValue">-</span>
+            </div>
           </div>
-          <p id="status" class="status-text" data-status-state="idle">Upload a file to start.</p>
-        </div>
+        </aside>
       </div>
     </div>
   </section>
@@ -177,9 +239,9 @@
     <p>Pitch shifting changes the frequency of audio so it sounds higher or lower.</p>
     <p>Increasing pitch raises the tone, while lowering pitch produces a deeper sound.</p>
     <ol class="step-list">
-      <li>Upload an audio file from your device.</li>
-      <li>Set the semitone shift you want to apply.</li>
-      <li>Preview the result and export the modified WAV when it sounds right.</li>
+      <li><span class="step-title">Upload your audio</span><span class="step-description">Choose the file you want to raise or lower in pitch.</span></li>
+      <li><span class="step-title">Set the semitone shift</span><span class="step-description">Adjust the pitch control until the musical change matches what you need.</span></li>
+      <li><span class="step-title">Preview and export</span><span class="step-description">Listen to the result, then export the modified WAV when it sounds right.</span></li>
     </ol>
   </section>
 
@@ -282,6 +344,7 @@
   </div>
 </footer>
 
+<script src="/assets/audio-engine.js" defer></script>
 <script src="/assets/pitch-tool.js" defer></script>
 <script src="/assets/upload.js" defer></script>
 <script src="/assets/related-tools.js"></script>
