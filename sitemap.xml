@@ -1,164 +1,91 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-
-  <!-- Homepage -->
   <url>
     <loc>https://freeaudiotrim.com/</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
   </url>
-
-  <!-- Tool Pages -->
-<url>
+  <url>
     <loc>https://freeaudiotrim.com/free-mp3-cutter.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/audio-cutter-online.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/convert-mp3-to-wav.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/merge-audio-files.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/normalize-audio-volume.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/remove-silence-from-audio.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/extract-audio-from-video.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/audio-converter.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/audio-speed-changer.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/audio-pitch-changer.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
   </url>
-
-  <!-- Blog -->
   <url>
     <loc>https://freeaudiotrim.com/blog/</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/blog/audio-editing-guide.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/blog/how-to-trim-mp3-online.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/blog/how-to-make-audio-louder.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/blog/remove-silence-from-audio-guide.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/blog/extract-audio-from-video-guide.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
   </url>
-
   <url>
     <loc>https://freeaudiotrim.com/blog/convert-mp3-to-wav-guide.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
   </url>
-
-  <!-- Legal -->
-  <url>
-    <loc>https://freeaudiotrim.com/privacy-policy.html</loc>
-    <lastmod>2026-03-09</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-
-  <url>
-    <loc>https://freeaudiotrim.com/terms-of-service.html</loc>
-    <lastmod>2026-03-09</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-
-  <url>
-    <loc>https://freeaudiotrim.com/contact.html</loc>
-    <lastmod>2026-03-09</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
-  </url>
-
-
   <url>
     <loc>https://freeaudiotrim.com/blog/how-to-edit-audio-online.html</loc>
     <lastmod>2026-03-09</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
   </url>
-
+  <url>
+    <loc>https://freeaudiotrim.com/privacy-policy.html</loc>
+    <lastmod>2026-03-09</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/terms-of-service.html</loc>
+    <lastmod>2026-03-09</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/contact.html</loc>
+    <lastmod>2026-03-09</lastmod>
+  </url>
 </urlset>
-
