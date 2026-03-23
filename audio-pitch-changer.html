@@ -90,6 +90,34 @@
     <p>With this browser-based pitch changer, you can upload a file, adjust its pitch level, preview the result, and export the modified audio instantly.</p>
   </section>
 
+  <section class="content-section section-surface">
+    <p class="hero-subheading">Trim, speed up, or change pitch of your audio instantly â€” no uploads, no waiting.</p>
+  </section>
+
+  <section class="content-section section-surface">
+    <p class="hero-subtext">Trim, speed up, or change pitch of your audio instantly &mdash; no uploads, no waiting.</p>
+  </section>
+
+  <p class="upload-trust-line--conversion">100% browser-based &#8226; No uploads &#8226; Private by design</p>
+
+  <section class="content-section section-surface">
+    <h2>Common Uses</h2>
+    <ul class="icon-list">
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M9 6h6"/><path d="M7 18h10"/></svg></span><span>Change the key of a song for practice or performance.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>Match vocals to a singer&rsquo;s comfortable range.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 8-8"/><path d="M20 12a8 8 0 0 1-8 8"/></svg></span><span>Create quick tonal variations for remixes or sound design.</span></li>
+    </ul>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Why This Tool</h2>
+    <ul class="icon-list">
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7h8"/></svg></span><span>No uploads, so your audio stays on your device.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M8 8v8"/><path d="M16 6v12"/></svg></span><span>Fast processing with instant preview feedback.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>Free to use in any modern browser.</span></li>
+    </ul>
+  </section>
+
   <section class="content-section section-surface tool-ui">
     <h2>Upload Audio</h2>
     <input id="fileInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" hidden>
@@ -102,6 +130,8 @@
         <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
       </div>
     </div>
+    <p class="upload-helper-text">Upload a file to start editing</p>
+    <p class="upload-trust-line">Free • No upload • Works in your browser</p>
   </section>
 
   <section class="content-section section-surface tool-ui">
@@ -141,9 +171,10 @@
           <div class="waveform-shell">
             <canvas id="waveformCanvas" class="waveform-canvas" aria-label="Waveform preview"></canvas>
             <p id="waveformTime" class="time-display">00:00 / 00:00</p>
+            <input id="seekBar" class="seek-bar" type="range" min="0" max="0" step="0.01" value="0" aria-label="Seek audio">
             <div class="transport-bar">
               <button class="btn btn-secondary" id="jumpStartBtn" type="button">Jump to Start</button>
-              <button class="btn btn-secondary" id="previewBtn" type="button">Preview</button>
+              <button class="btn btn-secondary" id="previewBtn" type="button">Play</button>
               <button class="btn btn-secondary" id="pauseBtn" type="button">Pause</button>
               <button class="btn btn-secondary" id="stopBtn" type="button">Stop</button>
               <span id="transportTime" class="time-display">00:00 / 00:00</span>
@@ -159,14 +190,25 @@
               <button class="btn btn-primary" id="exportBtn" type="button">Export Audio</button>
               <a id="downloadLink" class="btn btn-secondary" style="display:none;text-decoration:none" aria-label="Download modified audio">Download</a>
             </div>
+            <p class="result-helper-text result-helper-text--processing">Processing... Almost ready.</p>
+            <p class="result-helper-text result-helper-text--success">Your audio is ready — download now</p>
             <p id="status" class="status-text" data-status-state="idle">Upload a file to start.</p>
           </div>
+
+          <section class="content-section section-surface">
+            <h2>Try next</h2>
+            <div class="tool-links-grid">
+              <a class="tool-link" href="/audio-speed-changer.html"><strong>Audio Speed Changer</strong><span>Adjust playback speed while keeping the workflow simple.</span></a>
+              <a class="tool-link" href="/normalize-audio-volume.html"><strong>Normalize Volume</strong><span>Balance loudness after pitch editing.</span></a>
+              <a class="tool-link" href="/free-mp3-cutter.html"><strong>MP3 Trimmer</strong><span>Trim the start or end before exporting the final file.</span></a>
+            </div>
+          </section>
         </div>
 
         <aside class="analysis-card">
           <h3>Analysis</h3>
           <div class="analysis-grid">
-            <div class="analysis-item">
+            <div class="analysis-item analysis-item--key" id="keyAnalysis">
               <span class="analysis-label">Key</span>
               <span class="analysis-value" id="keyValue">Waiting for file</span>
             </div>
@@ -174,9 +216,13 @@
               <input id="semitoneMode" type="checkbox" checked>
               <span>semitones</span>
             </label>
-            <div class="analysis-item">
+            <div class="analysis-item analysis-item--bpm" id="bpmAnalysis">
               <span class="analysis-label">BPM</span>
               <span class="analysis-value" id="bpmValue">-</span>
+            </div>
+            <div class="analysis-item analysis-item--confidence" id="confidenceAnalysis">
+              <span class="analysis-label">Confidence</span>
+              <span class="analysis-value" id="confidenceValue">Low confidence</span>
             </div>
           </div>
         </aside>

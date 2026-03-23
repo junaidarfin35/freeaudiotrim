@@ -12,7 +12,9 @@
       this.processedKey = "";
       this.fileName = "audio";
       this.mode = "modified";
+      this.previewMode = "B";
       this.sourceNode = null;
+      this.gainNode = null;
       this.isPlaying = false;
       this.startedAt = 0;
       this.pausedOffset = 0;
@@ -40,6 +42,7 @@
         const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
         this.originalBuffer = decoded;
         this.fileName = stripExtension(file.name || "audio");
+        this.previewMode = "B";
         this.mode = "modified";
         this.pausedOffset = 0;
         this.updateTimeDisplays(0);
@@ -63,7 +66,7 @@
         ...nextSettings,
       };
       this.clearProcessedCache();
-      if (this.mode === "modified" && this.originalBuffer) {
+      if (this.previewMode === "B" && this.originalBuffer) {
         void this.primeProcessedBuffer();
       } else {
         this.drawWaveform();
@@ -85,20 +88,33 @@
     }
 
     async setMode(nextMode) {
-      if (!this.originalBuffer || (nextMode !== "original" && nextMode !== "modified")) {
-        this.mode = nextMode;
+      if (nextMode === "original") {
+        await this.setPreviewMode("A");
+        return;
+      }
+      if (nextMode === "modified") {
+        await this.setPreviewMode("B");
+        return;
+      }
+      this.updateState();
+    }
+
+    async setPreviewMode(nextPreviewMode) {
+      if (!this.originalBuffer || (nextPreviewMode !== "A" && nextPreviewMode !== "B")) {
+        this.previewMode = nextPreviewMode;
+        this.mode = nextPreviewMode === "A" ? "original" : "modified";
         this.updateState();
         return;
       }
 
       const wasPlaying = this.isPlaying;
-      const currentBuffer = await this.getActiveBuffer();
-      const currentDuration = currentBuffer.duration || 1;
-      const progress = clamp(this.getCurrentTime() / currentDuration, 0, 1);
+      const currentOffset = this.getCurrentTime();
 
-      this.mode = nextMode;
-      const targetBuffer = await this.getActiveBuffer();
-      this.pausedOffset = clamp(progress * targetBuffer.duration, 0, targetBuffer.duration);
+      this.previewMode = nextPreviewMode;
+      this.mode = nextPreviewMode === "A" ? "original" : "modified";
+      this.pausedOffset = clamp(currentOffset, 0, this.getCurrentDuration() || currentOffset || 0);
+      this.stopSourceOnly();
+      this.cancelAnimation();
       this.updateTimeDisplays(this.pausedOffset);
       this.drawWaveform();
 
@@ -107,6 +123,35 @@
       } else {
         this.updateState();
       }
+    }
+
+    async togglePreviewMode() {
+      await this.setPreviewMode(this.previewMode === "A" ? "B" : "A");
+    }
+
+    async seekTo(offsetSeconds) {
+      if (!this.originalBuffer) {
+        return;
+      }
+
+      const wasPlaying = this.isPlaying;
+      const buffer = await this.getPlaybackBuffer();
+      if (!buffer) {
+        return;
+      }
+
+      this.pausedOffset = clamp(Number(offsetSeconds) || 0, 0, buffer.duration);
+
+      if (wasPlaying) {
+        this.stopSourceOnly();
+        this.cancelAnimation();
+        await this.play();
+        return;
+      }
+
+      this.updateTimeDisplays(this.pausedOffset);
+      this.drawWaveform();
+      this.updateState();
     }
 
     async togglePlayPause() {
@@ -118,7 +163,7 @@
     }
 
     async play() {
-      const buffer = await this.getActiveBuffer();
+      const buffer = await this.getPlaybackBuffer();
       if (!buffer) {
         this.onStatus("Upload an audio file first.");
         return;
@@ -129,7 +174,7 @@
         await ctx.resume();
       }
 
-      this.startSource(buffer, this.pausedOffset);
+      this.startSource(buffer, this.pausedOffset, this.getPlaybackRate());
       this.onStatus(this.mode === "modified" ? "Previewing modified audio." : "Previewing original audio.");
       this.updateState();
     }
@@ -203,18 +248,23 @@
         return clamp(this.pausedOffset, 0, buffer.duration);
       }
       const ctx = this.getContext();
-      return clamp(this.startedAt ? ctx.currentTime - this.startedAt : 0, 0, buffer.duration);
+      const rate = this.getPlaybackRate();
+      return clamp((ctx.currentTime - this.startedAt) * rate, 0, buffer.duration);
     }
 
     getCurrentDuration() {
       const buffer = this.getCurrentBufferSync();
-      return buffer ? buffer.duration : 0;
+      if (!buffer) {
+        return 0;
+      }
+      return buffer.duration;
     }
 
     getPlaybackState() {
       return {
         isPlaying: this.isPlaying,
         mode: this.mode,
+        previewMode: this.previewMode,
         currentTime: this.getCurrentTime(),
         duration: this.getCurrentDuration(),
       };
@@ -237,20 +287,39 @@
     }
 
     async getActiveBuffer() {
+      return this.getPlaybackBuffer();
+    }
+
+    async getPlaybackBuffer() {
       if (!this.originalBuffer) {
         return null;
       }
-      if (this.mode === "original") {
+      if (this.previewMode === "A" || this.isSpeedOnlyPreview()) {
         return this.originalBuffer;
       }
       return this.getProcessedBuffer();
     }
 
     getCurrentBufferSync() {
-      if (this.mode === "original") {
+      if (this.previewMode === "A" || this.isSpeedOnlyPreview()) {
         return this.originalBuffer;
       }
       return this.processedBuffer || this.originalBuffer;
+    }
+
+    getPlaybackRate() {
+      if (this.mode !== "modified" || !this.isSpeedOnlyPreview()) {
+        return 1;
+      }
+      return Math.max(0.25, Number(this.settings.speed || 1));
+    }
+
+    getPlaybackBufferSync() {
+      return this.getCurrentBufferSync();
+    }
+
+    isSpeedOnlyPreview() {
+      return Math.abs(Number(this.settings.pitchSemitones || 0)) < 0.001;
     }
 
     async getProcessedBuffer() {
@@ -266,12 +335,23 @@
       return this.processedBuffer;
     }
 
-    startSource(buffer, offsetSeconds) {
+    startSource(buffer, offsetSeconds, playbackRate = 1) {
       this.stopSourceOnly();
       const ctx = this.getContext();
       const source = ctx.createBufferSource();
+      const gainNode = ctx.createGain();
+      const rate = Math.max(0.25, Number(playbackRate) || 1);
+      const compensation = 1 / Math.sqrt(rate);
+      const peak = getPeak(buffer);
+      const normalize = peak > 0 ? 1 / peak : 1;
+      let gainValue = normalize * compensation;
+      gainValue = Math.min(Math.max(gainValue, 0.7), 1.5);
+
       source.buffer = buffer;
-      source.connect(ctx.destination);
+      source.playbackRate.value = rate;
+      gainNode.gain.value = gainValue;
+      source.connect(gainNode);
+      gainNode.connect(ctx.destination);
       source.start(0, Math.max(0, offsetSeconds));
       source.onended = () => {
         if (!this.isPlaying) {
@@ -285,7 +365,8 @@
       };
 
       this.sourceNode = source;
-      this.startedAt = ctx.currentTime - offsetSeconds;
+      this.gainNode = gainNode;
+      this.startedAt = ctx.currentTime - (offsetSeconds / source.playbackRate.value);
       this.pausedOffset = offsetSeconds;
       this.isPlaying = true;
       this.startAnimation();
@@ -303,6 +384,10 @@
       }
       this.sourceNode.disconnect();
       this.sourceNode = null;
+      if (this.gainNode) {
+        this.gainNode.disconnect();
+        this.gainNode = null;
+      }
     }
 
     startAnimation() {
@@ -582,9 +667,16 @@
 
   function analyzeBuffer(buffer) {
     const mono = mergeToMono(buffer);
+    const tempo = detectTempo(mono, buffer.sampleRate);
+    const key = detectKey(mono, buffer.sampleRate);
+    const confidenceScore = clamp01((tempo.confidence + key.confidence) / 2);
     return {
-      key: detectKey(mono, buffer.sampleRate),
-      bpm: detectTempo(mono, buffer.sampleRate),
+      key: key.key,
+      bpm: tempo.bpm,
+      confidence: confidenceScore,
+      confidenceLabel: confidenceLevel(confidenceScore),
+      keyConfidence: key.confidence,
+      bpmConfidence: tempo.confidence,
     };
   }
 
@@ -607,6 +699,7 @@
 
     let bestLag = 0;
     let bestScore = 0;
+    let secondBestScore = 0;
     const minLag = Math.floor((60 / 180) * sampleRate / hopSize);
     const maxLag = Math.floor((60 / 60) * sampleRate / hopSize);
 
@@ -616,39 +709,54 @@
         score += envelope[i] * envelope[i - lag];
       }
       if (score > bestScore) {
+        secondBestScore = bestScore;
         bestScore = score;
         bestLag = lag;
+      } else if (score > secondBestScore) {
+        secondBestScore = score;
       }
     }
 
     if (!bestLag) {
-      return 0;
+      return { bpm: 0, confidence: 0 };
     }
-    return Math.round((60 * sampleRate) / (bestLag * hopSize));
+    const rawBpm = Math.round((60 * sampleRate) / (bestLag * hopSize));
+    const bpm = normalizeBpm(rawBpm);
+    const confidence = clamp01(scoreConfidence(bestScore, secondBestScore, envelope.length));
+    return {
+      bpm,
+      confidence: bpm !== rawBpm ? confidence * 0.88 : confidence,
+    };
   }
 
   function detectKey(samples, sampleRate) {
     const windowSize = 4096;
-    const step = Math.max(windowSize, Math.floor(sampleRate * 0.5));
     const pitchClassEnergy = new Float32Array(12);
+    const positions = samples.length <= windowSize ? [0.5] : [0.18, 0.5, 0.82];
 
-    for (let start = 0; start + windowSize < samples.length; start += step) {
-      const window = samples.subarray(start, start + windowSize);
-      const frequency = detectFundamental(window, sampleRate);
-      if (!frequency || frequency < 55 || frequency > 1760) {
-        continue;
+    for (const position of positions) {
+      const window = extractWindow(samples, position, windowSize);
+      const spectrum = fftMagnitudes(window);
+      for (let bin = 1; bin < spectrum.length; bin += 1) {
+        const frequency = (bin * sampleRate) / window.length;
+        if (frequency < 55 || frequency > 1760) {
+          continue;
+        }
+        const magnitude = spectrum[bin];
+        if (magnitude <= 0) {
+          continue;
+        }
+        const midi = Math.round(69 + 12 * Math.log2(frequency / 440));
+        const pitchClass = ((midi % 12) + 12) % 12;
+        pitchClassEnergy[pitchClass] += magnitude;
       }
-      const midi = Math.round(69 + 12 * Math.log2(frequency / 440));
-      const pitchClass = ((midi % 12) + 12) % 12;
-      pitchClassEnergy[pitchClass] += 1;
     }
 
     const majorProfile = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
     const minorProfile = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
     const noteNames = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
 
-    let bestScore = -Infinity;
-    let bestKey = "Unknown";
+    const scores = [];
     for (let root = 0; root < 12; root += 1) {
       let majorScore = 0;
       let minorScore = 0;
@@ -657,48 +765,17 @@
         majorScore += pitchClassEnergy[sourceIndex] * majorProfile[i];
         minorScore += pitchClassEnergy[sourceIndex] * minorProfile[i];
       }
-      if (majorScore > bestScore) {
-        bestScore = majorScore;
-        bestKey = `${noteNames[root]} major`;
-      }
-      if (minorScore > bestScore) {
-        bestScore = minorScore;
-        bestKey = `${noteNames[root]} minor`;
-      }
+      scores.push({ key: `${noteNames[root]} major`, score: majorScore });
+      scores.push({ key: `${noteNames[root]} minor`, score: minorScore });
     }
-    return bestKey;
-  }
-
-  function detectFundamental(samples, sampleRate) {
-    let rms = 0;
-    for (let i = 0; i < samples.length; i += 1) {
-      rms += samples[i] * samples[i];
-    }
-    rms = Math.sqrt(rms / samples.length);
-    if (rms < 0.01) {
-      return 0;
-    }
-
-    let bestOffset = -1;
-    let bestCorrelation = 0;
-    const minOffset = Math.floor(sampleRate / 1000);
-    const maxOffset = Math.floor(sampleRate / 55);
-
-    for (let offset = minOffset; offset <= maxOffset; offset += 1) {
-      let correlation = 0;
-      for (let i = 0; i < samples.length - offset; i += 1) {
-        correlation += samples[i] * samples[i + offset];
-      }
-      if (correlation > bestCorrelation) {
-        bestCorrelation = correlation;
-        bestOffset = offset;
-      }
-    }
-
-    if (bestOffset === -1) {
-      return 0;
-    }
-    return sampleRate / bestOffset;
+    scores.sort((a, b) => b.score - a.score);
+    const best = scores[0] || { key: "Unknown", score: 0 };
+    const second = scores[1] || { score: 0 };
+    const total = scores.reduce((sum, item) => sum + item.score, 0);
+    return {
+      key: best.key,
+      confidence: clamp01(scoreConfidence(best.score, second.score, total)),
+    };
   }
 
   function mergeToMono(buffer) {
@@ -710,6 +787,117 @@
       }
     }
     return mono;
+  }
+
+  function extractWindow(samples, position, size) {
+    const window = new Float32Array(size);
+    if (!samples.length) {
+      return window;
+    }
+    const center = Math.floor(clamp(position, 0, 1) * (samples.length - 1));
+    let start = Math.max(0, center - Math.floor(size / 2));
+    if (start + size > samples.length) {
+      start = Math.max(0, samples.length - size);
+    }
+    for (let i = 0; i < size; i += 1) {
+      const index = start + i;
+      const sample = index < samples.length ? samples[index] : 0;
+      window[i] = sample * hann(i, size);
+    }
+    return window;
+  }
+
+  function fftMagnitudes(input) {
+    const size = nextPowerOfTwo(input.length);
+    const real = new Float32Array(size);
+    const imag = new Float32Array(size);
+    real.set(input.subarray(0, Math.min(input.length, size)));
+    fft(real, imag);
+    const magnitudes = new Float32Array(size / 2);
+    for (let i = 0; i < magnitudes.length; i += 1) {
+      magnitudes[i] = Math.hypot(real[i], imag[i]);
+    }
+    return magnitudes;
+  }
+
+  function fft(real, imag) {
+    const n = real.length;
+    for (let i = 1, j = 0; i < n; i += 1) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) {
+        j ^= bit;
+      }
+      j ^= bit;
+      if (i < j) {
+        [real[i], real[j]] = [real[j], real[i]];
+        [imag[i], imag[j]] = [imag[j], imag[i]];
+      }
+    }
+
+    for (let size = 2; size <= n; size <<= 1) {
+      const half = size >> 1;
+      const step = (-2 * Math.PI) / size;
+      for (let start = 0; start < n; start += size) {
+        for (let i = 0; i < half; i += 1) {
+          const angle = step * i;
+          const wr = Math.cos(angle);
+          const wi = Math.sin(angle);
+          const evenIndex = start + i;
+          const oddIndex = evenIndex + half;
+          const tr = wr * real[oddIndex] - wi * imag[oddIndex];
+          const ti = wr * imag[oddIndex] + wi * real[oddIndex];
+          real[oddIndex] = real[evenIndex] - tr;
+          imag[oddIndex] = imag[evenIndex] - ti;
+          real[evenIndex] += tr;
+          imag[evenIndex] += ti;
+        }
+      }
+    }
+  }
+
+  function normalizeBpm(bpm) {
+    let normalized = Math.round(bpm || 0);
+    while (normalized > 180) {
+      normalized = Math.round(normalized / 2);
+    }
+    while (normalized > 0 && normalized < 60) {
+      normalized = Math.round(normalized * 2);
+    }
+    return normalized;
+  }
+
+  function scoreConfidence(bestScore, secondScore, totalScore) {
+    if (!bestScore || bestScore <= 0) {
+      return 0;
+    }
+    const separation = Math.max(0, (bestScore - secondScore) / Math.max(bestScore, 1));
+    const dominance = bestScore / Math.max(totalScore || bestScore, 1);
+    return (separation * 0.7) + (dominance * 3);
+  }
+
+  function confidenceLevel(score) {
+    if (score >= 0.75) {
+      return "High";
+    }
+    if (score >= 0.45) {
+      return "Medium";
+    }
+    return "Low";
+  }
+
+  function hann(i, size) {
+    if (size <= 1) {
+      return 1;
+    }
+    return 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (size - 1));
+  }
+
+  function nextPowerOfTwo(value) {
+    let n = 1;
+    while (n < value) {
+      n <<= 1;
+    }
+    return n;
   }
 
   function formatTime(seconds) {
@@ -728,6 +916,20 @@
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
+  }
+
+  function getPeak(buffer) {
+    let peak = 0;
+    for (let ch = 0; ch < buffer.numberOfChannels; ch += 1) {
+      const data = buffer.getChannelData(ch);
+      for (let i = 0; i < data.length; i += 1) {
+        const abs = Math.abs(data[i]);
+        if (abs > peak) {
+          peak = abs;
+        }
+      }
+    }
+    return peak;
   }
 
   window.FreeAudioTrimAudioEngine = {
