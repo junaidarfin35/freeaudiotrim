@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ringtone Maker Online (iPhone & Android) – Free, No Upload</title>
+<meta name="description" content="Make ringtone online for iPhone and Android. Trim MP3, select best part, and download instantly — no upload required.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://freeaudiotrim.com/ringtone-maker.html">
+
+<link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="/assets/brand/favicon-48x48.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+<link rel="manifest" href="/assets/brand/site.webmanifest">
+
+<link rel="stylesheet" href="/assets/upload.css">
+<link rel="stylesheet" href="/assets/layout.css">
+<style>
+  .content-section {
+    margin-bottom: 2rem;
+  }
+
+  .hero.hero-ringtone {
+    padding: clamp(1.75rem, 4vw, 3rem);
+  }
+
+  .hero-ringtone__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+    gap: clamp(1.5rem, 3vw, 2.5rem);
+    align-items: center;
+  }
+
+  .hero-ringtone__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 10%, white);
+    color: var(--accent-strong, var(--accent));
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .hero-ringtone h1 {
+    margin: 0.9rem 0 0;
+  }
+
+  .hero-ringtone__subtext {
+    margin: 0.9rem 0 0;
+    font-size: 1.05rem;
+    max-width: 42rem;
+  }
+
+  .hero-ringtone__trust {
+    margin: 1rem 0 0;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .hero-ringtone__supporting {
+    margin-top: 1rem;
+    max-width: 44rem;
+  }
+
+  .preset-panel {
+    margin-top: 1.25rem;
+    max-width: 34rem;
+  }
+
+  .preset-panel__label {
+    margin: 0 0 0.65rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+
+  .preset-toggle {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+
+  .preset-toggle__button {
+    appearance: none;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    background: #fff;
+    color: var(--foreground);
+    border-radius: 999px;
+    padding: 0.75rem 1.1rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .preset-toggle__button:hover {
+    border-color: rgba(15, 23, 42, 0.24);
+  }
+
+  .preset-toggle__button.is-active {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(29, 78, 216, 0.2);
+  }
+
+  .preset-panel__meta {
+    margin: 0.8rem 0 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  .preset-panel__hint {
+    margin: 0.65rem 0 0;
+    color: #1d4ed8;
+    font-size: 0.92rem;
+    font-weight: 600;
+  }
+
+  .hero-ringtone__cta {
+    width: 100%;
+  }
+
+  .hero-ringtone__cta .upload-shell {
+    margin: 0;
+  }
+
+  .hero-ringtone__cta .upload-box {
+    min-height: 100%;
+  }
+
+  .section-intro p:last-child {
+    margin-bottom: 0;
+  }
+
+  .tool-shell {
+    margin-top: 1rem;
+  }
+
+  .tool-ui.is-hidden {
+    display: none;
+  }
+
+  .tool-shell.is-hidden {
+    display: none;
+  }
+
+  .tool-shell-note {
+    margin-top: 1rem;
+    font-size: 0.95rem;
+    text-align: center;
+  }
+
+  .ringtone-selection-hint {
+    margin-top: 0.85rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid rgba(37, 99, 235, 0.16);
+    border-radius: 12px;
+    background: rgba(239, 246, 255, 0.95);
+    color: #1d4ed8;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .ringtone-selection-hint.is-hidden {
+    display: none;
+  }
+
+  .iphone-guide {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: max-height 0.28s ease, opacity 0.22s ease, transform 0.22s ease, margin-top 0.22s ease, padding 0.22s ease, border-width 0.22s ease;
+    margin-top: 0;
+    padding: 0 1rem;
+    border: 0 solid rgba(15, 23, 42, 0.08);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  }
+
+  .iphone-guide.is-visible {
+    max-height: 1200px;
+    opacity: 1;
+    transform: translateY(0);
+    margin-top: 1rem;
+    padding: 1rem;
+    border-width: 1px;
+  }
+
+  .iphone-guide__steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.85rem;
+    margin-top: 0.9rem;
+  }
+
+  .iphone-guide__step {
+    padding: 0.9rem;
+    border-radius: 14px;
+    background: rgba(37, 99, 235, 0.06);
+    border: 1px solid rgba(37, 99, 235, 0.1);
+  }
+
+  .iphone-guide__step-title {
+    margin: 0 0 0.45rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1d4ed8;
+  }
+
+  .iphone-guide__cta {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .iphone-guide__cta p {
+    margin: 0;
+  }
+
+  .ringtone-playback-bar {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+    gap: 0.85rem;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .ringtone-playback-bar.is-visible {
+    display: flex;
+  }
+
+  .ringtone-playback-bar__group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .ringtone-playback-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0.45rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.08);
+    color: #1d4ed8;
+    font-size: 0.95rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .ringtone-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding: 0.45rem 0.8rem;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 999px;
+    background: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--foreground);
+  }
+
+  .ringtone-toggle input {
+    margin: 0;
+  }
+
+  #audio-tool .at-wave-wrap {
+    cursor: default;
+  }
+
+  #audio-tool .at-wave-wrap.is-ringtone-iphone .at-wave {
+    cursor: grab;
+  }
+
+  #audio-tool .at-wave-wrap.is-ringtone-iphone.is-dragging-selection .at-wave {
+    cursor: grabbing;
+  }
+
+  #audio-tool .ringtone-selection-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  #audio-tool .ringtone-selection-box {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border: 2px solid rgba(37, 99, 235, 0.95);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.18), rgba(59, 130, 246, 0.1));
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.36);
+  }
+
+  #audio-tool .ringtone-selection-handle {
+    position: absolute;
+    top: 50%;
+    width: 14px;
+    height: 42px;
+    margin-top: -21px;
+    border-radius: 999px;
+    background: #fff;
+    border: 2px solid rgba(37, 99, 235, 0.95);
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.16);
+  }
+
+  #audio-tool .ringtone-selection-handle--start {
+    left: -8px;
+  }
+
+  #audio-tool .ringtone-selection-handle--end {
+    right: -8px;
+  }
+
+  #audio-tool .at-root > .at-row:first-child {
+    display: none;
+  }
+
+  @media (max-width: 900px) {
+    .hero-ringtone__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .hero.hero-ringtone {
+      padding: 1.25rem;
+    }
+
+    .hero-ringtone__subtext {
+      font-size: 1rem;
+    }
+
+    .preset-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .preset-toggle__button {
+      justify-content: center;
+      width: 100%;
+    }
+
+    .ringtone-playback-bar {
+      align-items: stretch;
+    }
+
+    .ringtone-playback-bar__group {
+      width: 100%;
+    }
+  }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I make a ringtone online?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Upload your audio file, choose the best section with the waveform controls, preview it, and download the trimmed clip for ringtone use."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does this ringtone maker upload my file?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. The tool runs in your browser and processes audio locally on your device."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I make ringtones for iPhone and Android?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. You can trim a short audio clip and download it for use on both iPhone and Android, depending on the format you need."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What audio formats can I open?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You can open MP3, WAV, AAC, M4A, FLAC, and OGG files when your browser supports decoding them."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is there a file size limit?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "For smooth performance, a practical limit is around 200 MB, depending on your browser and device memory."
+      }
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "SoftwareApplication",
+ "name": "Ringtone Maker Online",
+ "applicationCategory": "MultimediaApplication",
+ "operatingSystem": "Web Browser",
+ "url": "https://freeaudiotrim.com/ringtone-maker.html",
+ "description": "Create a ringtone online by trimming MP3 and other audio files directly in your browser with no upload required.",
+ "offers": {
+   "@type": "Offer",
+   "price": "0",
+   "priceCurrency": "USD"
+ }
+}
+</script>
+</head>
+<body>
+<header>
+  <div class="header-container">
+    <a href="/" class="logo"><img src="/assets/brand/logo.svg" alt="Free Audio Trim logo" width="28" height="28" decoding="async"> freeaudiotrim.com</a>
+    <nav>
+      <a href="/">MP3 Trimmer</a>
+      <a href="/convert-mp3-to-wav.html">Convert</a>
+      <a href="/normalize-audio-volume.html">Normalize Volume</a>
+      <a href="/blog/">Blog</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <section class="content-section section-intro section-surface hero hero-ringtone">
+    <div class="hero-ringtone__grid">
+      <div class="hero-ringtone__copy">
+        <div class="hero-ringtone__eyebrow">Ringtone Maker</div>
+        <h1>Make Ringtone Online in Seconds</h1>
+        <p class="hero-ringtone__subtext">Create iPhone and Android ringtones instantly — no upload, no waiting.</p>
+        <p class="hero-ringtone__trust">100% browser-based • No uploads • Private by design</p>
+        <p class="hero-ringtone__supporting">Trim the exact hook, chorus, or sound you want with precise waveform controls, preview it instantly, and download a polished ringtone clip directly from your browser. You can start with MP3, WAV, M4A, AAC, FLAC, or OGG files where supported.</p>
+      </div>
+      <div class="hero-ringtone__cta">
+        <div class="upload-shell" id="upload-shell">
+          <div class="upload-box" id="upload-dropzone" role="button" tabindex="0" aria-label="Drop audio file here or click to upload">
+            <div class="upload-content">
+              <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
+              <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
+              <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
+              <small class="upload-dropzone__meta">Max file size: 200MB</small>
+              <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section section-surface tool-ui is-hidden">
+    <div id="tool-shell" class="tool-shell is-hidden">
+      <div class="preset-panel" aria-label="Device preset selector">
+        <p class="preset-panel__label">Choose your ringtone preset</p>
+        <div class="preset-toggle" role="group" aria-label="Ringtone device presets">
+          <button class="preset-toggle__button is-active" type="button" data-preset-button="iphone" aria-pressed="true">iPhone</button>
+          <button class="preset-toggle__button" type="button" data-preset-button="android" aria-pressed="false">Android</button>
+        </div>
+        <p class="preset-panel__meta" id="preset-meta">Optimized for iPhone (30 seconds). Download as MP3 - we'll guide you to use it as a ringtone.</p>
+        <p class="preset-panel__hint" id="preset-hint">iPhone uses a special ringtone format (.m4r) - we'll guide you after download</p>
+      </div>
+      <div id="audio-tool"></div>
+      <div class="ringtone-playback-bar" id="ringtone-playback-bar" aria-label="Ringtone playback controls">
+        <div class="ringtone-playback-bar__group">
+          <div class="ringtone-playback-chip" id="ringtone-duration-display">Selection: 0.0 sec</div>
+          <label class="ringtone-toggle" for="ringtone-loop-toggle">
+            <input type="checkbox" id="ringtone-loop-toggle" checked>
+            Loop playback
+          </label>
+          <label class="ringtone-toggle" for="ringtone-fade-in-toggle">
+            <input type="checkbox" id="ringtone-fade-in-toggle">
+            Fade in
+          </label>
+          <label class="ringtone-toggle" for="ringtone-fade-out-toggle">
+            <input type="checkbox" id="ringtone-fade-out-toggle">
+            Fade out
+          </label>
+        </div>
+        <div class="ringtone-playback-bar__group">
+          <div class="ringtone-playback-chip">Preview button plays the selected region only</div>
+        </div>
+      </div>
+      <p class="tool-shell-note"><strong>Your files never leave your device. No uploads. No account required.</strong></p>
+      <p class="ringtone-selection-hint is-hidden" id="ringtone-selection-hint">30s ringtone selected — drag to choose your favorite part</p>
+      <section class="iphone-guide is-visible" id="iphone-guide" aria-label="Use this ringtone on iPhone">
+        <h2>Use this ringtone on iPhone</h2>
+        <div class="iphone-guide__steps">
+          <div class="iphone-guide__step">
+            <h3 class="iphone-guide__step-title">Step 1</h3>
+            <p>Download your ringtone (MP3).</p>
+          </div>
+          <div class="iphone-guide__step">
+            <h3 class="iphone-guide__step-title">Step 2</h3>
+            <p>Open GarageBand or the Files app on your iPhone.</p>
+          </div>
+          <div class="iphone-guide__step">
+            <h3 class="iphone-guide__step-title">Step 3</h3>
+            <p>Import the audio file into your iPhone workflow.</p>
+          </div>
+          <div class="iphone-guide__step">
+            <h3 class="iphone-guide__step-title">Step 4</h3>
+            <p>Export it as a ringtone.</p>
+          </div>
+        </div>
+        <p>If you are looking for an iphone ringtone maker workflow, this guide helps you make ringtone online first, choose a ringtone-friendly length, and then continue the final iPhone setup. It is a practical way to learn how to make ringtone iPhone clips from your own audio, especially if you want to convert mp3 to ringtone use without a full desktop editor.</p>
+        <p><a href="/blog/mp3-to-m4r-iphone-ringtone.html">Learn how to make iPhone ringtones →</a></p>
+        <div class="iphone-guide__cta" id="future-m4r-tools">
+          <p><strong>Need M4R format?</strong> <a href="/mp3-to-m4r.html">Convert MP3 to ringtone format</a></p>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <section class="content-section section-shell section-surface">
+    <h2>How to Make a Ringtone Online</h2>
+    <ol class="step-list">
+      <li><span class="step-title">Upload your audio</span><span class="step-description">Choose the song or recording you want to turn into a ringtone.</span></li>
+      <li><span class="step-title">Pick the best part</span><span class="step-description">Drag the trim handles to keep the section you want for your ringtone.</span></li>
+      <li><span class="step-title">Preview the clip</span><span class="step-description">Play it back to make sure the timing feels right before downloading.</span></li>
+      <li><span class="step-title">Download instantly</span><span class="step-description">Export the trimmed audio and save it to your device for iPhone or Android use.</span></li>
+    </ol>
+  </section>
+
+  <section class="content-section section-shell section-surface">
+    <h2>Why Use This Online Ringtone Maker?</h2>
+    <ul class="icon-list">
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3"/><path d="M9 8v8"/><path d="M15 5v14"/><path d="M21 10v4"/></svg></span><span><strong>Waveform trimming:</strong> choose the exact part of the track you want to keep.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9a4 4 0 0 0 0 8h6a4 4 0 0 1 0 8H7"/></svg></span><span><strong>No upload required:</strong> your file stays on your device while editing.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 17a5 5 0 1 0 0-10"/><path d="m15 7 4 0 0-4"/><path d="M7 7v10l8-5z"/></svg></span><span><strong>Instant preview:</strong> listen before you save so the ringtone starts and ends cleanly.</span></li>
+      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></span><span><strong>Fast download:</strong> export your clip immediately after trimming.</span></li>
+    </ul>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Ringtone Tips for iPhone and Android</h2>
+    <p>Most people prefer a short ringtone clip with a clear opening, so it sounds good right away when the phone rings. Pick a section with a strong melody, vocal hook, or recognizable beat, then preview the start and end to avoid abrupt cuts. If needed, trim the file again until the clip feels polished and easy to recognize.</p>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>How to make a ringtone online</h2>
+    <p>A good ringtone maker online should do more than just cut audio. It should let you open your file quickly, preview the exact section you want, and export only that selected part without sending the file to a server. That is why many people look for a simple way to make ringtone online in the browser instead of installing a desktop editor for a small task.</p>
+    <p>To get the best result, start with a clear part of the track such as a chorus, a beat drop, or a short vocal line. Use the waveform to move the selected region until the opening sounds strong right away when the phone rings. If you need to cut MP3 for ringtone use, keep the selection focused and easy to recognize in the first second or two. Short clips tend to work better than longer ones because they sound cleaner and are easier to identify in noisy environments. If you want a simpler trimming workflow first, try our <a href="/free-mp3-cutter.html">free MP3 cutter</a> for fast browser-based edits.</p>
+    <p>This page is designed for that exact workflow. You can upload audio, drag the selection, preview the chosen section in real time, and download the finished segment after trimming. Because everything runs in the browser, the process feels fast, private, and practical for everyday ringtone editing.</p>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>How to make iPhone ringtone from MP3</h2>
+    <p>If you want an iphone ringtone maker workflow that starts with MP3, the main goal is choosing the best 30-second part of the track. A strong ringtone usually begins with a recognizable hook, melody, or sound effect, so it is worth taking a few seconds to drag the selection window and preview the clip before downloading. When people search for an iphone ringtone maker, they usually want both trimming help and a simple way to prepare a ringtone-friendly segment from a longer file.</p>
+    <p>The easiest approach is to load your MP3, switch to the iPhone preset, and let the tool create a 30-second selection automatically. From there, drag the whole selection to another part of the song or resize the edges until the ringtone starts and ends cleanly. This is especially useful when you need to cut MP3 for ringtone use without opening a complicated editor.</p>
+    <p>After trimming, download the selected clip and continue the final iPhone setup in your Apple-compatible ringtone workflow. The key step on this page is getting the timing right first. Once the selected region sounds polished in preview, the rest of the setup becomes much easier.</p>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>How to set ringtone on Android</h2>
+    <p>Android usually gives you a more direct path after you make ringtone online. Once you export the selected clip as MP3, you can open your phone settings, go to the sound or ringtone section, and choose the saved file as your new ringtone. On some devices, you may also be able to set it from the file manager or music app after the download is complete.</p>
+    <p>For the best Android result, keep the ringtone loud enough to hear clearly and short enough to feel intentional. If your source audio is quiet, you can trim it here first and then use another tool to <a href="/normalize-audio-volume.html">normalize audio volume</a> afterward. If the beginning feels too abrupt, preview the clip again and move the start point slightly so the ringtone sounds smoother when calls come in. You can also <a href="/audio-speed-changer.html">change audio speed online</a> if you want a faster or more energetic ringtone feel.</p>
+    <p>This is why a browser-based ringtone maker online can be so useful for Android users. You can cut the exact part you want, preview it immediately, and export a ready-to-use MP3 without extra software. For many people, that is the fastest way to make ringtone online and set a custom phone sound in just a few minutes.</p>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Ringtone Maker FAQ</h2>
+    <h3>How long can an iPhone ringtone be?</h3>
+    <p>In most cases, people aim for about 30 seconds for an iPhone ringtone. That length is short enough to sound clean and practical, which is why this page uses a 30-second target in the iPhone preset.</p>
+
+    <h3>Can I make ringtone without uploading?</h3>
+    <p>Yes. This tool works in your browser, so you can trim and preview your audio without uploading it to a server. Your file stays on your device while you edit the selected region.</p>
+
+    <h3>What format is iPhone ringtone?</h3>
+    <p>iPhone ringtones are commonly associated with the M4R format. This page helps you prepare the correct ringtone-length segment first, which is the most important editing step before final iPhone use.</p>
+
+    <h3>Is this tool free?</h3>
+    <p>Yes. You can use this ringtone maker online for free to load audio, cut the part you want, preview the selection, and download the trimmed clip.</p>
+
+    <h3>Does it work on mobile?</h3>
+    <p>Yes. The page is designed to work on modern mobile browsers as well as desktop browsers, so you can make ringtone online from an Android phone, iPhone, tablet, or computer.</p>
+  </section>
+
+  <div id="related-tools"></div>
+  <div class="related-tools">
+    <h3>Try next</h3>
+    <ul>
+      <li><a href="/audio-cutter-online.html">Cut audio online</a></li>
+      <li><a href="/normalize-audio-volume.html">Normalize audio volume</a></li>
+      <li><a href="/remove-silence-from-audio.html">Remove silence from audio online</a></li>
+    </ul>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-container">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
+      <div>
+        <div class="footer-title">AudioTools</div>
+        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
+      </div>
+      <div>
+        <div class="footer-title">Tools</div>
+        <p><a href="/" class="footer-text">MP3 Trimmer</a></p>
+        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
+        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
+      </div>
+      <div>
+        <div class="footer-title">Legal</div>
+        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
+        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
+        <p><a href="/contact.html" class="footer-text">Contact</a></p>
+      </div>
+    </div>
+    <div class="footer-small">
+      (c) 2026 AudioTools. All rights reserved.
+    </div>
+  </div>
+</footer>
+
+<script src="/assets/encoders/lame.min.js"></script>
+<script src="/assets/encoders/mp3-encoder.js"></script>
+<script src="/assets/trim-tool.js"></script>
+<script>
+  (function () {
+    var uploadShell = document.getElementById("upload-shell");
+    var dropzone = document.getElementById("upload-dropzone");
+    var toolUiSection = document.querySelector(".tool-ui");
+    var toolShell = document.getElementById("tool-shell");
+    var presetButtons = document.querySelectorAll("[data-preset-button]");
+    var presetMeta = document.getElementById("preset-meta");
+    var presetHint = document.getElementById("preset-hint");
+    var selectionHint = document.getElementById("ringtone-selection-hint");
+    var playbackBar = document.getElementById("ringtone-playback-bar");
+    var iphoneGuide = document.getElementById("iphone-guide");
+    var durationDisplay = document.getElementById("ringtone-duration-display");
+    var loopToggle = document.getElementById("ringtone-loop-toggle");
+    var fadeInToggle = document.getElementById("ringtone-fade-in-toggle");
+    var fadeOutToggle = document.getElementById("ringtone-fade-out-toggle");
+    var activePreset = "iphone";
+
+    if (!uploadShell || !dropzone || !toolShell) {
+      return;
+    }
+
+    function getToolInput() {
+      return document.querySelector("#audio-tool .at-file");
+    }
+
+    function showTool() {
+      uploadShell.style.display = "none";
+      if (toolUiSection) {
+        toolUiSection.classList.remove("is-hidden");
+      }
+      toolShell.classList.remove("is-hidden");
+      if (playbackBar) {
+        playbackBar.classList.add("is-visible");
+      }
+    }
+
+    function getController() {
+      var mount = document.getElementById("audio-tool");
+      return mount && mount.__audioToolController ? mount.__audioToolController : null;
+    }
+
+    function getIPhoneWindow(controller) {
+      var duration = controller && controller.duration ? controller.duration : 0;
+      if (!duration) {
+        return null;
+      }
+      var targetLength = Math.min(30, duration);
+      var start = duration * 0.25;
+      var end = start + targetLength;
+      if (end > duration) {
+        end = duration;
+        start = Math.max(0, end - targetLength);
+      }
+      return { start: start, end: end, length: targetLength };
+    }
+
+    function clampIPhoneSelection(controller) {
+      if (!controller || !controller.duration || !controller.trim) {
+        return;
+      }
+      var selection = controller._getSelection ? controller._getSelection() : null;
+      if (!selection) {
+        return;
+      }
+      var maxLength = Math.min(30, controller.duration);
+      if (selection.end - selection.start > maxLength) {
+        var nextEnd = Math.min(selection.start + maxLength, controller.duration);
+        var nextStart = Math.max(0, nextEnd - maxLength);
+        controller.trim.setFromSeconds(nextStart, nextEnd, controller.duration);
+      }
+    }
+
+    function toggleSelectionHint() {
+      if (!selectionHint) {
+        return;
+      }
+      var controller = getController();
+      var shouldShow = activePreset === "iphone" && controller && controller.duration;
+      selectionHint.classList.toggle("is-hidden", !shouldShow);
+    }
+
+    function updateDurationDisplay(controller) {
+      if (!durationDisplay) {
+        return;
+      }
+      if (!controller || !controller.duration || !controller._getSelection) {
+        durationDisplay.textContent = "Selection: 0.0 sec";
+        return;
+      }
+      var selection = controller._getSelection();
+      var length = Math.max(0, selection.end - selection.start);
+      durationDisplay.textContent = "Selection: " + length.toFixed(1) + " sec";
+    }
+
+    function syncPlaybackUi(controller) {
+      if (!controller) {
+        return;
+      }
+      if (loopToggle && controller.loopCheckbox) {
+        loopToggle.checked = controller.loopCheckbox.checked;
+      }
+      if (fadeInToggle && controller.fadeInSelect) {
+        fadeInToggle.checked = (parseFloat(controller.fadeInSelect.value) || 0) > 0;
+      }
+      if (fadeOutToggle && controller.fadeOutSelect) {
+        fadeOutToggle.checked = (parseFloat(controller.fadeOutSelect.value) || 0) > 0;
+      }
+      updateDurationDisplay(controller);
+    }
+
+    function syncIPhoneGuide() {
+      var isIPhone = activePreset === "iphone";
+      if (iphoneGuide) {
+        iphoneGuide.classList.toggle("is-visible", isIPhone);
+      }
+      if (presetHint) {
+        presetHint.style.display = isIPhone ? "" : "none";
+      }
+    }
+
+    function ensureSelectionOverlay(controller) {
+      if (!controller || !controller.canvas) {
+        return null;
+      }
+      var waveWrap = controller.canvas.parentNode;
+      if (!waveWrap) {
+        return null;
+      }
+      var overlay = waveWrap.querySelector(".ringtone-selection-overlay");
+      if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.className = "ringtone-selection-overlay";
+        overlay.innerHTML = '<div class="ringtone-selection-box"><span class="ringtone-selection-handle ringtone-selection-handle--start" aria-hidden="true"></span><span class="ringtone-selection-handle ringtone-selection-handle--end" aria-hidden="true"></span></div>';
+        waveWrap.appendChild(overlay);
+      }
+      return overlay;
+    }
+
+    function updateSelectionOverlay(controller) {
+      if (!controller || !controller.trim || !controller.canvas) {
+        return;
+      }
+      var waveWrap = controller.canvas.parentNode;
+      var overlay = ensureSelectionOverlay(controller);
+      if (!waveWrap || !overlay) {
+        return;
+      }
+      var box = overlay.querySelector(".ringtone-selection-box");
+      if (!box) {
+        return;
+      }
+      var startRatio = controller.trim.startRatio || 0;
+      var endRatio = controller.trim.endRatio || 0;
+      var width = controller.canvas.clientWidth || 0;
+      var startPx = Math.max(0, Math.min(width, startRatio * width));
+      var endPx = Math.max(startPx, Math.min(width, endRatio * width));
+      box.style.left = startPx + "px";
+      box.style.width = Math.max(0, endPx - startPx) + "px";
+      waveWrap.classList.toggle("is-ringtone-iphone", activePreset === "iphone");
+      overlay.style.display = activePreset === "iphone" && controller.duration ? "block" : "none";
+    }
+
+    function updateWaveCursor(controller, clientX) {
+      if (!controller || !controller.trim || !controller.canvas) {
+        return;
+      }
+      var waveWrap = controller.canvas.parentNode;
+      if (!waveWrap) {
+        return;
+      }
+      if (activePreset !== "iphone" || !controller.duration) {
+        waveWrap.classList.remove("is-dragging-selection");
+        controller.canvas.style.cursor = "";
+        return;
+      }
+      var rect = controller.canvas.getBoundingClientRect();
+      var x = typeof clientX === "number" ? clientX - rect.left : null;
+      if (controller.trim.dragging === "move") {
+        waveWrap.classList.add("is-dragging-selection");
+        controller.canvas.style.cursor = "grabbing";
+        return;
+      }
+      waveWrap.classList.remove("is-dragging-selection");
+      if (x == null) {
+        controller.canvas.style.cursor = "grab";
+        return;
+      }
+      var startX = controller.trim.startRatio * (controller.canvas.clientWidth || 1);
+      var endX = controller.trim.endRatio * (controller.canvas.clientWidth || 1);
+      var hitZone = 20;
+      if (Math.abs(x - startX) <= hitZone || Math.abs(x - endX) <= hitZone) {
+        controller.canvas.style.cursor = "ew-resize";
+      } else if (x > startX && x < endX) {
+        controller.canvas.style.cursor = "grab";
+      } else {
+        controller.canvas.style.cursor = "";
+      }
+    }
+
+    function applyIPhoneDefaultSelection(controller) {
+      var windowSelection = getIPhoneWindow(controller);
+      if (!windowSelection || !controller.trim) {
+        return;
+      }
+      controller.trim.setFromSeconds(windowSelection.start, windowSelection.end, controller.duration);
+      updateSelectionOverlay(controller);
+      toggleSelectionHint();
+      updateDurationDisplay(controller);
+      controller.setStatus("30s ringtone selected — drag to choose your favorite part");
+    }
+
+    function syncPresetUi() {
+      for (var i = 0; i < presetButtons.length; i += 1) {
+        var button = presetButtons[i];
+        var isActive = button.getAttribute("data-preset-button") === activePreset;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      }
+
+      if (presetMeta) {
+        if (activePreset === "iphone") {
+          presetMeta.textContent = "Optimized for iPhone (30 seconds). Download as MP3 - we'll guide you to use it as a ringtone.";
+        } else {
+          presetMeta.textContent = "Optimized for Android. Download as MP3 with no strict duration limit.";
+        }
+      }
+      syncIPhoneGuide();
+    }
+
+    function applyPresetToController() {
+      var controller = getController();
+      if (!controller) {
+        return;
+      }
+
+      if (controller.exportMp3Btn) {
+        controller.exportMp3Btn.textContent = "Download Ringtone";
+      }
+
+      if (controller.exportWavBtn) {
+        controller.exportWavBtn.style.display = "none";
+      }
+
+      if (activePreset === "iphone") {
+        if (controller.duration) {
+          applyIPhoneDefaultSelection(controller);
+        }
+      } else if (controller.duration) {
+        controller.setStatus("Android preset active. MP3 export is ready with no strict duration limit.");
+      }
+      updateSelectionOverlay(controller);
+      toggleSelectionHint();
+      syncPlaybackUi(controller);
+      updateWaveCursor(controller);
+    }
+
+    function waitForReadyController(callback) {
+      var attempts = 0;
+      var timer = setInterval(function () {
+        attempts += 1;
+        var controller = getController();
+        if (controller) {
+          clearInterval(timer);
+          callback(controller);
+          return;
+        }
+        if (attempts > 40) {
+          clearInterval(timer);
+        }
+      }, 100);
+    }
+
+    function watchLoadedAudio() {
+      var attempts = 0;
+      var timer = setInterval(function () {
+        attempts += 1;
+        var controller = getController();
+        if (controller && controller.duration) {
+          clearInterval(timer);
+          applyPresetToController();
+          return;
+        }
+        if (attempts > 120) {
+          clearInterval(timer);
+        }
+      }, 100);
+    }
+
+    function bindPresetController() {
+      waitForReadyController(function (controller) {
+        if (controller.trim && !controller.trim.__ringtonePresetBound) {
+          var trim = controller.trim;
+          var originalDown = trim._boundDown;
+          var originalMove = trim._boundMove;
+          var originalUp = trim._boundUp;
+          trim.canvas.removeEventListener("pointerdown", originalDown);
+          window.removeEventListener("pointermove", originalMove);
+          window.removeEventListener("pointerup", originalUp);
+          window.removeEventListener("pointercancel", originalUp);
+
+          trim.selectionDragOffset = 0;
+          trim.handlePointerDown = function (event) {
+            if (event.button !== 0 && event.pointerType === "mouse") {
+              return;
+            }
+            var rect = this.canvas.getBoundingClientRect();
+            var x = event.clientX - rect.left;
+            var startX = this.renderer.ratioToX(this.startRatio);
+            var endX = this.renderer.ratioToX(this.endRatio);
+            var hitZone = 20;
+            var distStart = Math.abs(x - startX);
+            var distEnd = Math.abs(x - endX);
+
+            if (distStart <= hitZone || distEnd <= hitZone) {
+              this.dragging = distStart <= distEnd ? "start" : "end";
+            } else if (activePreset === "iphone" && x > startX && x < endX) {
+              this.dragging = "move";
+              this.selectionDragOffset = x - startX;
+            } else if (x > startX && x < endX) {
+              this.dragging = Math.abs(x - startX) < Math.abs(x - endX) ? "start" : "end";
+            } else {
+              this.dragging = x < startX ? "start" : "end";
+            }
+
+            this.pointerId = event.pointerId;
+            this.canvas.setPointerCapture(event.pointerId);
+            updateWaveCursor(controller, event.clientX);
+            event.preventDefault();
+          };
+
+          trim.handlePointerMove = function (event) {
+            if (!this.dragging || this.pointerId !== event.pointerId) {
+              updateWaveCursor(controller, event.clientX);
+              return;
+            }
+            var rect = this.canvas.getBoundingClientRect();
+            var ratio = this.renderer.xToRatio(event.clientX - rect.left);
+            if (this.dragging === "start") {
+              this.startRatio = Math.max(0, Math.min(ratio, this.endRatio - this.minGap));
+            } else if (this.dragging === "end") {
+              this.endRatio = Math.max(this.startRatio + this.minGap, Math.min(ratio, 1));
+            } else if (this.dragging === "move") {
+              var widthRatio = this.endRatio - this.startRatio;
+              var canvasWidth = Math.max(1, this.canvas.clientWidth || 1);
+              var nextStartRatio = (event.clientX - rect.left - this.selectionDragOffset) / canvasWidth;
+              nextStartRatio = Math.max(0, Math.min(nextStartRatio, 1 - widthRatio));
+              this.startRatio = nextStartRatio;
+              this.endRatio = nextStartRatio + widthRatio;
+            }
+            this.renderer.setSelection(this.startRatio, this.endRatio);
+            this._emit();
+            updateSelectionOverlay(controller);
+            updateWaveCursor(controller, event.clientX);
+          };
+
+          trim.handlePointerUp = function (event) {
+            if (this.pointerId !== event.pointerId) {
+              return;
+            }
+            this.dragging = null;
+            this.pointerId = null;
+            updateWaveCursor(controller, event.clientX);
+          };
+
+          trim._boundDown = trim.handlePointerDown.bind(trim);
+          trim._boundMove = trim.handlePointerMove.bind(trim);
+          trim._boundUp = trim.handlePointerUp.bind(trim);
+          trim.canvas.addEventListener("pointerdown", trim._boundDown);
+          window.addEventListener("pointermove", trim._boundMove);
+          window.addEventListener("pointerup", trim._boundUp);
+          window.addEventListener("pointercancel", trim._boundUp);
+
+          var originalOnChange = controller.trim.onChange;
+          controller.trim.onChange = function () {
+            if (typeof originalOnChange === "function") {
+              originalOnChange.apply(this, arguments);
+            }
+            if (activePreset === "iphone") {
+              clampIPhoneSelection(controller);
+            }
+            updateSelectionOverlay(controller);
+            toggleSelectionHint();
+            updateDurationDisplay(controller);
+          };
+          controller.trim.__ringtonePresetBound = "1";
+        }
+
+        if (controller.fileInput && controller.fileInput.dataset.ringtonePresetBound !== "1") {
+          controller.fileInput.dataset.ringtonePresetBound = "1";
+          controller.fileInput.addEventListener("change", function () {
+            watchLoadedAudio();
+          });
+        }
+
+        if (controller.loopCheckbox && loopToggle && controller.loopCheckbox.dataset.ringtoneSyncBound !== "1") {
+          controller.loopCheckbox.dataset.ringtoneSyncBound = "1";
+          loopToggle.addEventListener("change", function () {
+            controller.loopCheckbox.checked = loopToggle.checked;
+          });
+          controller.loopCheckbox.addEventListener("change", function () {
+            loopToggle.checked = controller.loopCheckbox.checked;
+          });
+        }
+
+        if (controller.fadeInSelect && fadeInToggle && controller.fadeInSelect.dataset.ringtoneSyncBound !== "1") {
+          controller.fadeInSelect.dataset.ringtoneSyncBound = "1";
+          fadeInToggle.addEventListener("change", function () {
+            controller.fadeInSelect.value = fadeInToggle.checked ? "0.5" : "0";
+            controller.fadeInSelect.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+          controller.fadeInSelect.addEventListener("change", function () {
+            fadeInToggle.checked = (parseFloat(controller.fadeInSelect.value) || 0) > 0;
+          });
+        }
+
+        if (controller.fadeOutSelect && fadeOutToggle && controller.fadeOutSelect.dataset.ringtoneSyncBound !== "1") {
+          controller.fadeOutSelect.dataset.ringtoneSyncBound = "1";
+          fadeOutToggle.addEventListener("change", function () {
+            controller.fadeOutSelect.value = fadeOutToggle.checked ? "0.5" : "0";
+            controller.fadeOutSelect.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+          controller.fadeOutSelect.addEventListener("change", function () {
+            fadeOutToggle.checked = (parseFloat(controller.fadeOutSelect.value) || 0) > 0;
+          });
+        }
+
+        if (controller.previewBtn) {
+          controller.previewBtn.textContent = "Play Selection";
+        }
+
+        if (controller.playPauseBtn) {
+          controller.playPauseBtn.textContent = controller.audio && controller.audio.isPlaying ? "Pause" : "Play Loop";
+        }
+
+        if (!controller.__ringtonePlaybackPatched) {
+          var originalOnPlayPause = controller.onPlayPause.bind(controller);
+          var originalOnPreview = controller.onPreview.bind(controller);
+          var originalOnExportMp3 = controller.onExportMp3.bind(controller);
+          var originalUpdateTimeText = controller.updateTimeText.bind(controller);
+
+          controller.updateTimeText = function () {
+            originalUpdateTimeText();
+            updateDurationDisplay(controller);
+          };
+
+          if (controller.playPauseBtn && controller.playPauseBtn.dataset.ringtoneInterceptBound !== "1") {
+            controller.playPauseBtn.dataset.ringtoneInterceptBound = "1";
+            controller.playPauseBtn.addEventListener("click", async function (event) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              await originalOnPlayPause();
+              controller.playPauseBtn.textContent = controller.audio && controller.audio.isPlaying ? "Pause" : "Play Loop";
+              syncPlaybackUi(controller);
+            }, true);
+          }
+          if (controller.previewBtn && controller.previewBtn.dataset.ringtoneInterceptBound !== "1") {
+            controller.previewBtn.dataset.ringtoneInterceptBound = "1";
+            controller.previewBtn.addEventListener("click", async function (event) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              await originalOnPreview();
+              controller.setStatus("Previewing selected region only.");
+              if (controller.playPauseBtn) {
+                controller.playPauseBtn.textContent = "Pause";
+              }
+              syncPlaybackUi(controller);
+            }, true);
+          }
+
+          if (controller.exportMp3Btn && controller.exportMp3Btn.dataset.ringtoneInterceptBound !== "1") {
+            controller.exportMp3Btn.dataset.ringtoneInterceptBound = "1";
+            controller.exportMp3Btn.addEventListener("click", async function (event) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              await originalOnExportMp3();
+              controller.setStatus("Your ringtone is ready — download now");
+            }, true);
+          }
+
+          controller.__ringtonePlaybackPatched = true;
+        }
+
+        if (controller.canvas && controller.canvas.dataset.ringtoneHoverBound !== "1") {
+          controller.canvas.dataset.ringtoneHoverBound = "1";
+          controller.canvas.addEventListener("pointermove", function (event) {
+            updateWaveCursor(controller, event.clientX);
+          });
+          controller.canvas.addEventListener("pointerleave", function () {
+            updateWaveCursor(controller);
+          });
+        }
+
+        if (controller.renderer && !controller.renderer.__ringtoneResizeBound) {
+          var originalResize = controller.renderer.resize.bind(controller.renderer);
+          controller.renderer.resize = function () {
+            originalResize();
+            updateSelectionOverlay(controller);
+          };
+          controller.renderer.__ringtoneResizeBound = "1";
+        }
+
+        applyPresetToController();
+        syncPlaybackUi(controller);
+      });
+    }
+
+    function bindToolInputChange(input) {
+      if (!input || input.dataset.uploadProxyBound === "1") {
+        return;
+      }
+      input.dataset.uploadProxyBound = "1";
+      input.addEventListener("change", function () {
+        if (input.files && input.files.length > 0) {
+          showTool();
+          watchLoadedAudio();
+        }
+      });
+    }
+
+    function withToolInput(callback) {
+      var input = getToolInput();
+      if (!input) {
+        return false;
+      }
+      bindToolInputChange(input);
+      callback(input);
+      return true;
+    }
+
+    if (!withToolInput(function () {})) {
+      var retries = 0;
+      var timer = setInterval(function () {
+        retries += 1;
+        if (withToolInput(function () {}) || retries > 40) {
+          clearInterval(timer);
+        }
+      }, 100);
+    }
+
+    function openFilePicker() {
+      withToolInput(function (input) {
+        input.click();
+      });
+    }
+
+    function injectDroppedFile(file) {
+      withToolInput(function (input) {
+        var transfer = new DataTransfer();
+        transfer.items.add(file);
+        input.files = transfer.files;
+        showTool();
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    }
+
+    dropzone.addEventListener("click", openFilePicker);
+    dropzone.addEventListener("keydown", function (event) {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openFilePicker();
+      }
+    });
+
+    ["dragenter", "dragover"].forEach(function (type) {
+      dropzone.addEventListener(type, function (event) {
+        event.preventDefault();
+        dropzone.classList.add("is-dragover");
+      });
+    });
+
+    ["dragleave", "dragend"].forEach(function (type) {
+      dropzone.addEventListener(type, function (event) {
+        event.preventDefault();
+        dropzone.classList.remove("is-dragover");
+      });
+    });
+
+    dropzone.addEventListener("drop", function (event) {
+      event.preventDefault();
+      dropzone.classList.remove("is-dragover");
+      var file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) {
+        injectDroppedFile(file);
+      }
+    });
+
+    for (var i = 0; i < presetButtons.length; i += 1) {
+      presetButtons[i].addEventListener("click", function () {
+        activePreset = this.getAttribute("data-preset-button") || "iphone";
+        syncPresetUi();
+        applyPresetToController();
+      });
+    }
+
+    syncPresetUi();
+    syncIPhoneGuide();
+    bindPresetController();
+  })();
+</script>
+
+<script src="/assets/related-tools.js"></script>
+</body>
+</html>
