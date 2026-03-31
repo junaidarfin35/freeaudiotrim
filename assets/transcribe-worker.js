@@ -83,26 +83,50 @@ async function loadTranslationModel() {
 }
 
 self.onmessage = async (e) => {
-  const { type, audio, mode, text, sourceLang, targetLang } = e.data;
+  console.log("Worker raw data:", e.data);
+
+  const data = e.data;
+
+  const type = data.type;
+  console.log("Worker e.data.audio exists:", !!e.data.audio);
+  const audio = new Float32Array(e.data.audio);
+  if (!audio || audio.length === 0) {
+  console.error("Audio is missing in worker");
+  return;
+}
+  console.log("Worker received audio length:", audio.length);
+  const mode = data.mode;
+  const text = data.text;
+  const sourceLang = data.sourceLang;
+  const targetLang = data.targetLang;
 
   if (type === "transcribe") {
+    const audio = new Float32Array(data.audio);
+
+    if (!audio || audio.length === 0) {
+      console.error("Audio is missing in worker");
+      return;
+    }
+
+    console.log("Worker received audio length:", audio.length);
+    console.log("Worker duration (sec):", audio.length / 16000);
+
     try {
-      if (mode === "accurate" && audio.duration > 180) {
-        throw new Error("Accurate mode supports shorter audio (under 3 minutes)");
-      }
-
       const model = await loadModel(mode);
-      const audioArray = new Float32Array(audio.buffer);
 
-      if (!(audioArray instanceof Float32Array)) {
+      if (!(audio instanceof Float32Array)) {
         throw new Error("Invalid audio data format");
       }
 
-      const result = await model(audioArray, {
-        sampling_rate: audio.sampleRate,
-        return_timestamps: true
-      });
+console.log("Feeding Whisper audio length:", audio.length);
+      const result = await model(audio, {
+  return_timestamps: true,
+  chunk_length_s: 30,
+  stride_length_s: 5
+});
 
+      console.log("Whisper result text length:", result.text.length);
+      console.log("Segments:", result.chunks?.length);
       self.postMessage({
         type: "result",
         text: result.text,
@@ -178,9 +202,50 @@ self.onmessage = async (e) => {
     }
   }
 
+  function reconstructSentence(text) {
+    if (!text) return "";
+    return text.replace(/\s+/g, " ").trim();
+  }
+
+  function normalizeArabic(text) {
+    if (!text) return "";
+    return text;
+  }
+
+  function polishEnglish(text) {
+    if (!text) return "";
+
+    let t = text;
+
+    // Fix common awkward phrasing
+    t = t.replace(/\bthe most important thing is that\b/gi, "");
+    t = t.replace(/\bfor you\b/gi, "");
+    t = t.replace(/\bwhich is\b/gi, "that is");
+
+    // Improve natural phrasing
+    t = t.replace(/\bis here to\b/gi, "is here to help");
+    t = t.replace(/\banswer all your questions\b/gi, "answer your questions");
+
+    // Fix double words
+    t = t.replace(/\b(\w+)( \1\b)+/gi, "$1");
+
+    // Clean spacing
+    t = t.replace(/\s+/g, " ").trim();
+
+    // Capitalize first letter
+    t = t.charAt(0).toUpperCase() + t.slice(1);
+
+    // Ensure ending punctuation
+    if (!/[.!?]$/.test(t)) {
+      t += ".";
+    }
+
+    return t;
+  }
+
   if (type === "translate_subtitles") {
     try {
-      const { texts, sourceLang, targetLang } = e.data;
+      const texts = data.texts;
       const model = await loadTranslationModel();
       const translatedTexts = [];
 
@@ -192,16 +257,46 @@ self.onmessage = async (e) => {
           continue;
         }
 
-        let preparedText = improveSpeechStructure(text);
-        preparedText = normalizeText(preparedText);
+        try {
+          // STEP 1: RAW → English (semantic extraction)
+          const pivot = await model(text, {
+            src_lang: sourceLang,
+            tgt_lang: "eng_Latn"
+          });
 
-        const output = await model(preparedText, {
-          src_lang: sourceLang,
-          tgt_lang: targetLang
-        });
+          let pivotText = pivot && pivot[0]
+            ? pivot[0].translation_text
+            : text;
 
-        const translated = output && output[0] ? output[0].translation_text : "";
-        translatedTexts.push(cleanTranslation(translated));
+          let finalText = "";
+
+          // STEP 2: If target is English
+          if (targetLang === "eng_Latn") {
+            finalText = pivotText;
+          } else {
+            // STEP 3: English → target
+            const final = await model(pivotText, {
+              src_lang: "eng_Latn",
+              tgt_lang: targetLang
+            });
+
+            finalText = final && final[0]
+              ? final[0].translation_text
+              : "";
+          }
+
+          let outputText = cleanTranslation(finalText);
+
+          if (targetLang === "eng_Latn") {
+            outputText = polishEnglish(outputText);
+          }
+
+          translatedTexts.push(outputText);
+
+        } catch (err) {
+          console.error("Semantic translation error:", err);
+          translatedTexts.push("");
+        }
 
         self.postMessage({
           type: "translation_progress",

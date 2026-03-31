@@ -1020,12 +1020,24 @@
     window.translatedTitle = "Translated (" + context.selectedLanguageName + " - AI Generated)";
     if (texts) {
       // Rebuild subtitles with translated texts
-      const originalSubtitles = buildSentenceSubtitles(window.currentSegments);
-      window.translatedSubtitles = originalSubtitles.map((sub, i) => ({
-        text: texts[i] || sub.text,
-        start: sub.start,
-        end: sub.end
-      }));
+      const translatedSubtitles = [];
+
+      for (let i = 0; i < context.grouped.length; i++) {
+        const group = context.grouped[i];
+        const translatedText = texts[i] || "";
+
+        // split translated chunk roughly back
+        const parts = translatedText.split(/(?<=[.!?])\s+/);
+
+        for (let j = 0; j < group.length; j++) {
+          translatedSubtitles.push({
+            ...group[j],
+            text: parts[j] || parts[parts.length - 1] || ""
+          });
+        }
+      }
+
+      window.translatedSubtitles = translatedSubtitles;
     } else {
       window.translatedSubtitles = [];
     }
@@ -1142,6 +1154,11 @@
       startProgressMessages();
       setStatus(statusEl, mode === "accurate" ? "Loading accurate model..." : "Loading fast model...", "processing");
       var resampled = resampleTo16kHz(processedData, audio.sampleRate);
+      console.log("Resampled samples:", resampled.length);
+      console.log("Expected duration after resample (sec):", resampled.length / 16000);
+      console.log("Resampled type:", resampled.constructor.name);
+      console.log("Resampled length:", resampled.length);
+      console.log("Buffer byteLength:", resampled.buffer.byteLength);
       activeTranscriptionContext = {
         language: language,
         enhance: enhance,
@@ -1156,15 +1173,14 @@
         translatedTabBtn: translatedTabBtn
       };
 
-      worker.postMessage({
-        type: "transcribe",
-        mode: mode,
-        audio: {
-          buffer: resampled.buffer,
-          sampleRate: 16000,
-          duration: audio.duration
-        }
-      }, [resampled.buffer]);
+      console.log("Sending audio to worker, length:", resampled.length);
+worker.postMessage(
+  {
+    type: "transcribe",
+    audio: resampled.buffer
+  },
+  [resampled.buffer] // 🔥 THIS IS THE FIX
+);
       return;
     } catch (error) {
       window.translatedTranscript = "";
@@ -1301,7 +1317,39 @@
         }
 
         const subtitles = buildSentenceSubtitles(window.currentSegments);
-        const textsToTranslate = subtitles.map(sub => sub.text);
+
+        function groupSubtitles(subtitles) {
+          const groups = [];
+          let current = [];
+          let currentTextLength = 0;
+
+          for (let i = 0; i < subtitles.length; i++) {
+            current.push(subtitles[i]);
+            currentTextLength += subtitles[i].text.length;
+
+            // group 4–6 sentences OR until ~300–400 characters
+            if (
+              currentTextLength > 350 ||
+              current.length >= 5
+            ) {
+              groups.push(current);
+              current = [];
+              currentTextLength = 0;
+            }
+          }
+
+          if (current.length) {
+            groups.push(current);
+          }
+
+          return groups;
+        }
+
+        const grouped = groupSubtitles(subtitles);
+
+        const textsToTranslate = grouped.map(group =>
+          group.map(s => s.text).join(" ")
+        );
 
         setTranslationButtonsState(translateBtn, null, null, null, false);
         setStatus(statusEl, "Translating subtitles...", "processing");
@@ -1315,16 +1363,16 @@
           srtBtn: srtBtn,
           originalTabBtn: originalTabBtn,
           translatedTabBtn: translatedTabBtn,
-          selectedLanguageName: selectedLanguageName
+          selectedLanguageName: selectedLanguageName,
+          grouped: grouped
         };
 
-        worker.postMessage({
-          type: "translate_subtitles",
-          texts: textsToTranslate,
-          sourceLang: sourceLang,
-          targetLang: mappedTarget,
-          mode: translationMode
-        });
+worker.postMessage({
+  type: "translate_subtitles",
+  texts: textsToTranslate,
+  sourceLang: sourceLang,
+  targetLang: mappedTarget
+});
       });
     }
 
@@ -1408,6 +1456,9 @@
         }
         var arrayBuffer = await file.arrayBuffer();
         var audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+        console.log("Decoded duration (sec):", audioBuffer.duration);
+        console.log("Decoded samples:", audioBuffer.length);
+        console.log("Sample rate:", audioBuffer.sampleRate);
         var monoData = convertToMono(audioBuffer);
 
         window.transcriptionAudio = {
