@@ -442,7 +442,7 @@
     state.rafId = 0;
     elements.meterFill.style.height = "0%";
     elements.meterFill.style.background = "transparent";
-    elements.meterValue.textContent = "-∞ dB";
+    elements.meterValue.textContent = "-\u221E dB";
 
     const selected = getSelected();
     if (selected) {
@@ -513,7 +513,7 @@
     if (!state.analyser || !state.isPlaying) {
       elements.meterFill.style.height = "0%";
       elements.meterFill.style.background = "transparent";
-      elements.meterValue.textContent = "-∞ dB";
+      elements.meterValue.textContent = "-\u221E dB";
       return;
     }
 
@@ -1151,7 +1151,7 @@
 
   function formatDb(value) {
     if (!Number.isFinite(value)) {
-      return "-∞";
+      return "-\u221E";
     }
     return value.toFixed(1);
   }
@@ -1230,7 +1230,7 @@
               </div>
             </div>
           </div>
-          <div class="normalize-meter-db" data-meter-value>-∞ dB</div>
+          <div class="normalize-meter-db" data-meter-value>-&#8734; dB</div>
           <input data-seek type="range" min="0" max="1" step="0.001" value="0" aria-label="Seek timeline">
           <div class="normalize-controls">
             <button type="button" class="normalize-btn" data-play>Play</button>

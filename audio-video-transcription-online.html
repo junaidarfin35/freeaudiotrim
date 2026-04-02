@@ -197,7 +197,7 @@
     </div>
     <div id="tool-shell" class="tool-shell is-hidden">
       <div id="audio-tool"></div>
-      <audio id="audio-player" controls style="width: 100%; margin-top: 10px; display: none;"></audio>
+      <div class="at-status" style="margin-top:10px; font-weight:500;"></div>
       <p class="tool-shell-note"><strong>Your files never leave your device. No uploads. No account required.</strong></p>
       <div class="privacy-badge">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -206,6 +206,7 @@
         100% Client-Side Processing
       </div>
     </div>
+    <audio id="audio-player" controls style="width: 100%; margin-top: 10px; display: none;"></audio>
   </section>
   <section class="content-section section-shell section-surface">
     <h2>How to Transcribe Audio and Video to Text</h2>
@@ -429,6 +430,16 @@
       uploadShell.style.display = "none";
       toolShell.classList.remove("is-hidden");
     }
+
+    function hideTool() {
+      uploadShell.style.display = "";
+      toolShell.classList.add("is-hidden");
+    }
+
+    // Listen for restart event from transcribe tool
+    window.addEventListener("transcribe-tool-restart", function () {
+      hideTool();
+    });
 
     function bindToolInputChange(input) {
       if (!input || input.dataset.uploadProxyBound === "1") {

@@ -941,7 +941,7 @@ details[open] summary {
 }
 
 details[open] summary::after {
-  content: "−";
+  content: "-";
 }
 
 details > p,

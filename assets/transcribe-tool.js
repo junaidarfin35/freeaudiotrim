@@ -3,22 +3,24 @@
 
   var STYLE_ID = "transcribe-tool-styles";
   var LARGE_FILE_BYTES = 50 * 1024 * 1024;
-  var transcriber = null;
+  var MAX_DURATION_SECONDS = 120;
   var worker = new Worker("/assets/transcribe-worker.js", {
     type: "module"
   });
+  var processingLocked = false;
   var activeTranscriptionContext = null;
   var activeTranslationContext = null;
   var progressInterval = null;
   var progressMessages = [
-    "AI is working its magic...",
-    "Loading model on your device...",
+    "Downloading AI model...",
+    "Model ready from cache",
     "Good things take time...",
-    "Optimizing for best accuracy...",
-    "Almost there..."
+    "Transcribing audio...",
+    "Transcription complete"
   ];
   var progressMessageInterval = null;
   var showTimestamps = true;
+  var previewEditMode = false;
   var langMap = {
     en: "eng_Latn",
     ar: "arb_Arab",
@@ -31,27 +33,42 @@
     zh: "zho_Hans"
   };
 
-  async function loadModel(modelName) {
-    if (transcriber && transcriber.model === modelName) {
-      return transcriber.instance;
+  async function getPipeline() {
+    if (!pipeline) {
+      var transformers = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0");
+      pipeline = transformers.pipeline;
     }
+    return pipeline;
+  }
 
-    try {
-      var transformers = await import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js");
-      var pipeline = transformers.pipeline;
-      var instance = await pipeline(
+  async function loadModel() {
+    if (!transcriberPromise) {
+      console.log("Initializing model...");
+      setStatus("Downloading AI model...", "processing");
+
+      var pipelineFunc = await getPipeline();
+
+      transcriberPromise = pipelineFunc(
         "automatic-speech-recognition",
-        modelName
-      );
-      transcriber = {
-        model: modelName,
-        instance: instance
-      };
-    } catch (error) {
-      throw new Error("MODEL_LOAD_FAILED");
+        "onnx-community/whisper-large-v3-turbo",
+        {
+          device: "auto",
+          dtype: "q4"
+        }
+      )
+      .then(function(model) {
+        console.log("Model loaded successfully");
+        setStatus("Ready", "ready");
+        return model;
+      })
+      .catch(function(err) {
+        console.error("Model loading failed:", err);
+        transcriberPromise = null; // reset so retry is possible
+        throw err;
+      });
     }
 
-    return transcriber.instance;
+    return transcriberPromise;
   }
 
   function startProgressMessages() {
@@ -59,14 +76,14 @@
     if (!el) return;
 
     var index = 0;
-    el.textContent = progressMessages[0];
+    el.textContent = normalizeIncomingText(progressMessages[0]);
 
     progressMessageInterval = setInterval(function () {
       el.style.opacity = "0";
 
       setTimeout(function () {
         index = (index + 1) % progressMessages.length;
-        el.textContent = progressMessages[index];
+        el.textContent = normalizeIncomingText(progressMessages[index]);
         el.style.opacity = "1";
       }, 300);
     }, 2500);
@@ -123,8 +140,11 @@
       "#audio-tool .ts-segment{padding:12px 0;line-height:2;border-bottom:1px solid #eee;direction:rtl;text-align:right}",
       "#audio-tool .ts-segment:hover{background:#fafafa}",
       "#audio-tool .ts-segment:last-child{border-bottom:0}",
-      "#audio-tool .ts-paragraph{direction:rtl;text-align:right;line-height:2;padding:12px 0}",
+      "#audio-tool .ts-paragraph{direction:rtl;text-align:right;line-height:2;padding:12px 0;white-space:normal}",
       "#audio-tool .ts-sentence{display:inline}",
+      "#audio-tool .ts-segment-text{display:inline;white-space:pre-wrap}",
+      "#audio-tool .ts-segment-text[contenteditable='true']{outline:none;border-radius:6px;padding:1px 2px;background:rgba(37,99,235,.08)}",
+      "#audio-tool .ts-segment-text[contenteditable='true']:focus{background:rgba(37,99,235,.14);box-shadow:0 0 0 2px rgba(37,99,235,.16)}",
       "#audio-tool .ts-time-inline{font-size:12px;color:#999;margin:0 4px;direction:ltr;unicode-bidi:isolate;white-space:nowrap}",
       "@media (max-width:640px){#audio-tool .at-root{padding:12px}}"
     ].join("");
@@ -187,6 +207,7 @@
       '      <button class="tab active" data-tab="original">Original</button>',
       '      <button class="tab" data-tab="translated" style="display:none;">Translated</button>',
       "    </div>",
+      '    <button class="at-btn" type="button" data-role="toggleEdit" disabled>Edit</button>',
       '    <label style="margin-left: auto; display: flex; align-items: center; gap: 6px;">',
       '      <input type="checkbox" id="show-timestamps" checked>',
       '      <span>Show Timestamps</span>',
@@ -210,11 +231,6 @@
       '      <option value="zh">Chinese</option>',
       "    </select>",
       "  </div>",
-      '  <div class="at-row translation-mode">',
-      '    <label>Translation Quality:</label>',
-      '    <label><input type="radio" name="tmode" value="quick" checked> Quick (Fast, basic translation)</label>',
-      '    <label><input type="radio" name="tmode" value="improved"> Improved (Better for spoken or unclear audio)</label>',
-      "  </div>",
       '  <div class="at-row translation-section">',
       '    <button class="at-btn" id="translate-btn" data-role="translateBtn" disabled>Translate</button>',
       '    <p class="translation-hint">Best results with clear speech or standard language. Dialects may vary.</p>',
@@ -223,17 +239,24 @@
       '    <button class="at-btn" data-role="copyTranscript" disabled>Copy</button>',
       '    <button class="at-btn" data-role="downloadTxt" disabled>Download TXT</button>',
       '    <button class="at-btn" data-role="downloadSrt" disabled>Download SRT</button>',
+      '    <button class="at-btn" data-role="restartBtn">Restart</button>',
       "  </div>",
       "</div>"
     ].join("");
   }
 
-  function setStatus(statusEl, message, state) {
-    if (!statusEl) {
-      return;
+  function setStatus(message, state) {
+    var el;
+    if (typeof message === "string") {
+      el = document.querySelector(".at-status");
+    } else {
+      el = message;
+      message = state;
+      state = arguments[2];
     }
-    statusEl.textContent = message;
-    statusEl.dataset.statusState = state || "idle";
+    if (!el) return;
+    el.textContent = normalizeIncomingText(message);
+    el.dataset.statusState = state || "idle";
   }
 
   function setProgress(value) {
@@ -315,6 +338,18 @@
     if (enhanceToggle) {
       enhanceToggle.disabled = !enabled;
     }
+  }
+
+  function isSupportedMediaFile(file) {
+    if (!file || !file.type) {
+      return false;
+    }
+
+    return file.type.indexOf("audio/") === 0 || file.type.indexOf("video/") === 0;
+  }
+
+  function getCurrentTranscriptDuration() {
+    return window.currentTranscriptDuration || 0;
   }
 
   function convertToMono(buffer) {
@@ -403,16 +438,70 @@
       .trim();
   }
 
+  function looksCorruptedText(text) {
+    return false;
+  }
+
   function normalizeText(text) {
     return cleanText(text);
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+  function normalizeIncomingText(text) {
+    return normalizeText(text);
+  }
+
+  function normalizeIncomingSegments(segments) {
+    return Array.isArray(segments) ? segments.map(function (segment) {
+      var timestamp = segment && segment.timestamp;
+      return {
+        text: normalizeIncomingText(segment && segment.text),
+        timestamp: Array.isArray(timestamp) ? [timestamp[0], timestamp[1]] : timestamp
+      };
+    }) : [];
+  }
+
+  function mountMarkup(target, markup) {
+    var range = document.createRange();
+    range.selectNode(target);
+    target.replaceChildren(range.createContextualFragment(markup));
   }
 
   function improveSpeechStructure(text) {
     return String(text || "")
       .replace(/\n+/g, ". ")
-      .replace(/ و/g, ". و")
+      .replace(/ \u0648/g, ". \u0648")
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  function normalizeArabicText(text) {
+    if (!text) return text;
+
+    var cleaned = normalizeText(text);
+
+    cleaned = cleaned
+      .replace(/[\u0623\u0625\u0622]/g, "\u0627")
+      .replace(/\u0649/g, "\u064A");
+
+    cleaned = cleaned.replace(/\b(\w+)( \1\b)+/g, "$1");
+    cleaned = cleaned.replace(/\s+/g, " ").trim();
+    cleaned = cleaned
+      .replace(/\u060C\s*/g, "\u060C ")
+      .replace(/\.\s*/g, ". ");
+
+    return cleaned;
   }
 
   function splitIntoSentences(text) {
@@ -423,7 +512,7 @@
     }
 
     return normalized
-      .split(/(?<=[.!?؟])\s+|[\r\n]+/)
+      .split(/(?<=[.!?\u061F])\s+|[\r\n]+/)
       .map(function (sentence) {
         return cleanText(sentence);
       })
@@ -497,7 +586,7 @@
   }
 
   function splitIntoLines(text) {
-    return String(text || "").split(/(?<=[.؟!])\s+/).join("\n");
+    return String(text || "").split(/(?<=[.\u061F!])\s+/).join("\n");
   }
 
   function copyTranscript(statusEl) {
@@ -526,120 +615,100 @@
       return;
     }
 
-    downloadBlob("transcript.txt", window.currentTranscript);
+    var baseName = window.originalFileName || "transcript";
+    downloadBlob(baseName + "_freeaudiotrim_transcription.txt", window.currentTranscript);
   }
 
-  function generateSRT(text, duration) {
-    if (!text) {
-      return "";
-    }
+function generateSRT(segments) {
+  if (!segments || segments.length === 0) return "";
 
-    // Use translated subtitles if available
-    if (window.currentTab === "translated" && window.translatedSubtitles && window.translatedSubtitles.length > 0) {
-      let srt = "";
-
-      function formatTime(t) {
-        var hours = Math.floor(t / 3600);
-        var minutes = Math.floor((t % 3600) / 60);
-        var seconds = (t % 60).toFixed(3);
-
-        return (
-          String(hours).padStart(2, "0") + ":" +
-          String(minutes).padStart(2, "0") + ":" +
-          seconds.padStart(6, "0").replace(".", ",")
-        );
-      }
-
-      window.translatedSubtitles.forEach(function (sub, index) {
-        srt += String(index + 1) + "\n";
-        srt += formatTime(sub.start) + " --> " + formatTime(sub.end) + "\n";
-        srt += sub.text + "\n\n";
-      });
-
-      return srt;
-    }
-
-    // Use real timestamps if available
-    if (window.currentSegments && window.currentSegments.length > 0) {
-      const subtitles = buildSentenceSubtitles(window.currentSegments);
-      let srt = "";
-
-      function formatTime(t) {
-        var hours = Math.floor(t / 3600);
-        var minutes = Math.floor((t % 3600) / 60);
-        var seconds = (t % 60).toFixed(3);
-
-        return (
-          String(hours).padStart(2, "0") + ":" +
-          String(minutes).padStart(2, "0") + ":" +
-          seconds.padStart(6, "0").replace(".", ",")
-        );
-      }
-
-      subtitles.forEach(function (sub, index) {
-        srt += String(index + 1) + "\n";
-        srt += formatTime(sub.start) + " --> " + formatTime(sub.end) + "\n";
-        srt += sub.text + "\n\n";
-      });
-
-      return srt;
-    }
-
-    // Fallback to fake timestamps
-    var sentences = text.split(". ");
-    var srt = "";
-
-    function formatTime(t) {
-      var hours = Math.floor(t / 3600);
-      var minutes = Math.floor((t % 3600) / 60);
-      var seconds = (t % 60).toFixed(3);
-
-      return (
-        String(hours).padStart(2, "0") + ":" +
-        String(minutes).padStart(2, "0") + ":" +
-        seconds.padStart(6, "0").replace(".", ",")
-      );
-    }
-
-    if (sentences.length === 1) {
-      srt += "1\n";
-      srt += formatTime(0) + " --> " + formatTime(duration) + "\n";
-      srt += sentences[0].trim() + "\n\n";
-      return srt;
-    }
-
-    var chunkDuration = duration / sentences.length;
-
-    sentences.forEach(function (sentence, index) {
-      var start = index * chunkDuration;
-      var end = (index + 1) * chunkDuration;
-
-      srt += String(index + 1) + "\n";
-      srt += formatTime(start) + " --> " + formatTime(end) + "\n";
-      srt += sentence.trim() + "\n\n";
-    });
-
-    return srt;
+  function formatTime(seconds) {
+    const date = new Date(seconds * 1000);
+    const hh = String(Math.floor(seconds / 3600)).padStart(2, '0');
+    const mm = String(date.getUTCMinutes()).padStart(2, '0');
+    const ss = String(date.getUTCSeconds()).padStart(2, '0');
+    const ms = String(date.getUTCMilliseconds()).padStart(3, '0');
+    return `${hh}:${mm}:${ss},${ms}`;
   }
+
+  return segments.map((seg, i) => {
+    const start = formatTime(seg.timestamp[0]);
+    const end = formatTime(seg.timestamp[1]);
+
+    return `${i + 1}\n${start} --> ${end}\n${seg.text || seg.editedText || seg.originalText || ""}\n`;
+  }).join('\n');
+}
 
   function downloadSRT() {
-    if (!window.currentTranscript || !window.transcriptionAudio) {
-      return;
-    }
+    if (!window.currentSegments || window.currentSegments.length === 0) {
+    return;
+}
 
-    var srt = generateSRT(
-      window.currentTranscript,
-      window.transcriptionAudio.duration
-    );
+    var srt = generateSRT(window.currentSegments);
+    var baseName = window.originalFileName || "transcript";
 
-    downloadBlob("subtitles.srt", srt);
+    downloadBlob(baseName + "_freeaudiotrim_transcription.srt", srt);
   }
 
   function getActiveTranscript() {
+    var activeSegments = getActiveSegments();
+    if (activeSegments.length) {
+      return getSegmentsParagraphText(activeSegments, window.currentTab === "translated");
+    }
     if (window.currentTab === "translated") {
       return window.translatedTranscript || "";
     }
     return window.currentTranscript || "";
+  }
+
+  function getActiveSegments() {
+    return window.currentSegments || [];
+  }
+
+  function getSegmentText(segment, useTranslatedText) {
+    var translated = cleanText(segment && segment.translatedText);
+    var edited = cleanText(segment && segment.editedText);
+    var original = cleanText(segment && (segment.originalText || segment.text));
+
+    return fixPunctuation(useTranslatedText && translated ? translated : (edited || original));
+  }
+
+  function getSegmentsParagraphText(segments, useTranslatedText) {
+    return (segments || []).map(function (segment) {
+      return getSegmentText(segment, useTranslatedText);
+    }).filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  function hasTranslatedSegments() {
+    return (window.currentSegments || []).some(function (segment) {
+      return !!cleanText(segment && segment.translatedText);
+    });
+  }
+
+  function normalizePreviewSegments(segments) {
+    return (segments || []).reduce(function (result, segment) {
+      var timestamp = Array.isArray(segment && segment.timestamp)
+        ? [segment.timestamp[0], segment.timestamp[1]]
+        : (Number.isFinite(segment && segment.start) && Number.isFinite(segment && segment.end)
+          ? [segment.start, segment.end]
+          : null);
+      var originalText = cleanText((segment && (segment.originalText || segment.text)) || "");
+      var editedText = cleanText((segment && segment.editedText) || "");
+      var translatedText = cleanText((segment && segment.translatedText) || "");
+
+      if (!timestamp || !Number.isFinite(timestamp[0]) || !Number.isFinite(timestamp[1]) || timestamp[1] <= timestamp[0] || !originalText) {
+        return result;
+      }
+
+      result.push({
+        originalText: originalText,
+        editedText: editedText,
+        translatedText: translatedText,
+        timestamp: timestamp
+      });
+
+      return result;
+    }, []);
   }
 
   function formatTime(seconds) {
@@ -648,116 +717,220 @@
     return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
   }
 
-  function splitSentences(text) {
-    return String(text || "").split(/(?<=[.؟!])\s+/);
-  }
+  function buildSubtitles(chunks) {
+    var MAX_CHARS_PER_LINE = 42;
+    var MAX_WORDS_PER_LINE = 6;
 
-  function buildSentenceSegments(text, duration) {
-    var sentences = splitSentences(text).filter(function (sentence) {
-      return sentence && sentence.trim();
-    });
-
-    if (sentences.length === 0) {
-      return [];
+    function isValidTimestamp(timestamp) {
+      return Array.isArray(timestamp) &&
+        timestamp.length >= 2 &&
+        Number.isFinite(timestamp[0]) &&
+        Number.isFinite(timestamp[1]) &&
+        timestamp[1] > timestamp[0];
     }
 
-    var step = (duration || 0) / sentences.length;
-    var time = 0;
+    function tokenizeText(text) {
+      var matches = String(text || "").match(/\S+\s*/g);
+      return matches ? matches : [];
+    }
 
-    return sentences.map(function (sentence) {
-      var segment = {
-        text: sentence.trim(),
-        time: formatTime(time)
-      };
-      time += step;
-      return segment;
-    });
-  }
+    function normalizeSegmentText(text) {
+      return fixPunctuation(cleanText(text));
+    }
 
-  function buildSegmentsFromWhisper(segments) {
-    return segments.map(seg => ({
-      text: seg.text.trim(),
-      time: formatTime(seg.timestamp[0])
-    }));
+    function getWordCount(text) {
+      var matches = String(text || "").trim().match(/\S+/g);
+      return matches ? matches.length : 0;
+    }
+
+    function needsSplit(text) {
+      var normalized = normalizeSegmentText(text);
+      return normalized.length > MAX_CHARS_PER_LINE || getWordCount(normalized) > MAX_WORDS_PER_LINE;
+    }
+
+    function isHardBreakToken(token) {
+      return /[.\u061F!,]\s*$/.test(token);
+    }
+
+    function isSoftBreakToken(token) {
+      return /[,;:]\s*$/.test(token);
+    }
+
+    function splitSegmentText(text) {
+      var normalized = normalizeSegmentText(text);
+      var tokens = tokenizeText(normalized);
+      var parts = [];
+      var currentTokens = [];
+
+      function flushCurrent() {
+        var value = normalizeSegmentText(currentTokens.join(""));
+        if (value) {
+          parts.push(value);
+        }
+        currentTokens = [];
+      }
+
+      if (!tokens.length) {
+        return [];
+      }
+
+      tokens.forEach(function (token, index) {
+        var currentText = currentTokens.join("");
+        var candidate = normalizeSegmentText(currentText + token);
+        var candidateWords = getWordCount(candidate);
+        var candidateTooLong = candidate.length > MAX_CHARS_PER_LINE || candidateWords > MAX_WORDS_PER_LINE;
+        var shouldFlushBeforeToken = currentTokens.length && candidateTooLong;
+        var shouldFlushAfterToken = false;
+
+        if (shouldFlushBeforeToken) {
+          var trimmedCurrent = normalizeSegmentText(currentText);
+          if (isHardBreakToken(trimmedCurrent) || isSoftBreakToken(trimmedCurrent)) {
+            flushCurrent();
+          } else if (isHardBreakToken(token) || isSoftBreakToken(token)) {
+            currentTokens.push(token);
+            flushCurrent();
+            return;
+          } else {
+            flushCurrent();
+          }
+        }
+
+        currentTokens.push(token);
+
+        var updatedText = normalizeSegmentText(currentTokens.join(""));
+        var updatedWords = getWordCount(updatedText);
+
+        if ((updatedText.length > MAX_CHARS_PER_LINE || updatedWords > MAX_WORDS_PER_LINE) &&
+            currentTokens.length > 1 &&
+            (isHardBreakToken(token) || (isSoftBreakToken(token) && index < tokens.length - 1))) {
+          shouldFlushAfterToken = true;
+        }
+
+        if (shouldFlushAfterToken) {
+          flushCurrent();
+        }
+      });
+
+      flushCurrent();
+
+      if (!parts.length) {
+        return normalized ? [normalized] : [];
+      }
+
+      return parts;
+    }
+
+    function distributeSegmentTiming(parts, start, end) {
+      var totalDuration = end - start;
+      var totalWeight = parts.reduce(function (sum, part) {
+        return sum + Math.max(1, normalizeSegmentText(part).length);
+      }, 0);
+      var currentTime = start;
+
+      return parts.map(function (part, index) {
+        var weight = Math.max(1, normalizeSegmentText(part).length);
+        var nextTime = index === parts.length - 1
+          ? end
+          : start + (totalDuration * ((parts.slice(0, index + 1).reduce(function (sum, value) {
+              return sum + Math.max(1, normalizeSegmentText(value).length);
+            }, 0)) / totalWeight));
+        var item = {
+          text: normalizeSegmentText(part),
+          timestamp: [currentTime, nextTime]
+        };
+
+        currentTime = nextTime;
+        return item;
+      }).filter(function (item) {
+        return item.text && item.timestamp[1] > item.timestamp[0];
+      });
+    }
+
+    return (chunks || []).reduce(function (result, chunk) {
+      var text = normalizeSegmentText(chunk && chunk.text);
+      var timestamp = chunk && chunk.timestamp;
+
+      if (!text || !isValidTimestamp(timestamp)) {
+        return result;
+      }
+
+      if (!needsSplit(text)) {
+        result.push({
+          text: text,
+          timestamp: [timestamp[0], timestamp[1]]
+        });
+        return result;
+      }
+
+      return result.concat(distributeSegmentTiming(splitSegmentText(text), timestamp[0], timestamp[1]));
+    }, []);
   }
 
   function fixPunctuation(text) {
-    return String(text || "").replace(/\s+([؟.!])/g, "$1");
+    return normalizeIncomingText(String(text || "")).replace(/\s+([\u061F.!])/g, "$1");
   }
 
   function detectTranscriptLanguage(text) {
     return /[\u0600-\u06FF]/.test(String(text || "")) ? "ar" : "en";
   }
 
-  function mergeSegments(segments) {
-    const merged = [];
-    let current = null;
-
-    segments.forEach(seg => {
-      const text = seg.text.trim();
-
-      if (!current) {
-        current = { ...seg, text };
-        return;
-      }
-
-      const endsWithPunctuation = /[.؟!]/.test(current.text);
-
-      // merge if:
-      // - sentence is incomplete
-      // - OR current is short
-      if (!endsWithPunctuation || current.text.length < 80) {
-        current.text += " " + text;
-      } else {
-        merged.push(current);
-        current = { ...seg, text };
-      }
-    });
-
-    if (current) merged.push(current);
-
-    return merged;
-  }
-
   function buildSentenceSubtitles(segments) {
     const subtitles = [];
 
-    let currentText = "";
-    let startTime = null;
-    let endTime = null;
+    let sentenceText = "";
+    let sentenceStart = null;
+    let sentenceEnd = null;
+    let previousEnd = null;
+
+    function endsWithSentencePunctuation(text) {
+      return /[.\u061F!]$/.test(normalizeIncomingText(String(text || "")).trim());
+    }
 
     segments.forEach(seg => {
-      const text = seg.text.trim();
-      const segStart = seg.timestamp?.[0] || 0;
-      const segEnd = seg.timestamp?.[1] || segStart;
+      const text = getSegmentText(seg);
+      if (!text) {
+        return;
+      }
 
-      if (startTime === null) startTime = segStart;
+      const segStart = seg.timestamp?.[0] ?? seg.start ?? 0;
+      const segEnd = seg.timestamp?.[1] ?? seg.end ?? segStart;
+      const gap = previousEnd !== null ? segStart - previousEnd : 0;
 
-      currentText += " " + text;
-      endTime = segEnd;
+      const shouldBreak = sentenceText && (
+        endsWithSentencePunctuation(sentenceText) ||
+        gap > 1 ||
+        sentenceText.length > 120
+      );
 
-      const isLong = currentText.length > 120;
-      const hasPause = (segEnd - segStart) > 1.2;
-      const endsSentence = /[.؟!]/.test(text);
-
-      if (endsSentence || isLong || hasPause) {
+      if (shouldBreak) {
         subtitles.push({
-          text: currentText.trim(),
-          start: startTime,
-          end: endTime
+          text: sentenceText.trim(),
+          start: sentenceStart || 0,
+          end: sentenceEnd || sentenceStart || 0
         });
 
-        currentText = "";
-        startTime = null;
-        endTime = null;
+        sentenceText = "";
+        sentenceStart = null;
+        sentenceEnd = null;
       }
+
+      if (!sentenceText) {
+        sentenceStart = segStart;
+        sentenceEnd = segEnd;
+        sentenceText = text;
+      } else {
+        sentenceText += " " + text;
+        sentenceEnd = segEnd;
+      }
+
+      previousEnd = segEnd;
     });
 
-    if (currentText.trim()) {
+    if (sentenceText.trim()) {
       subtitles.push({
-        text: currentText.trim(),
-        start: startTime || 0,
-        end: endTime || startTime || 0
+        text: sentenceText.trim(),
+        start: sentenceStart || 0,
+        end: sentenceEnd || sentenceStart || 0
       });
     }
 
@@ -782,13 +955,12 @@
     return translated;
   }
 
-  function renderSegments(text, duration, container, heading, subtitles) {
-    var segments = subtitles || (window.currentSegments && window.currentSegments.length > 0
-      ? buildSentenceSubtitles(window.currentSegments).map(sub => ({ text: sub.text, time: formatTime(sub.start) }))
-      : buildSentenceSegments(text, duration));
-    var lang = detectTranscriptLanguage(text);
+  function renderSegments(container, heading, segments, useTranslatedText) {
+    var items = Array.isArray(segments) ? segments : [];
+    var fullText = getSegmentsParagraphText(items, useTranslatedText);
+    var lang = detectTranscriptLanguage(fullText);
 
-    container.innerHTML = "";
+    container.textContent = "";
     container.setAttribute("lang", lang);
 
     if (heading) {
@@ -804,47 +976,55 @@
       container.appendChild(headingEl);
     }
 
-    if (!segments.length && text) {
-      var block = document.createElement("div");
-      block.className = "ts-segment";
-
-      var sentenceEl = document.createElement("span");
-      sentenceEl.className = "ts-sentence";
-      sentenceEl.textContent = text;
-      sentenceEl.lang = lang;
-
-      block.appendChild(sentenceEl);
-      container.appendChild(block);
-      return;
-    }
-
     var paragraphEl = document.createElement("div");
     paragraphEl.className = "ts-paragraph";
     paragraphEl.setAttribute("lang", lang);
+    items.forEach(function (segment, index) {
+      var start = Array.isArray(segment.timestamp)
+        ? segment.timestamp[0]
+        : (Number.isFinite(segment.start) ? segment.start : null);
+      var lineText = getSegmentText(segment, useTranslatedText);
+      var wrapper;
+      var textEl;
 
-    segments.forEach(function (segment) {
-      var span = document.createElement("span");
-      span.className = "ts-sentence";
-
-      var text = fixPunctuation(segment.text);
-      if (segment.time && showTimestamps) {
-        text += " (" + segment.time + ")";
+      if (!lineText) {
+        return;
       }
-      text += " ";
 
-      span.textContent = text;
-      paragraphEl.appendChild(span);
+      wrapper = document.createElement("span");
+      wrapper.className = "ts-sentence";
+
+      textEl = document.createElement("span");
+      textEl.className = "ts-segment-text";
+      textEl.setAttribute("data-segment-editor", "1");
+      textEl.setAttribute("data-index", String(index));
+      textEl.contentEditable = previewEditMode ? "true" : "false";
+      textEl.spellcheck = false;
+      textEl.lang = lang;
+
+      textEl.textContent = lineText;
+      wrapper.appendChild(textEl);
+
+      if (showTimestamps && start !== null) {
+        var timeEl = document.createElement("span");
+        timeEl.className = "ts-time-inline";
+        timeEl.textContent = "[" + formatTime(start) + "]";
+        wrapper.appendChild(timeEl);
+      }
+
+      paragraphEl.appendChild(wrapper);
+      paragraphEl.appendChild(document.createTextNode(" "));
     });
 
     container.appendChild(paragraphEl);
   }
 
-  function updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn) {
+  function updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn) {
     if (!transcriptEl) {
       return;
     }
 
-    var hasTranslation = !!window.translatedTranscript;
+    var hasTranslation = hasTranslatedSegments();
     if (translatedTabBtn) {
       translatedTabBtn.style.display = hasTranslation ? "" : "none";
     }
@@ -854,14 +1034,14 @@
     if (translatedTabBtn) {
       translatedTabBtn.classList.toggle("active", (window.currentTab || "original") === "translated");
     }
+    updateEditButton(editBtn);
 
     if (window.currentTab === "translated" && hasTranslation) {
       renderSegments(
-        window.translatedTranscript,
-        window.transcriptionAudio ? window.transcriptionAudio.duration : 0,
         transcriptEl,
         window.translatedTitle || "",
-        window.translatedSubtitles ? window.translatedSubtitles.map(sub => ({ text: sub.text, time: formatTime(sub.start) })) : null
+        getActiveSegments(),
+        true
       );
     } else if (window.currentTab === "translated" && !hasTranslation) {
       transcriptEl.removeAttribute("lang");
@@ -869,9 +1049,10 @@
     } else if (window.currentTranscript) {
       window.currentTab = "original";
       renderSegments(
-        window.currentTranscript,
-        window.transcriptionAudio ? window.transcriptionAudio.duration : 0,
-        transcriptEl
+        transcriptEl,
+        "",
+        getActiveSegments(),
+        false
       );
     } else {
       window.currentTab = "original";
@@ -887,6 +1068,16 @@
     if (srtBtn) {
       srtBtn.textContent = window.currentTab === "translated" ? "Download Translated SRT" : "Download SRT";
     }
+  }
+
+  function updateEditButton(editBtn) {
+    var hasSegments = getActiveSegments().length > 0;
+    if (!editBtn) {
+      return;
+    }
+
+    editBtn.disabled = !hasSegments;
+    editBtn.textContent = previewEditMode ? "Done" : "Edit";
   }
 
   function copyActiveTranscript(statusEl) {
@@ -907,20 +1098,32 @@
       return;
     }
 
-    downloadBlob(window.currentTab === "translated" ? "translated.txt" : "transcript.txt", activeText);
+    var baseName = window.originalFileName || "transcript";
+    var suffix = window.currentTab === "translated" ? "_freeaudiotrim_translation.txt" : "_freeaudiotrim_transcription.txt";
+    downloadBlob(baseName + suffix, activeText);
   }
 
   function downloadActiveSRT() {
     var activeText = getActiveTranscript();
-    if (!activeText || !window.transcriptionAudio) {
+    var activeSegments = getActiveSegments();
+    if (!activeText || !activeSegments.length) {
       return;
     }
 
-    var srt = generateSRT(activeText, window.transcriptionAudio.duration);
-    downloadBlob(window.currentTab === "translated" ? "translated.srt" : "subtitles.srt", srt);
+    var srt = generateSRT(activeSegments.map(function (segment) {
+      return {
+        text: getSegmentText(segment, window.currentTab === "translated"),
+        timestamp: Array.isArray(segment.timestamp)
+          ? segment.timestamp
+          : [segment.start || 0, segment.end || segment.start || 0]
+      };
+    }));
+    var baseName = window.originalFileName || "transcript";
+    var suffix = window.currentTab === "translated" ? "_freeaudiotrim_translation.srt" : "_freeaudiotrim_transcription.srt";
+    downloadBlob(baseName + suffix, srt);
   }
 
-  function handleTranscriptionResult(text) {
+  function handleTranscriptionResult(text, segments) {
     var context = activeTranscriptionContext;
     if (!context) {
       return;
@@ -931,7 +1134,7 @@
 
     if (formattedText) {
       formattedText = formattedText.replace(/\s+/g, " ").trim();
-      formattedText = formattedText.replace(/([.؟!])\s*/g, "$1 ");
+      formattedText = formattedText.replace(/([.\u061F!])\s*/g, "$1 ");
       formattedText = splitIntoLines(formattedText);
 
       if (!formattedText || !formattedText.trim()) {
@@ -940,18 +1143,22 @@
     }
 
     if (formattedText) {
-      window.currentTranscript = formattedText;
+      previewEditMode = false;
+      window.currentSegments = normalizePreviewSegments(segments || []);
+      window.currentTranscript = getSegmentsParagraphText(window.currentSegments) || formattedText;
       window.translatedTranscript = "";
       window.translatedTitle = "";
+      window.translatedSubtitles = [];
       window.transcriptionSourceLanguage = context.language;
+      window.currentTranscriptDuration = context.duration || 0;
       window.currentTab = "original";
-      context.transcriptEl.textContent = formattedText;
+      context.transcriptEl.textContent = window.currentTranscript;
       setExportButtonsState(context.copyBtn, context.txtBtn, context.srtBtn, true);
       setTranslationButtonsState(context.translateBtn, null, null, null, false);
       if (context.translateBtn) {
         context.translateBtn.disabled = false;
       }
-      updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn);
+      updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
       updateExportLabels(context.txtBtn, context.srtBtn);
       stopFakeProgress();
       stopProgressMessages();
@@ -974,13 +1181,17 @@
         }, 2500);
       }
     } else {
+      previewEditMode = false;
       window.currentTranscript = "";
+      window.currentSegments = [];
       window.translatedTranscript = "";
       window.translatedTitle = "";
+      window.translatedSubtitles = [];
       window.transcriptionSourceLanguage = "";
+      window.currentTranscriptDuration = 0;
       context.transcriptEl.textContent = "Upload and transcribe a file to see results here.";
       setTranslationButtonsState(context.translateBtn, null, null, null, false);
-      updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn);
+      updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
       updateExportLabels(context.txtBtn, context.srtBtn);
       stopFakeProgress();
       stopProgressMessages();
@@ -988,62 +1199,110 @@
       setStatus(context.statusEl, "Transcription failed. Try a shorter or clearer file.", "error");
     }
 
-    setTranscribeButtonState(context.startBtn, true);
+    processingLocked = false;
+    if (typeof context.afterRunCleanup === "function") {
+      context.afterRunCleanup({
+        keepResults: !!formattedText
+      });
+    }
+    setTranscribeButtonState(context.startBtn, false);
     setEnhanceToggleState(document.getElementById("enhance-audio"), true);
     activeTranscriptionContext = null;
   }
 
   function handleTranslationResult(text, texts) {
     var context = activeTranslationContext;
-    var translatedText = texts ? texts.join(" ") : cleanTranslation(text);
+    var translatedPayload = Array.isArray(texts) ? texts : [];
+    var translatedLines = [];
+    var rawTranslation = "";
+    var translatedText = "";
 
     if (!context) {
       return;
     }
 
-    if (!translatedText) {
+    if (translatedPayload.length) {
+      rawTranslation = translatedPayload.length === 1
+        ? String(translatedPayload[0] || "")
+        : translatedPayload.map(function (chunk) {
+          return String(chunk || "");
+        }).join("\n");
+      translatedLines = translatedPayload.map(function (chunk) {
+        return String(chunk || "");
+      });
+    } else {
+      rawTranslation = String(text || "");
+      translatedLines = rawTranslation ? rawTranslation.split(/\r?\n/) : [];
+    }
+
+    if (translatedLines.length !== (window.currentSegments || []).length) {
+      (window.currentSegments || []).forEach(function (segment) {
+        segment.translatedText = segment.editedText || segment.originalText || "";
+      });
+      translatedText = getSegmentsParagraphText(window.currentSegments, true);
+      window.translatedSubtitles = [];
+      window.translatedTranscript = translatedText;
+      window.currentTab = "translated";
+      setTranslationButtonsState(context.translateBtn, null, null, null, true);
+      updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
+      updateExportLabels(context.txtBtn, context.srtBtn);
+      if (context.transcriptEl) {
+        context.transcriptEl.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }
+      setProgress(100);
+      stopProgressMessages();
+      setStatus(context.statusEl, "Translation line count mismatch. Showing original text.", "error");
+      processingLocked = false;
+      if (typeof context.afterRunCleanup === "function") {
+        context.afterRunCleanup({
+          keepResults: true
+        });
+      }
+      activeTranslationContext = null;
+      return;
+    }
+
+    if (!cleanTranslation(rawTranslation)) {
       window.translatedTranscript = "";
       window.translatedTitle = "";
       window.translatedSubtitles = [];
-      updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn);
+      (window.currentSegments || []).forEach(function (segment) {
+        segment.translatedText = "";
+      });
+      updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
       updateExportLabels(context.txtBtn, context.srtBtn);
       stopProgressMessages();
       setProgress(0);
       setStatus(context.statusEl, "Translation could not be completed. Try a shorter or clearer input.", "error");
+      processingLocked = false;
+      if (typeof context.afterRunCleanup === "function") {
+        context.afterRunCleanup({
+          keepResults: true
+        });
+      }
       activeTranslationContext = null;
       return;
     }
 
     setStatus(context.statusEl, "Finalizing translation...", "processing");
     setProgress(95);
-    window.translatedTranscript = translatedText;
     window.translatedTitle = "Translated (" + context.selectedLanguageName + " - AI Generated)";
-    if (texts) {
-      // Rebuild subtitles with translated texts
-      const translatedSubtitles = [];
 
-      for (let i = 0; i < context.grouped.length; i++) {
-        const group = context.grouped[i];
-        const translatedText = texts[i] || "";
+    (window.currentSegments || []).forEach(function (segment, index) {
+      var line = translatedLines[index] || "";
+      var cleaned = cleanText(String(line || "").replace(/^\s*\[\d+\]\s*/, "").replace(/^\s*\d+\s*/, ""));
+      segment.translatedText = cleaned || segment.originalText || "";
+    });
 
-        // split translated chunk roughly back
-        const parts = translatedText.split(/(?<=[.!?])\s+/);
-
-        for (let j = 0; j < group.length; j++) {
-          translatedSubtitles.push({
-            ...group[j],
-            text: parts[j] || parts[parts.length - 1] || ""
-          });
-        }
-      }
-
-      window.translatedSubtitles = translatedSubtitles;
-    } else {
-      window.translatedSubtitles = [];
-    }
+    translatedText = getSegmentsParagraphText(window.currentSegments, true);
+    window.translatedSubtitles = [];
+    window.translatedTranscript = translatedText;
     window.currentTab = "translated";
     setTranslationButtonsState(context.translateBtn, null, null, null, true);
-    updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn);
+    updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
     updateExportLabels(context.txtBtn, context.srtBtn);
     if (context.transcriptEl) {
       context.transcriptEl.scrollIntoView({
@@ -1054,29 +1313,85 @@
     setProgress(100);
     stopProgressMessages();
     setStatus(context.statusEl, "Translation complete", "ready");
+    processingLocked = false;
+    if (typeof context.afterRunCleanup === "function") {
+      context.afterRunCleanup({
+        keepResults: true
+      });
+    }
     activeTranslationContext = null;
   }
 
   worker.onmessage = function (e) {
     var type = e.data.type;
-    var text = e.data.text;
-    var segments = e.data.segments;
-    var message = e.data.message;
+    var text = normalizeIncomingText(e.data.text);
+    var segments = normalizeIncomingSegments(e.data.segments);
+    var message = normalizeIncomingText(e.data.message);
     var progress = e.data.progress;
 
+    if (type === "loading") {
+      var loadingEl = document.getElementById("loading-status") || document.createElement("div");
+      if (!loadingEl.id) {
+        loadingEl.id = "loading-status";
+        loadingEl.style.cssText = "position:fixed;top:0;left:0;width:100%;padding:12px;background:#4CAF50;color:#fff;text-align:center;z-index:9999;font-family:system-ui;";
+        document.body.appendChild(loadingEl);
+      }
+      loadingEl.textContent = normalizeIncomingText(e.data.message || "Loading AI model...");
+      return;
+    }
+
+    if (type === "loading_done") {
+      var loadingEl = document.getElementById("loading-status");
+      if (loadingEl) {
+        loadingEl.textContent = "Transcribing audio...";
+        setTimeout(function () {
+          var el = document.getElementById("loading-status");
+          if (el) el.remove();
+        }, 500);
+      }
+      return;
+    }
+
+    if (type === "ready") {
+      var readyEl = document.getElementById("loading-status");
+      if (readyEl) {
+        readyEl.textContent = "Transcribing audio...";
+      }
+      return;
+    }
+
+    if (e.data.type === "progress") {
+      var percent = Math.round((e.data.current / e.data.total) * 100);
+      setStatus("Transcribing audio... " + percent + "%");
+      return;
+    }
+
     if (type === "result") {
-      window.currentSegments = segments || [];
-      handleTranscriptionResult(text);
+      const finalSegments = buildSubtitles(segments || []);
+      window.currentSegments = finalSegments;
+      console.log("Segments:", segments);
+      console.log("Final Segments:", finalSegments);
+      handleTranscriptionResult(
+  normalizeArabicText(normalizeIncomingText(text)),
+  finalSegments
+);
     }
 
     if (type === "error") {
       var context = activeTranscriptionContext;
+      processingLocked = false;
       if (context) {
         setStatus(context.statusEl, message || "Transcription failed", "error");
         stopFakeProgress();
+        stopProgressMessages();
         setProgress(0);
-        setTranscribeButtonState(context.startBtn, true);
+        setTranscribeButtonState(context.startBtn, false);
         setEnhanceToggleState(document.getElementById("enhance-audio"), true);
+        if (typeof context.afterRunCleanup === "function") {
+          context.afterRunCleanup({
+            keepResults: false
+          });
+        }
       }
       activeTranscriptionContext = null;
       if (message) {
@@ -1097,12 +1412,18 @@
 
     if (type === "translation_error") {
       if (activeTranslationContext) {
+        processingLocked = false;
         setTranslationButtonsState(activeTranslationContext.translateBtn, null, null, null, !!window.currentTranscript);
-        updateTranscriptView(activeTranslationContext.transcriptEl, activeTranslationContext.originalTabBtn, activeTranslationContext.translatedTabBtn);
+        updateTranscriptView(activeTranslationContext.transcriptEl, activeTranslationContext.originalTabBtn, activeTranslationContext.translatedTabBtn, activeTranslationContext.editBtn);
         updateExportLabels(activeTranslationContext.txtBtn, activeTranslationContext.srtBtn);
         stopProgressMessages();
         setProgress(0);
         setStatus(activeTranslationContext.statusEl, message || "Translation could not be completed. Try a shorter or clearer input.", "error");
+        if (typeof activeTranslationContext.afterRunCleanup === "function") {
+          activeTranslationContext.afterRunCleanup({
+            keepResults: true
+          });
+        }
       }
       activeTranslationContext = null;
       if (message) {
@@ -1111,16 +1432,24 @@
     }
   };
 
-  async function startTranscription(mode, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn) {
+  async function startTranscription(mode, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, afterRunCleanup) {
     var audio = window.transcriptionAudio;
 
-    if (!audio || !audio.data) {
+    // Prevent concurrent processing
+    if (!audio || !audio.data || processingLocked) {
       return;
     }
 
+    // Lock processing
+    processingLocked = true;
+
+    // Disable UI
+    setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
+    setTranscribeButtonState(startBtn, false);
+    setTranslationButtonsState(translateBtn, null, null, null, false);
+    input.disabled = true;
+
     try {
-      setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
-      setTranscribeButtonState(startBtn, false);
       var processedData = audio.data;
       var enhanceToggle = document.getElementById("enhance-audio");
       var enhance = enhanceToggle ? enhanceToggle.checked : false;
@@ -1141,18 +1470,10 @@
         }
       }
 
-      if (mode === "accurate" && audio.duration > 180) {
-        setStatus(statusEl, "Accurate mode supports shorter audio (under 3 minutes)", "error");
-        return;
-      }
-
-      if (audio.duration > 120) {
-        setStatus(statusEl, "Large audio detected. Transcription may take longer.", "processing");
-      }
       setProgress(50);
       startFakeProgress(50, 90);
       startProgressMessages();
-      setStatus(statusEl, mode === "accurate" ? "Loading accurate model..." : "Loading fast model...", "processing");
+      setStatus(statusEl, "Downloading AI model...", "processing");
       var resampled = resampleTo16kHz(processedData, audio.sampleRate);
       console.log("Resampled samples:", resampled.length);
       console.log("Expected duration after resample (sec):", resampled.length / 16000);
@@ -1170,16 +1491,22 @@
         startBtn: startBtn,
         translateBtn: translateBtn,
         originalTabBtn: originalTabBtn,
-        translatedTabBtn: translatedTabBtn
+        translatedTabBtn: translatedTabBtn,
+        editBtn: editBtn,
+        duration: audio.duration,
+        afterRunCleanup: afterRunCleanup
       };
 
       console.log("Sending audio to worker, length:", resampled.length);
+      var selectedLanguage = language || "auto";
+
 worker.postMessage(
   {
     type: "transcribe",
-    audio: resampled.buffer
+    audio: resampled.buffer,
+    selectedLanguage: selectedLanguage
   },
-  [resampled.buffer] // 🔥 THIS IS THE FIX
+  [resampled.buffer]
 );
       return;
     } catch (error) {
@@ -1187,7 +1514,7 @@ worker.postMessage(
       window.translatedTitle = "";
       window.transcriptionSourceLanguage = "";
       setTranslationButtonsState(translateBtn, null, null, null, false);
-      updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn);
+      updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
       updateExportLabels(txtBtn, srtBtn);
       console.error("Transcription error:", error);
       if (error && error.message === "MODEL_LOAD_FAILED") {
@@ -1196,9 +1523,16 @@ worker.postMessage(
         setStatus(statusEl, "Transcription failed. Try a shorter or clearer file.", "error");
       }
     } finally {
+      // Unlock processing if transcription context not set (error occurred)
       if (!activeTranscriptionContext) {
-        setTranscribeButtonState(startBtn, true);
+        processingLocked = false;
+        setTranscribeButtonState(startBtn, false);
         setEnhanceToggleState(document.getElementById("enhance-audio"), true);
+        if (typeof afterRunCleanup === "function") {
+          afterRunCleanup({
+            keepResults: false
+          });
+        }
       }
     }
   }
@@ -1219,16 +1553,75 @@ worker.postMessage(
     var tabButtons = root.querySelectorAll(".tab");
     var originalTabBtn = root.querySelector('.tab[data-tab="original"]');
     var translatedTabBtn = root.querySelector('.tab[data-tab="translated"]');
+    var editBtn = root.querySelector('[data-role="toggleEdit"]');
+    var restartBtn = root.querySelector('[data-role="restartBtn"]');
     var timestampCheckbox = root.querySelector('#show-timestamps');
+    var audioPlayer = document.getElementById("audio-player");
     if (!input || input.dataset.transcribeToolBound === "1") {
       return;
+    }
+
+    function clearFileSelection() {
+      if (root.__audioPreviewUrl) {
+        URL.revokeObjectURL(root.__audioPreviewUrl);
+        root.__audioPreviewUrl = "";
+      }
+      input.value = "";
+      input.disabled = false;
+      fileNameEl.textContent = "No file selected";
+      if (audioPlayer) {
+        audioPlayer.pause();
+        audioPlayer.removeAttribute("src");
+        audioPlayer.load();
+        audioPlayer.style.display = "none";
+      }
+      if (toolRoot) {
+        toolRoot.classList.remove("is-active");
+      }
+      window.transcriptionAudio = null;
+    }
+
+    function resetForNextUpload(options) {
+      var keepResults = !!(options && options.keepResults);
+
+      activeTranscriptionContext = null;
+      activeTranslationContext = null;
+      clearFileSelection();
+      stopFakeProgress();
+      stopProgressMessages();
+      setProgress(0);
+      setTranscribeButtonState(startBtn, false);
+      setEnhanceToggleState(root.querySelector("#enhance-audio"), true);
+
+      if (!keepResults) {
+        previewEditMode = false;
+        window.currentTranscript = "";
+        window.currentSegments = [];
+        window.translatedTranscript = "";
+        window.translatedTitle = "";
+        window.translatedSubtitles = [];
+        window.transcriptionSourceLanguage = "";
+        window.currentTranscriptDuration = 0;
+        window.originalFileName = "";
+        window.currentTab = "original";
+        updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
+        updateExportLabels(txtBtn, srtBtn);
+        setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
+        setTranslationButtonsState(translateBtn, null, null, null, false);
+      } else if (translateBtn) {
+        translateBtn.disabled = !window.currentTranscript;
+      }
     }
 
     setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
     setTranscribeButtonState(startBtn, false);
     setTranslationButtonsState(translateBtn, null, null, null, false);
+    updateEditButton(editBtn);
+    window.currentSegments = [];
+    window.translatedSubtitles = [];
+    window.currentTranscriptDuration = 0;
     window.currentTab = "original";
-    updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn);
+    updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
     updateExportLabels(txtBtn, srtBtn);
     if (copyBtn) {
       copyBtn.addEventListener("click", function () {
@@ -1245,12 +1638,90 @@ worker.postMessage(
         downloadActiveSRT();
       });
     }
+    if (editBtn) {
+      editBtn.addEventListener("click", function () {
+        if (!getActiveSegments().length) {
+          return;
+        }
+        previewEditMode = !previewEditMode;
+        updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
+      });
+    }
+    if (restartBtn) {
+      restartBtn.addEventListener("click", function () {
+        // Stop any active processing
+        stopFakeProgress();
+        stopProgressMessages();
+
+        // Clear any active transcription/translation context
+        activeTranscriptionContext = null;
+        activeTranslationContext = null;
+        processingLocked = false;
+
+        // Clear window state
+        previewEditMode = false;
+        window.currentTranscript = "";
+        window.currentSegments = [];
+        window.translatedTranscript = "";
+        window.translatedTitle = "";
+        window.translatedSubtitles = [];
+        window.transcriptionSourceLanguage = "";
+        window.currentTranscriptDuration = 0;
+        window.originalFileName = "";
+        window.currentTab = "original";
+
+        // Clear file input and reset audio preview
+        clearFileSelection();
+
+        // Dispatch event so page script can restore upload UI
+        window.dispatchEvent(new CustomEvent("transcribe-tool-restart"));
+
+        // Re-render the entire tool DOM to get fresh UI state
+        if (typeof window.initTranscribeTool === "function") {
+          // Clear the bound attribute so re-binding works
+          var newInput = root.querySelector(".at-file");
+          if (newInput) {
+            delete newInput.dataset.transcribeToolBound;
+          }
+          window.initTranscribeTool(root);
+        }
+      });
+    }
     if (timestampCheckbox) {
       timestampCheckbox.checked = true;
 
       timestampCheckbox.addEventListener("change", function (e) {
         showTimestamps = e.target.checked;
-        updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn);
+        updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
+      });
+    }
+    if (transcriptEl) {
+      transcriptEl.addEventListener("input", function (event) {
+        var target = event.target;
+        var activeSegments;
+        var index;
+        var nextText;
+
+        if (!target || target.getAttribute("data-segment-editor") !== "1") {
+          return;
+        }
+
+        activeSegments = getActiveSegments();
+        index = Number(target.getAttribute("data-index"));
+
+        if (!Number.isInteger(index) || !activeSegments[index]) {
+          return;
+        }
+
+        nextText = cleanText(target.textContent || "");
+
+        if (window.currentTab === "translated") {
+          activeSegments[index].translatedText = nextText;
+          window.translatedTranscript = getSegmentsParagraphText(activeSegments, true);
+        } else {
+          activeSegments[index].editedText = nextText;
+          window.currentTranscript = getSegmentsParagraphText(activeSegments);
+        }
       });
     }
 
@@ -1263,14 +1734,14 @@ worker.postMessage(
             return;
           }
           window.currentTab = nextTab;
-          updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn);
+          updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
           updateExportLabels(txtBtn, srtBtn);
         });
       });
     }
     if (startBtn) {
       startBtn.addEventListener("click", async function () {
-        if (!window.transcriptionAudio) {
+        if (!window.transcriptionAudio || processingLocked) {
           return;
         }
 
@@ -1278,13 +1749,14 @@ worker.postMessage(
         var mode = modeNode ? modeNode.value : "fast";
         var language = languageSelect ? languageSelect.value : "auto";
 
-        await startTranscription(mode, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn);
+        await startTranscription(mode, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, resetForNextUpload);
       });
     }
     if (translateBtn) {
       translateBtn.addEventListener("click", async function () {
-        var modeNode = root.querySelector('input[name="tmode"]:checked');
-        var translationMode = modeNode ? modeNode.value : "quick";
+        if (processingLocked) {
+          return;
+        }
         var targetLang = translateLanguage ? translateLanguage.value : "";
         var mappedTarget = langMap[targetLang];
         var selectedLanguageName = translateLanguage && translateLanguage.options[translateLanguage.selectedIndex]
@@ -1316,45 +1788,21 @@ worker.postMessage(
           return;
         }
 
-        const subtitles = buildSentenceSubtitles(window.currentSegments);
+        var segmentsToTranslate = window.currentSegments || [];
+        var linesToTranslate = segmentsToTranslate.map(function (segment) {
+          var lineText = cleanText((segment && (segment.editedText || segment.originalText || segment.text)) || "");
+          return lineText;
+        }).filter(function (line) {
+          return line.length > 0;
+        });
 
-        function groupSubtitles(subtitles) {
-          const groups = [];
-          let current = [];
-          let currentTextLength = 0;
-
-          for (let i = 0; i < subtitles.length; i++) {
-            current.push(subtitles[i]);
-            currentTextLength += subtitles[i].text.length;
-
-            // group 4–6 sentences OR until ~300–400 characters
-            if (
-              currentTextLength > 350 ||
-              current.length >= 5
-            ) {
-              groups.push(current);
-              current = [];
-              currentTextLength = 0;
-            }
-          }
-
-          if (current.length) {
-            groups.push(current);
-          }
-
-          return groups;
-        }
-
-        const grouped = groupSubtitles(subtitles);
-
-        const textsToTranslate = grouped.map(group =>
-          group.map(s => s.text).join(" ")
-        );
+        var textToTranslate = linesToTranslate.join("\n");
 
         setTranslationButtonsState(translateBtn, null, null, null, false);
         setStatus(statusEl, "Translating subtitles...", "processing");
         setProgress(50);
         startProgressMessages();
+        processingLocked = true;
         activeTranslationContext = {
           statusEl: statusEl,
           transcriptEl: transcriptEl,
@@ -1363,91 +1811,101 @@ worker.postMessage(
           srtBtn: srtBtn,
           originalTabBtn: originalTabBtn,
           translatedTabBtn: translatedTabBtn,
+          editBtn: editBtn,
           selectedLanguageName: selectedLanguageName,
-          grouped: grouped
+          lineCount: linesToTranslate.length,
+          afterRunCleanup: resetForNextUpload
         };
 
-worker.postMessage({
-  type: "translate_subtitles",
-  texts: textsToTranslate,
-  sourceLang: sourceLang,
-  targetLang: mappedTarget
-});
+        var useWhisperTranslate = mappedTarget === "en";
+
+        worker.postMessage({
+          type: "translate_subtitles",
+          texts: linesToTranslate,
+          sourceLang: sourceLang,
+          targetLang: mappedTarget,
+          useWhisperTranslate: useWhisperTranslate
+        });
       });
     }
 
     input.dataset.transcribeToolBound = "1";
     input.addEventListener("change", async function (e) {
-      var file = e && e.target && e.target.files ? e.target.files[0] : null;
+      if (processingLocked) {
+        input.value = "";
+        setStatus(statusEl, "Only one file can be processed at a time", "error");
+        return;
+      }
+
+      // Get only the first file - ignore extra files
+      var files = e && e.target && e.target.files ? e.target.files : [];
+      var file = files.length > 0 ? files[0] : null;
       if (!file) {
-        activeTranslationContext = null;
-        fileNameEl.textContent = "No file selected";
-        if (toolRoot) {
-          toolRoot.classList.remove("is-active");
-        }
+        resetForNextUpload({
+          keepResults: false
+        });
+        return;
+      }
 
-        var audioPlayer = document.getElementById("audio-player");
-        if (audioPlayer) {
-          audioPlayer.src = "";
-          audioPlayer.style.display = "none";
-        }
+      if (files.length > 1) {
+        input.value = "";
+        resetForNextUpload({
+          keepResults: false
+        });
+        setStatus(statusEl, "Only one file allowed", "error");
+        return;
+      }
 
-        window.transcriptionAudio = null;
-        window.currentTranscript = "";
-        window.translatedTranscript = "";
-        window.translatedTitle = "";
-        window.transcriptionSourceLanguage = "";
-        setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
-        setTranscribeButtonState(startBtn, false);
-        setTranslationButtonsState(translateBtn, null, null, null, false);
-        window.currentTab = "original";
-        updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn);
-        updateExportLabels(txtBtn, srtBtn);
-        setProgress(0);
-        setStatus(statusEl, "Upload a file to begin transcription", "idle");
+      if (!isSupportedMediaFile(file)) {
+        input.value = "";
+        resetForNextUpload({
+          keepResults: false
+        });
+        setStatus(statusEl, "Unsupported or corrupted file", "error");
         return;
       }
       if (toolRoot) {
         toolRoot.classList.add("is-active");
       }
+      previewEditMode = false;
       activeTranslationContext = null;
       fileNameEl.textContent = file.name;
+      window.originalFileName = file.name.replace(/.[^/.]+$/, "");
       transcriptEl.textContent = "Upload and transcribe a file to see results here.";
 
-      var audioPlayer = document.getElementById("audio-player");
       if (audioPlayer) {
-        audioPlayer.src = URL.createObjectURL(file);
+        if (root.__audioPreviewUrl) {
+          URL.revokeObjectURL(root.__audioPreviewUrl);
+        }
+        root.__audioPreviewUrl = URL.createObjectURL(file);
+        audioPlayer.src = root.__audioPreviewUrl;
         audioPlayer.style.display = "block";
       }
       window.currentTranscript = "";
+      window.currentSegments = [];
       window.translatedTranscript = "";
       window.translatedTitle = "";
+      window.translatedSubtitles = [];
       window.transcriptionSourceLanguage = "";
+      window.currentTranscriptDuration = 0;
       setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
       setTranscribeButtonState(startBtn, false);
       setTranslationButtonsState(translateBtn, null, null, null, false);
       window.currentTab = "original";
-      updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn);
+      updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
       updateExportLabels(txtBtn, srtBtn);
       setProgress(0);
+
+      // Validate browser support
       if (!audioContext) {
-        window.transcriptionAudio = null;
-        window.currentTranscript = "";
-        window.translatedTranscript = "";
-        window.translatedTitle = "";
-        window.transcriptionSourceLanguage = "";
-        setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
-        setTranscribeButtonState(startBtn, false);
-        setTranslationButtonsState(translateBtn, null, null, null, false);
-        setStatus(statusEl, "Your browser does not support audio processing.", "error");
+        resetForNextUpload({
+          keepResults: false
+        });
+        setStatus(statusEl, "Your browser does not support audio processing", "error");
         return;
       }
 
-      if (file.size > LARGE_FILE_BYTES) {
-        setStatus(statusEl, "Large file detected. Processing may take longer.", "processing");
-      } else {
-        setStatus(statusEl, "Processing audio...", "processing");
-      }
+      setStatus(statusEl, "Processing audio...", "processing");
       setProgress(10);
 
       try {
@@ -1459,6 +1917,25 @@ worker.postMessage({
         console.log("Decoded duration (sec):", audioBuffer.duration);
         console.log("Decoded samples:", audioBuffer.length);
         console.log("Sample rate:", audioBuffer.sampleRate);
+
+        // Validate duration - reject if too long
+        if (audioBuffer.duration > MAX_DURATION_SECONDS) {
+          resetForNextUpload({
+            keepResults: false
+          });
+          setStatus(statusEl, "File must be under 120 seconds", "error");
+          return;
+        }
+
+        // Validate duration - reject if too short
+        if (audioBuffer.duration < 1) {
+          resetForNextUpload({
+            keepResults: false
+          });
+          setStatus(statusEl, "Unsupported or corrupted file", "error");
+          return;
+        }
+
         var monoData = convertToMono(audioBuffer);
 
         window.transcriptionAudio = {
@@ -1467,40 +1944,17 @@ worker.postMessage({
           duration: audioBuffer.duration
         };
 
-        if (audioBuffer.duration < 1) {
-          window.currentTranscript = "";
-          window.translatedTranscript = "";
-          window.translatedTitle = "";
-          window.transcriptionSourceLanguage = "";
-          setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
-          setTranscribeButtonState(startBtn, false);
-          setTranslationButtonsState(translateBtn, null, null, null, false);
-          window.currentTab = "original";
-          updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn);
-          updateExportLabels(txtBtn, srtBtn);
-          setStatus(statusEl, "Audio too short to transcribe.", "error");
-          return;
-        }
-
         setStatus(statusEl, "Audio ready for transcription", "ready");
         setProgress(30);
         setTranscribeButtonState(startBtn, true);
       } catch (error) {
-        window.transcriptionAudio = null;
-        window.currentTranscript = "";
-        window.translatedTranscript = "";
-        window.translatedTitle = "";
-        window.transcriptionSourceLanguage = "";
-        setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
-        setTranscribeButtonState(startBtn, false);
-        setTranslationButtonsState(translateBtn, null, null, null, false);
-        window.currentTab = "original";
-        updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn);
-        updateExportLabels(txtBtn, srtBtn);
-        setProgress(0);
+        resetForNextUpload({
+          keepResults: false
+        });
         console.error("Audio decoding error:", error);
-        setStatus(statusEl, "Unable to process this file. Try another format.", "error");
+        setStatus(statusEl, "Unsupported or corrupted file", "error");
       }
+
     });
   }
 
@@ -1516,7 +1970,7 @@ worker.postMessage({
       root.__audioToolController = null;
     }
 
-    root.innerHTML = createMarkup();
+    mountMarkup(root, createMarkup());
     var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     var audioContext = root.__transcribeAudioContext;
     if (!audioContext && AudioContextCtor) {
@@ -1529,3 +1983,4 @@ worker.postMessage({
 
   window.initTranscribeTool = initTranscribeTool;
 })();
+
