@@ -23,7 +23,8 @@ async function loadModel() {
       "onnx-community/whisper-large-v3-turbo",
       {
         device: "auto",
-        dtype: "q4"
+        dtype: "q4",
+        use_external_data_format: true
       }
     );
 
@@ -53,46 +54,45 @@ async function loadTranslationModel() {
 function normalizeText(text) {
   return String(text || "")
     .replace(/\s+/g, " ")
-    .replace(/([.\u061F!])\s*/g, "$1 ")
     .trim();
+}
+
+function applyTerminologyHints(text) {
+  return String(text || "")
+    .replace(/\bthrottle\b/gi, "accelerator pedal")
+    .replace(/\bbrake\b/gi, "brake pedal");
 }
 
 function improveSpeechStructure(text) {
   return String(text || "")
     .replace(/\n+/g, ". ")
-    .replace(/ \u0648/g, ". \u0648")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function splitSentences(text) {
-  return String(text || "").split(/(?<=[.\u061F!])\s+/);
+  return String(text || "")
+    .split(/(?<=[.!?\u061F])\s+/)
+    .filter(Boolean);
 }
 
 function buildChunks(sentences, maxLength = 300) {
   const chunks = [];
   let current = "";
 
-  for (let i = 0; i < sentences.length; i += 1) {
-    const sentence = String(sentences[i] || "").trim();
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = (sentences[i] || "").trim();
+    if (!sentence) continue;
 
-    if (!sentence) {
-      continue;
-    }
-
-    if ((current + sentence).length > maxLength) {
-      if (current.trim()) {
-        chunks.push(current.trim());
-      }
+    if (current.length + sentence.length > maxLength) {
+      if (current) chunks.push(current.trim());
       current = sentence;
     } else {
       current += (current ? " " : "") + sentence;
     }
   }
 
-  if (current.trim()) {
-    chunks.push(current.trim());
-  }
+  if (current) chunks.push(current.trim());
 
   return chunks;
 }
@@ -101,7 +101,25 @@ function cleanTranslation(text) {
   return String(text || "")
     .replace(/\s+/g, " ")
     .replace(/\s([.,!?])/g, "$1")
+    .replace(/(\b\w+\b)( \1\b)+/gi, "$1")
     .trim();
+}
+
+function smoothWithContext(prev, curr) {
+  if (!prev || !curr) return curr;
+
+  const prevWords = prev.split(" ");
+  const overlap = prevWords.slice(0, 2).join(" ");
+
+  if (overlap && curr.startsWith(overlap)) {
+    const trimmed = curr.slice(overlap.length).trim();
+
+    if (trimmed.length > 5) {
+      return trimmed;
+    }
+  }
+
+  return curr;
 }
 
 function polishEnglish(text) {
@@ -148,11 +166,19 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
   postMessage({ type: "progress", value: 10, current: 10, total: 100 });
 
   const sampleRate = 16000;
-  const chunkSize = sampleRate * 25;
-  const chunks = [];
+  const maxSinglePass = sampleRate * 30; // 30 sec
+  const chunkSize = sampleRate * 25; // ✅ ALWAYS defined
 
+  let chunks = [];
+
+  if (audio.length <= maxSinglePass) {
+  // 🚀 SINGLE PASS (NO CHUNKING)
+  chunks = [audio];
+  } else {
+  // normal chunking
   for (let i = 0; i < audio.length; i += chunkSize) {
     chunks.push(audio.slice(i, i + chunkSize));
+  }
   }
 
   let fullText = "";
@@ -166,20 +192,15 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
     postMessage({ type: "progress", value: progress, current: progress, total: 100 });
 
     let options = {
-      chunk_length_s: 30,
-      stride_length_s: 5,
-      return_timestamps: true,
-      task: "transcribe"
+      chunk_length_s: 25,
+      stride_length_s: 2,
+      return_timestamps: "segment",
+      task: "transcribe",
+      condition_on_previous_text: false,
+      temperature: 0
     };
 
-    if (selectedLanguage === "auto") {
-      options.language = null;
-    } else if (selectedLanguage === "ar") {
-      options.language = "ar";
-      options.prompt = "\u062A\u0641\u0631\u064A\u063A \u0635\u0648\u062A\u064A \u0637\u0628\u064A\u0639\u064A\u060C \u0628\u062F\u0648\u0646 \u062A\u0631\u062C\u0645\u0629\u060C \u0627\u062D\u062A\u0641\u0638 \u0628\u0627\u0644\u0643\u0644\u0645\u0627\u062A \u0627\u0644\u0623\u062C\u0646\u0628\u064A\u0629 \u0643\u0645\u0627 \u0647\u064A";
-    } else if (selectedLanguage === "en") {
-      options.language = "en";
-    } else {
+    if (selectedLanguage !== "auto") {
       options.language = selectedLanguage;
     }
 
@@ -214,6 +235,7 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
 }
 
 async function handleTranslation(data) {
+  data.mode = "full";
   const model = await loadTranslationModel();
   let preparedText = improveSpeechStructure(data.text);
   preparedText = normalizeText(preparedText);
@@ -254,6 +276,7 @@ async function handleTranslation(data) {
 }
 
 async function handleSubtitleTranslation(data) {
+  data.mode = "subtitle";
   const texts = Array.isArray(data.texts) ? data.texts : [];
 
   if (false && data.useWhisperTranslate) {
@@ -313,43 +336,27 @@ async function handleSubtitleTranslation(data) {
     const model = await loadTranslationModel();
     const translatedTexts = [];
 
-    for (let i = 0; i < texts.length; i += 1) {
+    for (let i = 0; i < texts.length; i++) {
       const text = texts[i];
 
-      if (!text || !text.trim()) {
-        translatedTexts.push("");
-        continue;
-      }
-
       try {
-        const pivot = await model(text, {
+        const result = await model(text, {
           src_lang: data.sourceLang,
-          tgt_lang: "eng_Latn"
+          tgt_lang: data.targetLang
         });
 
-        const pivotText = pivot && pivot[0] ? normalizeText(pivot[0].translation_text) : normalizeText(text);
-        let finalText = "";
+        const outputText = result && result[0]
+          ? normalizeText(result[0].translation_text)
+          : "";
 
-        if (data.targetLang === "eng_Latn") {
-          finalText = normalizeText(pivotText);
-        } else {
-          const final = await model(pivotText, {
-            src_lang: "eng_Latn",
-            tgt_lang: data.targetLang
-          });
+        let refined = cleanTranslation(outputText);
+        const prev = translatedTexts[translatedTexts.length - 1] || "";
+        refined = smoothWithContext(prev, refined);
 
-          finalText = final && final[0] ? normalizeText(final[0].translation_text) : "";
-        }
+        translatedTexts.push(refined);
 
-        let outputText = cleanTranslation(normalizeText(finalText));
-
-        if (data.targetLang === "eng_Latn") {
-          outputText = polishEnglish(outputText);
-        }
-
-        translatedTexts.push(outputText);
       } catch (err) {
-        translatedTexts.push("");
+        translatedTexts.push(text);
       }
 
       postMessage({

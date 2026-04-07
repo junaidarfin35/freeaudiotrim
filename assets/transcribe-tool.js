@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  var srtContent = "";
+  var vttContent = "";
   var STYLE_ID = "transcribe-tool-styles";
   var LARGE_FILE_BYTES = 50 * 1024 * 1024;
   var MAX_DURATION_SECONDS = 120;
@@ -232,13 +234,28 @@
       "    </select>",
       "  </div>",
       '  <div class="at-row translation-section">',
+      '    <label for="modeSelect">Translation Mode:</label>',
+      '    <select id="modeSelect">',
+      '      <option value="accurate" selected>Accurate (word-by-word)</option>',
+      '      <option value="subtitle">Subtitle (short & readable)</option>',
+      '    </select>',
+      "  </div>",
+      '  <div class="at-row translation-section">',
+      '    <label>',
+      '      <input type="checkbox" id="polishToggle">',
+      '      Improve readability (beta)',
+      '    </label>',
+      "  </div>",
+      '  <div class="at-row translation-section">',
       '    <button class="at-btn" id="translate-btn" data-role="translateBtn" disabled>Translate</button>',
+      '    <button class="at-btn" id="chatgptTranslateBtn" type="button" disabled>Refine with ChatGPT</button>',
       '    <p class="translation-hint">Best results with clear speech or standard language. Dialects may vary.</p>',
       "  </div>",
       '  <div class="at-row">',
       '    <button class="at-btn" data-role="copyTranscript" disabled>Copy</button>',
       '    <button class="at-btn" data-role="downloadTxt" disabled>Download TXT</button>',
       '    <button class="at-btn" data-role="downloadSrt" disabled>Download SRT</button>',
+      '    <button class="at-btn" data-download-vtt disabled>Download VTT</button>',
       '    <button class="at-btn" data-role="restartBtn">Restart</button>',
       "  </div>",
       "</div>"
@@ -289,7 +306,7 @@
     }
   }
 
-  function setExportButtonsState(copyBtn, txtBtn, srtBtn, enabled) {
+  function setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, enabled) {
     if (copyBtn) {
       copyBtn.disabled = !enabled;
     }
@@ -298,6 +315,9 @@
     }
     if (srtBtn) {
       srtBtn.disabled = !enabled;
+    }
+    if (vttBtn) {
+      vttBtn.disabled = !enabled;
     }
   }
 
@@ -600,6 +620,13 @@
     });
   }
 
+  function buildExportFileName(type, extension) {
+    let base = window.originalFileName || "file";
+    base = base.replace(/\.[^/.]+$/, "");
+    base = base.replace(/[^\w\-]+/g, "_");
+    return `FreeAudioTrim_${base}_${type}.${extension}`;
+  }
+
   function downloadBlob(filename, text) {
     var blob = new Blob([text], { type: "text/plain" });
     var url = URL.createObjectURL(blob);
@@ -615,8 +642,7 @@
       return;
     }
 
-    var baseName = window.originalFileName || "transcript";
-    downloadBlob(baseName + "_freeaudiotrim_transcription.txt", window.currentTranscript);
+    downloadBlob(buildExportFileName("Transcription", "txt"), window.currentTranscript);
   }
 
 function generateSRT(segments) {
@@ -639,15 +665,33 @@ function generateSRT(segments) {
   }).join('\n');
 }
 
+function generateVTT(segments) {
+  if (!segments || segments.length === 0) return "";
+
+  function formatTime(seconds) {
+    const date = new Date(seconds * 1000);
+    const hh = String(Math.floor(seconds / 3600)).padStart(2, '0');
+    const mm = String(date.getUTCMinutes()).padStart(2, '0');
+    const ss = String(date.getUTCSeconds()).padStart(2, '0');
+    const ms = String(date.getUTCMilliseconds()).padStart(3, '0');
+    return `${hh}:${mm}:${ss}.${ms}`;
+  }
+
+  return 'WEBVTT\n\n' + segments.map((seg, i) => {
+    const start = formatTime(seg.timestamp[0]);
+    const end = formatTime(seg.timestamp[1]);
+
+    return `${start} --> ${end}\n${seg.text || seg.editedText || seg.originalText || ""}\n`;
+  }).join('\n');
+}
+
   function downloadSRT() {
     if (!window.currentSegments || window.currentSegments.length === 0) {
     return;
 }
 
     var srt = generateSRT(window.currentSegments);
-    var baseName = window.originalFileName || "transcript";
-
-    downloadBlob(baseName + "_freeaudiotrim_transcription.srt", srt);
+    downloadBlob(buildExportFileName("Transcription", "srt"), srt);
   }
 
   function getActiveTranscript() {
@@ -1024,6 +1068,9 @@ function generateSRT(segments) {
       return;
     }
 
+    // Preserve audio player reference before updating transcript UI
+    var audioPlayer = document.getElementById("audio-player");
+
     var hasTranslation = hasTranslatedSegments();
     if (translatedTabBtn) {
       translatedTabBtn.style.display = hasTranslation ? "" : "none";
@@ -1059,14 +1106,25 @@ function generateSRT(segments) {
       transcriptEl.removeAttribute("lang");
       transcriptEl.textContent = "Upload and transcribe a file to see results here.";
     }
+
+    // Re-append audio player to ensure it's not accidentally removed
+    if (audioPlayer && !document.getElementById("audio-player")) {
+      var section = document.querySelector("section");
+      if (section) {
+        section.appendChild(audioPlayer);
+      }
+    }
   }
 
-  function updateExportLabels(txtBtn, srtBtn) {
+  function updateExportLabels(txtBtn, srtBtn, vttBtn) {
     if (txtBtn) {
       txtBtn.textContent = window.currentTab === "translated" ? "Download Translated TXT" : "Download TXT";
     }
     if (srtBtn) {
       srtBtn.textContent = window.currentTab === "translated" ? "Download Translated SRT" : "Download SRT";
+    }
+    if (vttBtn) {
+      vttBtn.textContent = window.currentTab === "translated" ? "Download Translated VTT" : "Download VTT";
     }
   }
 
@@ -1098,9 +1156,8 @@ function generateSRT(segments) {
       return;
     }
 
-    var baseName = window.originalFileName || "transcript";
-    var suffix = window.currentTab === "translated" ? "_freeaudiotrim_translation.txt" : "_freeaudiotrim_transcription.txt";
-    downloadBlob(baseName + suffix, activeText);
+    var type = window.currentTab === "translated" ? "Translation" : "Transcription";
+    downloadBlob(buildExportFileName(type, "txt"), activeText);
   }
 
   function downloadActiveSRT() {
@@ -1118,9 +1175,27 @@ function generateSRT(segments) {
           : [segment.start || 0, segment.end || segment.start || 0]
       };
     }));
-    var baseName = window.originalFileName || "transcript";
-    var suffix = window.currentTab === "translated" ? "_freeaudiotrim_translation.srt" : "_freeaudiotrim_transcription.srt";
-    downloadBlob(baseName + suffix, srt);
+    var type = window.currentTab === "translated" ? "Translation" : "Transcription";
+    downloadBlob(buildExportFileName(type, "srt"), srt);
+  }
+
+  function downloadActiveVTT() {
+    var activeText = getActiveTranscript();
+    var activeSegments = getActiveSegments();
+    if (!activeText || !activeSegments.length) {
+      return;
+    }
+
+    var vtt = generateVTT(activeSegments.map(function (segment) {
+      return {
+        text: getSegmentText(segment, window.currentTab === "translated"),
+        timestamp: Array.isArray(segment.timestamp)
+          ? segment.timestamp
+          : [segment.start || 0, segment.end || segment.start || 0]
+      };
+    }));
+    var type = window.currentTab === "translated" ? "Translation" : "Transcription";
+    downloadBlob(buildExportFileName(type, "vtt"), vtt);
   }
 
   function handleTranscriptionResult(text, segments) {
@@ -1153,13 +1228,17 @@ function generateSRT(segments) {
       window.currentTranscriptDuration = context.duration || 0;
       window.currentTab = "original";
       context.transcriptEl.textContent = window.currentTranscript;
-      setExportButtonsState(context.copyBtn, context.txtBtn, context.srtBtn, true);
+      setExportButtonsState(context.copyBtn, context.txtBtn, context.srtBtn, context.vttBtn, true);
       setTranslationButtonsState(context.translateBtn, null, null, null, false);
       if (context.translateBtn) {
         context.translateBtn.disabled = false;
       }
+      var chatgptBtn = document.getElementById("chatgptTranslateBtn");
+      if (chatgptBtn) {
+        chatgptBtn.disabled = false;
+      }
       updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
-      updateExportLabels(context.txtBtn, context.srtBtn);
+      updateExportLabels(context.txtBtn, context.srtBtn, context.vttBtn);
       stopFakeProgress();
       stopProgressMessages();
       var finalProgress = 95;
@@ -1192,7 +1271,7 @@ function generateSRT(segments) {
       context.transcriptEl.textContent = "Upload and transcribe a file to see results here.";
       setTranslationButtonsState(context.translateBtn, null, null, null, false);
       updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
-      updateExportLabels(context.txtBtn, context.srtBtn);
+      updateExportLabels(context.txtBtn, context.srtBtn, context.vttBtn);
       stopFakeProgress();
       stopProgressMessages();
       setProgress(0);
@@ -1245,7 +1324,7 @@ function generateSRT(segments) {
       window.currentTab = "translated";
       setTranslationButtonsState(context.translateBtn, null, null, null, true);
       updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
-      updateExportLabels(context.txtBtn, context.srtBtn);
+      updateExportLabels(context.txtBtn, context.srtBtn, context.vttBtn);
       if (context.transcriptEl) {
         context.transcriptEl.scrollIntoView({
           behavior: "smooth",
@@ -1273,7 +1352,7 @@ function generateSRT(segments) {
         segment.translatedText = "";
       });
       updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
-      updateExportLabels(context.txtBtn, context.srtBtn);
+      updateExportLabels(context.txtBtn, context.srtBtn, context.vttBtn);
       stopProgressMessages();
       setProgress(0);
       setStatus(context.statusEl, "Translation could not be completed. Try a shorter or clearer input.", "error");
@@ -1303,7 +1382,7 @@ function generateSRT(segments) {
     window.currentTab = "translated";
     setTranslationButtonsState(context.translateBtn, null, null, null, true);
     updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
-    updateExportLabels(context.txtBtn, context.srtBtn);
+    updateExportLabels(context.txtBtn, context.srtBtn, context.vttBtn);
     if (context.transcriptEl) {
       context.transcriptEl.scrollIntoView({
         behavior: "smooth",
@@ -1408,6 +1487,12 @@ function generateSRT(segments) {
 
     if (type === "translation_result") {
       handleTranslationResult(text, e.data.texts);
+      srtContent = e.data.srt || "";
+      vttContent = e.data.vtt || "";
+      var downloadSRTBtn = document.getElementById("downloadSRT");
+      var downloadVTTBtn = document.getElementById("downloadVTT");
+      if (downloadSRTBtn) downloadSRTBtn.disabled = false;
+      if (downloadVTTBtn) downloadVTTBtn.disabled = false;
     }
 
     if (type === "translation_error") {
@@ -1415,7 +1500,7 @@ function generateSRT(segments) {
         processingLocked = false;
         setTranslationButtonsState(activeTranslationContext.translateBtn, null, null, null, !!window.currentTranscript);
         updateTranscriptView(activeTranslationContext.transcriptEl, activeTranslationContext.originalTabBtn, activeTranslationContext.translatedTabBtn, activeTranslationContext.editBtn);
-        updateExportLabels(activeTranslationContext.txtBtn, activeTranslationContext.srtBtn);
+        updateExportLabels(activeTranslationContext.txtBtn, activeTranslationContext.srtBtn, activeTranslationContext.vttBtn);
         stopProgressMessages();
         setProgress(0);
         setStatus(activeTranslationContext.statusEl, message || "Translation could not be completed. Try a shorter or clearer input.", "error");
@@ -1432,7 +1517,7 @@ function generateSRT(segments) {
     }
   };
 
-  async function startTranscription(mode, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, afterRunCleanup) {
+  async function startTranscription(mode, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, afterRunCleanup) {
     var audio = window.transcriptionAudio;
 
     // Prevent concurrent processing
@@ -1444,7 +1529,7 @@ function generateSRT(segments) {
     processingLocked = true;
 
     // Disable UI
-    setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
+    setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, false);
     setTranscribeButtonState(startBtn, false);
     setTranslationButtonsState(translateBtn, null, null, null, false);
     input.disabled = true;
@@ -1488,6 +1573,7 @@ function generateSRT(segments) {
         copyBtn: copyBtn,
         txtBtn: txtBtn,
         srtBtn: srtBtn,
+        vttBtn: vttBtn,
         startBtn: startBtn,
         translateBtn: translateBtn,
         originalTabBtn: originalTabBtn,
@@ -1515,7 +1601,7 @@ worker.postMessage(
       window.transcriptionSourceLanguage = "";
       setTranslationButtonsState(translateBtn, null, null, null, false);
       updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
-      updateExportLabels(txtBtn, srtBtn);
+      updateExportLabels(txtBtn, srtBtn, vttBtn);
       console.error("Transcription error:", error);
       if (error && error.message === "MODEL_LOAD_FAILED") {
         setStatus(statusEl, "Failed to load AI model. Check your internet connection.", "error");
@@ -1546,6 +1632,7 @@ worker.postMessage(
     var copyBtn = root.querySelector('[data-role="copyTranscript"]');
     var txtBtn = root.querySelector('[data-role="downloadTxt"]');
     var srtBtn = root.querySelector('[data-role="downloadSrt"]');
+    var vttBtn = root.querySelector('[data-download-vtt]');
     var startBtn = root.querySelector('[data-role="startTranscribe"]');
     var languageSelect = root.querySelector("#language-select");
     var translateBtn = root.querySelector('[data-role="translateBtn"]');
@@ -1556,6 +1643,8 @@ worker.postMessage(
     var editBtn = root.querySelector('[data-role="toggleEdit"]');
     var restartBtn = root.querySelector('[data-role="restartBtn"]');
     var timestampCheckbox = root.querySelector('#show-timestamps');
+    var modeSelect = root.querySelector('#modeSelect');
+    var polishToggle = root.querySelector('#polishToggle');
     var audioPlayer = document.getElementById("audio-player");
     if (!input || input.dataset.transcribeToolBound === "1") {
       return;
@@ -1605,24 +1694,32 @@ worker.postMessage(
         window.originalFileName = "";
         window.currentTab = "original";
         updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
-        updateExportLabels(txtBtn, srtBtn);
-        setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
+        updateExportLabels(txtBtn, srtBtn, vttBtn);
+        setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, false);
         setTranslationButtonsState(translateBtn, null, null, null, false);
+        var chatgptBtn = document.getElementById("chatgptTranslateBtn");
+        if (chatgptBtn) {
+          chatgptBtn.disabled = true;
+        }
       } else if (translateBtn) {
         translateBtn.disabled = !window.currentTranscript;
       }
     }
 
-    setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
+    setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, false);
     setTranscribeButtonState(startBtn, false);
     setTranslationButtonsState(translateBtn, null, null, null, false);
+    var chatgptBtnInit = document.getElementById("chatgptTranslateBtn");
+    if (chatgptBtnInit) {
+      chatgptBtnInit.disabled = true;
+    }
     updateEditButton(editBtn);
     window.currentSegments = [];
     window.translatedSubtitles = [];
     window.currentTranscriptDuration = 0;
     window.currentTab = "original";
     updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
-    updateExportLabels(txtBtn, srtBtn);
+    updateExportLabels(txtBtn, srtBtn, vttBtn);
     if (copyBtn) {
       copyBtn.addEventListener("click", function () {
         copyActiveTranscript(statusEl);
@@ -1636,6 +1733,11 @@ worker.postMessage(
     if (srtBtn) {
       srtBtn.addEventListener("click", function () {
         downloadActiveSRT();
+      });
+    }
+    if (vttBtn) {
+      vttBtn.addEventListener("click", function () {
+        downloadActiveVTT();
       });
     }
     if (editBtn) {
@@ -1735,7 +1837,7 @@ worker.postMessage(
           }
           window.currentTab = nextTab;
           updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
-          updateExportLabels(txtBtn, srtBtn);
+          updateExportLabels(txtBtn, srtBtn, vttBtn);
         });
       });
     }
@@ -1749,7 +1851,7 @@ worker.postMessage(
         var mode = modeNode ? modeNode.value : "fast";
         var language = languageSelect ? languageSelect.value : "auto";
 
-        await startTranscription(mode, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, resetForNextUpload);
+        await startTranscription(mode, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, resetForNextUpload);
       });
     }
     if (translateBtn) {
@@ -1809,6 +1911,7 @@ worker.postMessage(
           translateBtn: translateBtn,
           txtBtn: txtBtn,
           srtBtn: srtBtn,
+          vttBtn: vttBtn,
           originalTabBtn: originalTabBtn,
           translatedTabBtn: translatedTabBtn,
           editBtn: editBtn,
@@ -1822,10 +1925,21 @@ worker.postMessage(
         worker.postMessage({
           type: "translate_subtitles",
           texts: linesToTranslate,
+          segments: window.currentSegments || [],
           sourceLang: sourceLang,
           targetLang: mappedTarget,
-          useWhisperTranslate: useWhisperTranslate
+          useWhisperTranslate: useWhisperTranslate,
+          mode: modeSelect ? modeSelect.value : "accurate",
+          polish: polishToggle ? polishToggle.checked : false
         });
+      });
+    }
+
+    var chatgptTranslateBtn = root.querySelector('#chatgptTranslateBtn');
+    if (chatgptTranslateBtn) {
+      chatgptTranslateBtn.addEventListener("click", function() {
+        var url = "https://chatgpt.com/g/g-69d22a427d808191b5d663806b8cdb00-freeaudiotrim-subtitle-translator";
+        window.open(url, "_blank");
       });
     }
 
@@ -1870,7 +1984,7 @@ worker.postMessage(
       previewEditMode = false;
       activeTranslationContext = null;
       fileNameEl.textContent = file.name;
-      window.originalFileName = file.name.replace(/.[^/.]+$/, "");
+      window.originalFileName = file.name.replace(/\.[^/.]+$/, "");
       transcriptEl.textContent = "Upload and transcribe a file to see results here.";
 
       if (audioPlayer) {
@@ -1888,12 +2002,12 @@ worker.postMessage(
       window.translatedSubtitles = [];
       window.transcriptionSourceLanguage = "";
       window.currentTranscriptDuration = 0;
-      setExportButtonsState(copyBtn, txtBtn, srtBtn, false);
+      setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, false);
       setTranscribeButtonState(startBtn, false);
       setTranslationButtonsState(translateBtn, null, null, null, false);
       window.currentTab = "original";
       updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
-      updateExportLabels(txtBtn, srtBtn);
+      updateExportLabels(txtBtn, srtBtn, vttBtn);
       setProgress(0);
 
       // Validate browser support
