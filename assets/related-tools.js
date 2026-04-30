@@ -56,26 +56,124 @@ document.addEventListener("DOMContentLoaded", () => {
       description: "Convert speech into text automatically"
     }
   };
-
-  const scriptNode =
-    document.currentScript ||
-    Array.from(document.scripts).find((node) =>
-      node.src && node.src.includes("related-tools.js")
-    );
-
-  const dataUrl = scriptNode?.src
-    ? new URL("../related.json", scriptNode.src).href
-    : "/related.json";
+  const allToolPages = Object.keys(toolMeta);
+  const pageConfigs = {
+    "index.html": {
+      primary: [
+        "audio-cutter-online.html",
+        "audio-converter.html",
+        "audio-video-transcription-online.html"
+      ]
+    },
+    "audio-cutter-online.html": {
+      primary: [
+        "free-mp3-cutter.html",
+        "ringtone-maker.html",
+        "audio-converter.html"
+      ]
+    },
+    "free-mp3-cutter.html": {
+      primary: [
+        "audio-cutter-online.html",
+        "ringtone-maker.html",
+        "audio-converter.html"
+      ]
+    },
+    "ringtone-maker.html": {
+      primary: [
+        "audio-cutter-online.html",
+        "free-mp3-cutter.html",
+        "mp3-to-m4r.html"
+      ]
+    },
+    "audio-converter.html": {
+      primary: [
+        "convert-mp3-to-wav.html",
+        "mp3-to-m4r.html",
+        "extract-audio-from-video.html"
+      ]
+    },
+    "convert-mp3-to-wav.html": {
+      primary: [
+        "audio-converter.html",
+        "extract-audio-from-video.html",
+        "mp3-to-m4r.html"
+      ]
+    },
+    "extract-audio-from-video.html": {
+      primary: [
+        "audio-video-transcription-online.html",
+        "audio-converter.html",
+        "convert-mp3-to-wav.html"
+      ]
+    },
+    "audio-video-transcription-online.html": {
+      primary: [
+        "extract-audio-from-video.html",
+        "remove-silence-from-audio.html",
+        "audio-cutter-online.html"
+      ]
+    },
+    "audio-pitch-changer.html": {
+      primary: [
+        "audio-speed-changer.html",
+        "normalize-audio-volume.html",
+        "audio-cutter-online.html"
+      ]
+    },
+    "audio-speed-changer.html": {
+      primary: [
+        "audio-pitch-changer.html",
+        "normalize-audio-volume.html",
+        "audio-cutter-online.html"
+      ]
+    },
+    "merge-audio-files.html": {
+      primary: [
+        "remove-silence-from-audio.html",
+        "normalize-audio-volume.html",
+        "audio-cutter-online.html"
+      ]
+    },
+    "normalize-audio-volume.html": {
+      primary: [
+        "remove-silence-from-audio.html",
+        "audio-speed-changer.html",
+        "merge-audio-files.html"
+      ]
+    },
+    "remove-silence-from-audio.html": {
+      primary: [
+        "normalize-audio-volume.html",
+        "merge-audio-files.html",
+        "audio-cutter-online.html"
+      ]
+    },
+    "mp3-to-m4r.html": {
+      primary: [
+        "ringtone-maker.html",
+        "audio-converter.html",
+        "convert-mp3-to-wav.html"
+      ]
+    }
+  };
 
   const currentPage = (() => {
     const name = window.location.pathname.split("/").pop();
     return name && name.endsWith(".html") ? name : "index.html";
   })();
 
+  const buildFallbackPills = (primary) =>
+    allToolPages.filter(
+      (page) => page !== currentPage && !primary.includes(page)
+    );
+
   const render = (config) => {
     const primary = (config.primary || [])
       .filter((page) => page !== currentPage && toolMeta[page]);
-    const pills = (config.pills || [])
+    const pills = ((config.pills && config.pills.length
+      ? config.pills
+      : buildFallbackPills(primary)) || [])
       .filter((page) => page !== currentPage && toolMeta[page]);
 
     if (!primary.length && !pills.length) return;
@@ -111,19 +209,12 @@ document.addEventListener("DOMContentLoaded", () => {
 `;
   };
 
-  fetch(dataUrl)
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`Failed to load related.json (${response.status})`);
-      }
-      return response.json();
-    })
-    .then((data) => {
-      const pageConfig = data?.pages?.[currentPage];
-      if (!pageConfig) return;
-      render(pageConfig);
-    })
-    .catch((error) => {
-      console.error("Related tools config error:", error);
-    });
+  const fallbackPrimary = allToolPages
+    .filter((page) => page !== currentPage)
+    .slice(0, 3);
+  const pageConfig = pageConfigs[currentPage] || {
+    primary: fallbackPrimary
+  };
+
+  render(pageConfig);
 });
