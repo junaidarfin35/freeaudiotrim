@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  var STYLE_ID = "audio-tool-styles";
   var ENCODER_PATH = "/assets/encoders/mp3-encoder.js";
   var BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
 
@@ -28,41 +27,6 @@
       };
       reader.readAsArrayBuffer(file);
     });
-  }
-
-  function injectStyles() {
-    if (document.getElementById(STYLE_ID)) {
-      return;
-    }
-    var style = document.createElement("style");
-    style.id = STYLE_ID;
-    style.textContent =
-      "#audio-tool .at-root{font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111;background:#fff;border:1px solid #e4e4e7;border-radius:14px;padding:20px;box-sizing:border-box;box-shadow:0 8px 24px rgba(0,0,0,0.06)}" +
-      "#audio-tool .at-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}" +
-      "#audio-tool .at-row + .at-row{margin-top:12px}" +
-      "#audio-tool .at-btn{appearance:none;border:1px solid #d4d4d8;background:#fafafa;color:#111;padding:8px 14px;border-radius:10px;cursor:pointer;transition:all .15s ease}" +
-      "#audio-tool .at-btn:hover{background:#f4f4f5}" +
-      "#audio-tool .at-btn:active{transform:translateY(1px)}" +
-      "#audio-tool .at-btn:disabled{opacity:.5;cursor:not-allowed}" +
-      "#audio-tool .at-btn-primary{background:#111;color:#fff;border-color:#111}" +
-      "#audio-tool .at-btn-primary:hover{background:#000}" +
-      "#audio-tool .at-file{max-width:100%}" +
-      "#audio-tool .at-wave-wrap{position:relative;width:100%;touch-action:none}" +
-      "#audio-tool canvas.at-wave{width:100%;height:180px;display:block;background:#fafafa;border:1px solid #e4e4e7;border-radius:12px}" +
-      "#audio-tool .at-times{display:flex;justify-content:space-between;color:#18181b;font-weight:500;font-variant-numeric:tabular-nums;margin-top:6px}" +
-      "#audio-tool .at-status{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;padding:12px 14px;border:1px solid #dbe4f0;border-radius:12px;background:#fff;color:#5b6b82}" +
-      "#audio-tool .at-status::before{content:'';width:10px;height:10px;border-radius:999px;background:#b7c6d9;flex:0 0 auto}" +
-      "#audio-tool .at-status[data-status-state='processing']{border-color:rgba(37,99,235,.22);background:#eaf2ff;color:#1d4ed8}" +
-      "#audio-tool .at-status[data-status-state='processing']::before{background:transparent;border:2px solid rgba(37,99,235,.25);border-top-color:#2563eb;animation:atSpin .8s linear infinite}" +
-      "#audio-tool .at-status[data-status-state='success']{border-color:rgba(22,163,74,.22);background:#ecfdf5;color:#166534}" +
-      "#audio-tool .at-status[data-status-state='success']::before{background:#16a34a;box-shadow:0 0 0 4px rgba(22,163,74,.12)}" +
-      "#audio-tool .at-status[data-status-state='error']{border-color:rgba(185,28,28,.2);background:#fef2f2;color:#991b1b}" +
-      "#audio-tool .at-status[data-status-state='error']::before{background:#dc2626;box-shadow:0 0 0 4px rgba(220,38,38,.12)}" +
-      "#audio-tool .at-help{color:#52525b;font-size:12px}" +
-      "#audio-tool .at-checkbox{display:inline-flex;gap:6px;align-items:center;user-select:none}" +
-      "@keyframes atSpin{to{transform:rotate(360deg)}}" +
-      "@media (max-width:640px){#audio-tool .at-root{padding:12px}#audio-tool canvas.at-wave{height:150px}#audio-tool .at-btn{padding:8px 10px}}";
-    document.head.appendChild(style);
   }
 
   function loadMp3Module() {
@@ -180,61 +144,72 @@
     if (this.startedOffset >= safeEnd - 0.0001) {
       this.startedOffset = safeStart;
     }
-
-    var src = ctx.createBufferSource();
-    src.buffer = this.buffer;
-    var gainNode = ctx.createGain();
-    src.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    src.loop = this.loop;
-    if (src.loop) {
-      src.loopStart = safeStart;
-      src.loopEnd = safeEnd;
-    }
-
-    this.source = src;
-    this.startedAt = ctx.currentTime;
-    this.isPlaying = true;
-    if (this.uiFadeIn || this.uiFadeOut) {
-    var totalDuration = safeEnd - this.startedOffset;
-    var fadeIn = this.uiFadeIn || 0;
-    var fadeOut = this.uiFadeOut || 0;
-
-    if (fadeIn + fadeOut > totalDuration) {
-    fadeIn = totalDuration / 2;
-    fadeOut = totalDuration / 2;
-  }
-
-    var now = ctx.currentTime;
-
-    if (fadeIn > 0) {
-    gainNode.gain.setValueAtTime(0, now);
-    gainNode.gain.linearRampToValueAtTime(1, now + fadeIn);
-  }
-
-    if (fadeOut > 0) {
-    gainNode.gain.setValueAtTime(1, now + totalDuration - fadeOut);
-    gainNode.gain.linearRampToValueAtTime(0, now + totalDuration);
-  }
-}
-
     var self = this;
-    src.onended = function () {
-      if (token !== self._playToken) {
-        return;
-      }
-      self.isPlaying = false;
-      self.source = null;
-      self.startedOffset = self.playStart;
-      if (typeof self.onEnded === "function") {
-        self.onEnded();
-      }
-    };
+    var useManualLoopFade = this.loop && (this.uiFadeIn || this.uiFadeOut);
 
-    src.start(0, this.startedOffset);
-    if (!this.loop) {
-      src.stop(ctx.currentTime + (safeEnd - this.startedOffset));
+    function startSegment(offset) {
+      var segmentOffset = clamp(offset, safeStart, safeEnd);
+      var totalDuration = safeEnd - segmentOffset;
+      var fadeIn = self.uiFadeIn || 0;
+      var fadeOut = self.uiFadeOut || 0;
+      var src = ctx.createBufferSource();
+      var gainNode = ctx.createGain();
+
+      src.buffer = self.buffer;
+      src.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      if (!useManualLoopFade) {
+        src.loop = self.loop;
+        if (src.loop) {
+          src.loopStart = safeStart;
+          src.loopEnd = safeEnd;
+        }
+      }
+
+      self.source = src;
+      self.startedAt = ctx.currentTime;
+      self.startedOffset = segmentOffset;
+      self.isPlaying = true;
+
+      if (fadeIn + fadeOut > totalDuration) {
+        fadeIn = totalDuration / 2;
+        fadeOut = totalDuration / 2;
+      }
+
+      if (fadeIn > 0) {
+        gainNode.gain.setValueAtTime(0, ctx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(1, ctx.currentTime + fadeIn);
+      }
+
+      if (fadeOut > 0) {
+        gainNode.gain.setValueAtTime(1, ctx.currentTime + totalDuration - fadeOut);
+        gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + totalDuration);
+      }
+
+      src.onended = function () {
+        if (token !== self._playToken) {
+          return;
+        }
+        if (useManualLoopFade) {
+          startSegment(safeStart);
+          return;
+        }
+        self.isPlaying = false;
+        self.source = null;
+        self.startedOffset = self.playStart;
+        if (typeof self.onEnded === "function") {
+          self.onEnded();
+        }
+      };
+
+      src.start(0, segmentOffset);
+      if (!src.loop) {
+        src.stop(ctx.currentTime + totalDuration);
+      }
     }
+
+    startSegment(this.startedOffset);
   };
 
   AudioEngine.prototype.resetPosition = function (start) {
@@ -261,11 +236,61 @@
     };
   };
 
-  AudioEngine.prototype.exportWav = function (start, end) {
+  AudioEngine.prototype._applyFadeToSliced = function (sliced, fadeInSec, fadeOutSec) {
+    if (!sliced || !sliced.channels || !sliced.channels.length) {
+      return;
+    }
+    var total = sliced.frameCount || (sliced.channels[0] ? sliced.channels[0].length : 0);
+    if (!total) {
+      return;
+    }
+    var fadeInSamples = Math.floor(Math.max(0, Number(fadeInSec) || 0) * sliced.sampleRate);
+    var fadeOutSamples = Math.floor(Math.max(0, Number(fadeOutSec) || 0) * sliced.sampleRate);
+    if (fadeInSamples <= 0 && fadeOutSamples <= 0) {
+      return;
+    }
+    fadeInSamples = Math.min(total, fadeInSamples);
+    fadeOutSamples = Math.min(total, fadeOutSamples);
+    if (fadeInSamples + fadeOutSamples > total) {
+      fadeInSamples = Math.floor(total / 2);
+      fadeOutSamples = total - fadeInSamples;
+    }
+    for (var c = 0; c < sliced.channels.length; c += 1) {
+      var channel = sliced.channels[c];
+      if (!channel || !channel.length) {
+        continue;
+      }
+      for (var i = 0; i < fadeInSamples; i += 1) {
+        var t = i / (fadeInSamples - 1 || 1);
+        var gain = Math.sin(t * (Math.PI / 2));
+        channel[i] *= gain;
+      }
+      for (var j = 0; j < fadeOutSamples; j += 1) {
+        var idx = channel.length - 1 - j;
+        if (idx < 0) {
+          break;
+        }
+        var t = j / (fadeOutSamples - 1 || 1);
+        var gain = Math.sin(t * (Math.PI / 2));
+        channel[idx] *= gain;
+      }
+    }
+  };
+
+  AudioEngine.prototype.exportWav = function (start, end, fadeInSec, fadeOutSec) {
     var sliced = this._sliceChannels(start, end);
     if (!sliced) {
       throw new Error("No audio loaded.");
     }
+    var appliedFadeIn = Number(fadeInSec);
+    var appliedFadeOut = Number(fadeOutSec);
+    if (!isFinite(appliedFadeIn)) {
+      appliedFadeIn = Number(this.uiFadeIn) || 0;
+    }
+    if (!isFinite(appliedFadeOut)) {
+      appliedFadeOut = Number(this.uiFadeOut) || 0;
+    }
+    this._applyFadeToSliced(sliced, appliedFadeIn, appliedFadeOut);
     var channels = sliced.channels;
     var channelCount = channels.length;
     var samples = sliced.frameCount * channelCount;
@@ -297,22 +322,6 @@
     for (var i = 0; i < sliced.frameCount; i += 1) {
       for (var c = 0; c < channelCount; c += 1) {
         var sample = clamp(channels[c][i], -1, 1);
-        var total = sliced.frameCount;
-        var fadeInSamples = Math.floor((this.uiFadeIn || 0) * sliced.sampleRate);
-        var fadeOutSamples = Math.floor((this.uiFadeOut || 0) * sliced.sampleRate);
-
-        if (fadeInSamples + fadeOutSamples > total) {
-        fadeInSamples = Math.floor(total / 2);
-        fadeOutSamples = Math.floor(total / 2);
-      }
-
-        if (fadeInSamples > 0 && i < fadeInSamples) {
-        sample *= i / fadeInSamples;
-      }
-
-        if (fadeOutSamples > 0 && i > total - fadeOutSamples) {
-        sample *= (total - i) / fadeOutSamples;
-      }
         var pcm = sample < 0 ? sample * 32768 : sample * 32767;
         view.setInt16(offset, pcm, true);
         offset += 2;
@@ -321,31 +330,20 @@
     return new Blob([buffer], { type: "audio/wav" });
   };
 
-  AudioEngine.prototype.exportMp3 = async function (start, end, bitrateKbps) {
+  AudioEngine.prototype.exportMp3 = async function (start, end, bitrateKbps, fadeInSec, fadeOutSec) {
     var sliced = this._sliceChannels(start, end);
-    var total = sliced.frameCount;
-var fadeInSamples = Math.floor((this.uiFadeIn || 0) * sliced.sampleRate);
-var fadeOutSamples = Math.floor((this.uiFadeOut || 0) * sliced.sampleRate);
-
-if (fadeInSamples + fadeOutSamples > total) {
-  fadeInSamples = Math.floor(total / 2);
-  fadeOutSamples = Math.floor(total / 2);
-}
-
-for (var c = 0; c < sliced.channels.length; c += 1) {
-  var channel = sliced.channels[c];
-  for (var i = 0; i < total; i += 1) {
-    if (fadeInSamples > 0 && i < fadeInSamples) {
-      channel[i] *= i / fadeInSamples;
-    }
-    if (fadeOutSamples > 0 && i > total - fadeOutSamples) {
-      channel[i] *= (total - i) / fadeOutSamples;
-    }
-  }
-}
     if (!sliced) {
       throw new Error("No audio loaded.");
     }
+    var appliedFadeIn = Number(fadeInSec);
+    var appliedFadeOut = Number(fadeOutSec);
+    if (!isFinite(appliedFadeIn)) {
+      appliedFadeIn = Number(this.uiFadeIn) || 0;
+    }
+    if (!isFinite(appliedFadeOut)) {
+      appliedFadeOut = Number(this.uiFadeOut) || 0;
+    }
+    this._applyFadeToSliced(sliced, appliedFadeIn, appliedFadeOut);
     var mp3 = await loadMp3Module();
     return mp3.encode({
       channels: sliced.channels,
@@ -361,6 +359,8 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     this.playheadRatio = null;
     this.selection = { start: 0, end: 1 };
     this.handleRadius = 8;
+    this.uiFadeIn = 0;
+    this.uiFadeOut = 0;
     this.resizeObserver = null;
     this._onResize = this.resize.bind(this);
     window.addEventListener("resize", this._onResize);
@@ -444,20 +444,65 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
       var bins = this.peaks.length;
       var pxPerBin = width / bins;
 
-      ctx.fillStyle = "#d4d4d8";
+      ctx.lineWidth = 1;
+      ctx.lineCap = "round";
+      ctx.globalAlpha = 1.0;
+
+      var gradient = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+      gradient.addColorStop(0, "#c7d2fe"); // lighter
+      gradient.addColorStop(1, "#4338ca"); // base
+      ctx.fillStyle = gradient;
       for (var i = 0; i < bins; i += 1) {
         var amp = this.peaks[i];
         var h = Math.max(1, amp * (height * 0.45));
         var x = i * pxPerBin;
         ctx.fillRect(x, mid - h, Math.max(1, pxPerBin), h * 2);
       }
+      ctx.globalAlpha = 1.0;
     } else {
       ctx.fillStyle = "#e4e4e7";
       ctx.fillRect(0, mid - 1, width, 2);
     }
 
-    ctx.fillStyle = "rgba(63,140,212,0.18)";
+    ctx.fillStyle = "rgba(99,102,241,0.18)";
     ctx.fillRect(startX, 0, Math.max(0, endX - startX), height);
+    ctx.strokeStyle = "rgba(99,102,241,0.6)";
+    ctx.lineWidth = 1;
+    ctx.shadowColor = "rgba(99,102,241,0.4)";
+    ctx.shadowBlur = 8;
+    ctx.strokeRect(
+      startX + 0.5,
+      0.5,
+      (endX - startX) - 1,
+      height - 1
+      );
+
+    // Fade visual overlays
+    if (this.uiFadeIn > 0) {
+      var fadeWidth = (this.uiFadeIn / this.duration) * width;
+      fadeWidth = Math.min(fadeWidth, endX - startX);
+
+      var fadeInGradient = ctx.createLinearGradient(startX, 0, startX + fadeWidth, 0);
+
+      fadeInGradient.addColorStop(0, "rgba(99,102,241,0.35)");
+      fadeInGradient.addColorStop(1, "rgba(99,102,241,0)");
+
+      ctx.fillStyle = fadeInGradient;
+      ctx.fillRect(startX, 0, fadeWidth, height);
+    }
+    
+    if (this.uiFadeOut > 0) {
+      var fadeWidth = (this.uiFadeOut / this.duration) * width;
+      fadeWidth = Math.min(fadeWidth, endX - startX);
+
+      var fadeOutGradient = ctx.createLinearGradient(endX - fadeWidth, 0, endX, 0);
+
+      fadeOutGradient.addColorStop(0, "rgba(99,102,241,0)");
+      fadeOutGradient.addColorStop(1, "rgba(99,102,241,0.35)");
+
+      ctx.fillStyle = fadeOutGradient;
+      ctx.fillRect(endX - fadeWidth, 0, fadeWidth, height);
+    }
 
     ctx.fillStyle = "#111";
     ctx.fillRect(startX - 1, 0, 2, height);
@@ -473,7 +518,7 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     ctx.shadowColor = "rgba(0,0,0,0.15)";
     ctx.shadowBlur = 6;
     ctx.stroke();
-    ctx.shadowBlur = 0;
+    ctx.shadowBlur = 10;
 
     if (this.playheadRatio != null) {
       var playheadX = this.ratioToX(this.playheadRatio);
@@ -487,6 +532,15 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }
+  };
+
+  WaveformRenderer.prototype.setFadeDurations = function(fadeIn, fadeOut) {
+    this.uiFadeIn = fadeIn;
+    this.uiFadeOut = fadeOut;
+    this.render();
+  };
+  WaveformRenderer.prototype.setDuration = function(duration) {
+  this.duration = duration || 1;
   };
 
   function TrimController(canvas, renderer, onChange) {
@@ -600,7 +654,6 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     this.objectUrls = [];
     this.fadeInDuration = 0;
     this.fadeOutDuration = 0;
-    this.advancedOpen = false;
 
     this.audio.onEnded = this.onPlaybackEnded.bind(this);
     this.build();
@@ -608,59 +661,10 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
   }
 
   UIController.prototype.build = function () {
-    this.root.innerHTML = [
-      '<div class="at-root">',
-      '  <div class="at-row">',
-      '    <input class="at-file" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" aria-label="Upload audio file">',
-      "  </div>",
-      '  <div class="at-row at-wave-wrap">',
-      '    <canvas class="at-wave" aria-label="Waveform view"></canvas>',
-      "  </div>",
-      '  <div class="at-times">',
-      '    <span data-role="startTime">0:00.000</span>',
-      '    <span data-role="duration">No file loaded</span>',
-      '    <span data-role="endTime">0:00.000</span>',
-      "  </div>",
-      '  <div class="at-row">',
-      '    <button class="at-btn at-btn-primary" data-role="playPause" disabled>Play</button>',
-      '    <button class="at-btn" data-role="preview" disabled>Preview</button>',
-      '    <label class="at-checkbox"><input type="checkbox" data-role="loop" checked>Loop selection</label>',
-      '    <button class="at-btn" data-role="reset" disabled>Reset</button>',
-      "  </div>",
-      '  <div class="at-row">',
-      '    <button class="at-btn at-btn-primary" data-role="exportMp3" disabled>Download MP3</button>',
-      '    <button class="at-btn" data-role="exportWav" disabled>Download WAV</button>',
-      "  </div>",
-      '  <div class="at-row at-status" data-role="status">Upload a file to begin trimming. Files stay on your device.</div>',
-      '  <div class="at-row">',
-      '    <button class="at-btn" data-role="advancedToggle">Advanced Options</button>',
-      "  </div>",
-      '  <div class="at-row" data-role="advancedPanel" style="display:none;flex-direction:column;align-items:flex-start;gap:8px;">',
-      '    <label>Fade In:',
-      '      <select data-role="fadeIn">',
-      '        <option value="0">None</option>',
-      '        <option value="0.5">0.5s</option>',
-      '        <option value="1">1s</option>',
-      '        <option value="2">2s</option>',
-      '        <option value="3">3s</option>',
-      '        <option value="5">5s</option>',
-      '      </select>',
-      '    </label>',
-      '    <label>Fade Out:',
-      '      <select data-role="fadeOut">',
-      '        <option value="0">None</option>',
-      '        <option value="0.5">0.5s</option>',
-      '        <option value="1">1s</option>',
-      '        <option value="2">2s</option>',
-      '        <option value="3">3s</option>',
-      '        <option value="5">5s</option>',
-      '      </select>',
-      '    </label>',
-      '   </div>',
-      '  <div class="at-row at-help">Spacebar toggles play/pause when focus is outside text inputs.</div>',
-      "</div>"
-    ].join("");
-
+    this.fadeInToggle = this.root.querySelector('[data-role="fadeInToggle"]');
+    this.fadeOutToggle = this.root.querySelector('[data-role="fadeOutToggle"]');
+    this.fadeInOverlay = this.root.querySelector('.fade-in');
+    this.fadeOutOverlay = this.root.querySelector('.fade-out');
     this.fileInput = this.root.querySelector(".at-file");
     this.canvas = this.root.querySelector(".at-wave");
     this.playPauseBtn = this.root.querySelector('[data-role="playPause"]');
@@ -670,16 +674,53 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     this.exportMp3Btn = this.root.querySelector('[data-role="exportMp3"]');
     this.loopCheckbox = this.root.querySelector('[data-role="loop"]');
     this.statusEl = this.root.querySelector('[data-role="status"]');
-    this.advancedToggle = this.root.querySelector('[data-role="advancedToggle"]');
     this.advancedPanel = this.root.querySelector('[data-role="advancedPanel"]');
-    this.fadeInSelect = this.root.querySelector('[data-role="fadeIn"]');
-    this.fadeOutSelect = this.root.querySelector('[data-role="fadeOut"]');
+    this.fadeInSelect = this.root.querySelector('[data-role="fadeIn"]') || this.root.querySelector('[data-role="fadeInToggle"]');
+    this.fadeOutSelect = this.root.querySelector('[data-role="fadeOut"]') || this.root.querySelector('[data-role="fadeOutToggle"]');
     this.startTimeEl = this.root.querySelector('[data-role="startTime"]');
     this.endTimeEl = this.root.querySelector('[data-role="endTime"]');
     this.durationEl = this.root.querySelector('[data-role="duration"]');
-
+    this.fileRow = this.root.querySelector('[data-role="fileRow"]');
+    this.fileNameEl = this.root.querySelector('[data-role="fileName"]');
+    this.changeFileBtn = this.root.querySelector('[data-role="changeFile"]');
     this.renderer = new WaveformRenderer(this.canvas);
     this.trim = new TrimController(this.canvas, this.renderer, this.onTrimChanged.bind(this));
+    this.updateTimeText();
+  };
+
+  UIController.prototype.updateFadeOverlay = function () {
+  if (!this.fadeInOverlay || !this.fadeOutOverlay) return;
+
+  var total = this.duration || 1;
+  var startRatio = this.trim ? this.trim.startRatio || 0 : 0;
+  var endRatio = this.trim ? this.trim.endRatio || 1 : 1;
+  var selectionRatio = Math.max(0, endRatio - startRatio);
+  var selectionDuration = Math.max(0, selectionRatio * total);
+
+  var fadeIn = this.fadeInDuration || 0;
+  var fadeOut = this.fadeOutDuration || 0;
+  if (fadeIn + fadeOut > selectionDuration && selectionDuration > 0) {
+    fadeIn = selectionDuration / 2;
+    fadeOut = selectionDuration - fadeIn;
+  } else {
+    fadeIn = Math.min(fadeIn, selectionDuration);
+    fadeOut = Math.min(fadeOut, selectionDuration);
+  }
+
+  var startPercent = startRatio * 100;
+  var endPercent = endRatio * 100;
+  var fadeInPercent = (fadeIn / total) * 100;
+  var fadeOutPercent = (fadeOut / total) * 100;
+
+  this.fadeInOverlay.style.left = startPercent + "%";
+  this.fadeInOverlay.style.right = "auto";
+  this.fadeInOverlay.style.width = fadeInPercent + "%";
+  this.fadeOutOverlay.style.left = (endPercent - fadeOutPercent) + "%";
+  this.fadeOutOverlay.style.right = "auto";
+  this.fadeOutOverlay.style.width = fadeOutPercent + "%";
+
+  this.fadeInOverlay.style.display = fadeIn > 0 ? "block" : "none";
+  this.fadeOutOverlay.style.display = fadeOut > 0 ? "block" : "none";
   };
 
   UIController.prototype.bind = function () {
@@ -689,13 +730,56 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     this.resetBtn.addEventListener("click", this.onReset.bind(this));
     this.exportWavBtn.addEventListener("click", this.onExportWav.bind(this));
     this.exportMp3Btn.addEventListener("click", this.onExportMp3.bind(this));
-    this.advancedToggle.addEventListener("click", () => {
-    this.advancedOpen = !this.advancedOpen;
-    this.advancedPanel.style.display = this.advancedOpen ? "flex" : "none";});
-    this.fadeInSelect.addEventListener("change", (e) => {
-    this.fadeInDuration = parseFloat(e.target.value) || 0;});
-    this.fadeOutSelect.addEventListener("change", (e) => {
-    this.fadeOutDuration = parseFloat(e.target.value) || 0;});
+    if (this.changeFileBtn && this.fileInput) {
+      this.changeFileBtn.addEventListener("click", () => {
+        this.fileInput.click();
+      });
+    }
+    function readFadeDuration(control) {
+      if (!control) {
+        return 0;
+      }
+      if (control.type === "checkbox") {
+        return control.checked ? 1 : 0;
+      }
+      return parseFloat(control.value) || 0;
+    }
+    this.fadeInDuration = readFadeDuration(this.fadeInSelect);
+    this.fadeOutDuration = readFadeDuration(this.fadeOutSelect);
+    this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
+    this.renderer.setDuration(this.duration);
+    if (this.fadeInSelect) {
+      this.fadeInSelect.addEventListener("change", (e) => {
+        this.fadeInDuration = readFadeDuration(e.target);
+        this.updateFadeOverlay();
+        this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
+        this.renderer.setDuration(this.duration);
+      });
+    }
+    if (this.fadeOutSelect) {
+      this.fadeOutSelect.addEventListener("change", (e) => {
+        this.fadeOutDuration = readFadeDuration(e.target);
+        this.updateFadeOverlay();
+        this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
+        this.renderer.setDuration(this.duration);
+      });
+    }
+    if (this.fadeInToggle) {
+      this.fadeInToggle.addEventListener("change", (e) => {
+        this.fadeInDuration = e.target.checked ? 1 : 0;
+        this.updateFadeOverlay();
+        this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
+        this.renderer.setDuration(this.duration);
+      });
+    }
+    if (this.fadeOutToggle) {
+      this.fadeOutToggle.addEventListener("change", (e) => {
+        this.fadeOutDuration = e.target.checked ? 1 : 0;
+        this.updateFadeOverlay();
+        this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
+        this.renderer.setDuration(this.duration);
+      });
+    }
     document.addEventListener("keydown", this.boundKeyDown);
   };
 
@@ -728,6 +812,12 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     if (!file) {
       return;
     }
+    if (this.fileNameEl) {
+      this.fileNameEl.textContent = file.name;
+    }
+    if (this.fileRow) {
+      this.fileRow.classList.remove("is-hidden");
+    }
     this.currentFile = file;
     this.setStatus("Decoding audio...");
     this._setControlsEnabled(false);
@@ -742,9 +832,19 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
       this.renderer.setPeaksFromBuffer(buffer);
       this._setControlsEnabled(true);
       this.updateTimeText();
+      this.updateFadeOverlay();
       this.setStatus("Ready. Drag handles to trim and press Play.");
     } catch (err) {
-      this.setStatus("This audio format is not supported by your browser. " + BROWSER_SUPPORT_MESSAGE);
+      var errText = String((err && (err.message || err.name)) || "").toLowerCase();
+      var isDecodeError =
+        errText.indexOf("decode") !== -1 ||
+        errText.indexOf("encodingerror") !== -1 ||
+        errText.indexOf("notsupportederror") !== -1;
+      if (isDecodeError) {
+        this.setStatus("This audio format is not supported by your browser. " + BROWSER_SUPPORT_MESSAGE);
+      } else {
+        this.setStatus("Failed to load audio file. " + (err && err.message ? err.message : "Please try another file."));
+      }
       this.duration = 0;
       this._setControlsEnabled(false);
     }
@@ -752,6 +852,8 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
 
   UIController.prototype.onTrimChanged = function () {
     this.updateTimeText();
+    this.updateFadeOverlay();
+    this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
     if (!this.audio.isPlaying) {
       this.audio.resetPosition(this.trim.startRatio * this.duration);
       this.renderer.setPlayhead(this.trim.startRatio);
@@ -762,14 +864,14 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     if (!this.duration) {
       this.startTimeEl.textContent = "0:00.000";
       this.endTimeEl.textContent = "0:00.000";
-      this.durationEl.textContent = "No file loaded";
+      this.durationEl.textContent = "0:00.000";
       return;
     }
     var selection = this._getSelection();
     this.startTimeEl.textContent = formatTime(selection.start);
     this.endTimeEl.textContent = formatTime(selection.end);
     var selectionLength = selection.end - selection.start;
-  this.durationEl.textContent = "Length " + formatTime(selectionLength);
+    this.durationEl.textContent = formatTime(selectionLength);
   };
 
   UIController.prototype.onPlayPause = async function () {
@@ -786,6 +888,7 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     this.audio.resetPosition(selection.start);
     this.audio.uiFadeIn = this.fadeInDuration;
     this.audio.uiFadeOut = this.fadeOutDuration;
+    this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
     await this.audio.play(selection.start, selection.end, this.loopCheckbox.checked);
     this.playPauseBtn.textContent = "Pause";
     this.startAnimationLoop();
@@ -834,7 +937,9 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     }
     try {
       var selection = this._getSelection();
-      var wav = this.audio.exportWav(selection.start, selection.end);
+      this.audio.uiFadeIn = this.fadeInDuration;
+      this.audio.uiFadeOut = this.fadeOutDuration;
+      var wav = this.audio.exportWav(selection.start, selection.end, this.fadeInDuration, this.fadeOutDuration);
       var base = this.currentFile.name.replace(/\.[^/.]+$/, "") || "trimmed";
       this._downloadBlob(wav, base + "-trimmed.wav");
       this.setStatus("WAV ready. Download started.");
@@ -850,7 +955,9 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
     this.setStatus("Encoding MP3...");
     try {
       var selection = this._getSelection();
-      var mp3 = await this.audio.exportMp3(selection.start, selection.end, 192);
+      this.audio.uiFadeIn = this.fadeInDuration;
+      this.audio.uiFadeOut = this.fadeOutDuration;
+      var mp3 = await this.audio.exportMp3(selection.start, selection.end, 192, this.fadeInDuration, this.fadeOutDuration);
       var base = this.currentFile.name.replace(/\.[^/.]+$/, "") || "trimmed";
       this._downloadBlob(mp3, base + "-trimmed.mp3");
       this.setStatus("MP3 ready. Download started.");
@@ -916,7 +1023,6 @@ for (var c = 0; c < sliced.channels.length; c += 1) {
   };
 
   function boot() {
-    injectStyles();
     var mount = document.getElementById("audio-tool");
     if (!mount) {
       return;

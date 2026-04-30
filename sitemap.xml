@@ -1,68 +1,76 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Homepage -->
   <url>
     <loc>https://freeaudiotrim.com/</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
+
+  <!-- Tool Pages -->
   <url>
     <loc>https://freeaudiotrim.com/free-mp3-cutter.html</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://freeaudiotrim.com/audio-cutter-online.html</loc>
-    <lastmod>2026-03-09</lastmod>
-  </url>
-  <url>
-    <loc>https://freeaudiotrim.com/convert-mp3-to-wav.html</loc>
-    <lastmod>2026-03-09</lastmod>
-  </url>
-  <url>
-    <loc>https://freeaudiotrim.com/merge-audio-files.html</loc>
-    <lastmod>2026-03-09</lastmod>
-  </url>
-  <url>
-    <loc>https://freeaudiotrim.com/normalize-audio-volume.html</loc>
-    <lastmod>2026-03-09</lastmod>
-  </url>
-  <url>
-    <loc>https://freeaudiotrim.com/remove-silence-from-audio.html</loc>
-    <lastmod>2026-03-09</lastmod>
-  </url>
-  <url>
-    <loc>https://freeaudiotrim.com/extract-audio-from-video.html</loc>
-    <lastmod>2026-03-09</lastmod>
-  </url>
-  <url>
-    <loc>https://freeaudiotrim.com/audio-converter.html</loc>
-    <lastmod>2026-03-09</lastmod>
-  </url>
-  <url>
-    <loc>https://freeaudiotrim.com/audio-speed-changer.html</loc>
-    <lastmod>2026-03-09</lastmod>
-  </url>
-  <url>
-    <loc>https://freeaudiotrim.com/audio-pitch-changer.html</loc>
-    <lastmod>2026-03-09</lastmod>
-  </url>
-  <url>
-    <loc>https://freeaudiotrim.com/audio-video-transcription-online.html</loc>
-    <lastmod>2026-04-07</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://freeaudiotrim.com/ringtone-maker.html</loc>
-    <lastmod>2026-03-29</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://freeaudiotrim.com/mp3-to-m4r.html</loc>
-    <lastmod>2026-03-29</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
-    <loc>https://freeaudiotrim.com/convert-mp3-to-m4r.html</loc>
-    <lastmod>2026-04-07</lastmod>
+    <loc>https://freeaudiotrim.com/audio-converter.html</loc>
+    <lastmod>2026-04-29</lastmod>
   </url>
+  <url>
+    <loc>https://freeaudiotrim.com/convert-mp3-to-wav.html</loc>
+    <lastmod>2026-04-29</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/extract-audio-from-video.html</loc>
+    <lastmod>2026-04-29</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/audio-speed-changer.html</loc>
+    <lastmod>2026-04-29</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/audio-pitch-changer.html</loc>
+    <lastmod>2026-04-29</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/merge-audio-files.html</loc>
+    <lastmod>2026-04-29</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/normalize-audio-volume.html</loc>
+    <lastmod>2026-04-29</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/remove-silence-from-audio.html</loc>
+    <lastmod>2026-04-29</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/audio-video-transcription-online.html</loc>
+    <lastmod>2026-04-29</lastmod>
+  </url>
+
+  <!-- Tools Directory -->
+  <url>
+    <loc>https://freeaudiotrim.com/tools.html</loc>
+    <lastmod>2026-04-29</lastmod>
+  </url>
+
+  <!-- Blog -->
   <url>
     <loc>https://freeaudiotrim.com/blog/</loc>
-    <lastmod>2026-03-09</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://freeaudiotrim.com/blog/audio-editing-guide.html</loc>
@@ -97,6 +105,20 @@
     <lastmod>2026-03-29</lastmod>
   </url>
   <url>
+    <loc>https://freeaudiotrim.com/blog/how-to-transcribe-audio-to-text.html</loc>
+    <lastmod>2026-04-30</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/blog/how-to-transcribe-video-to-text.html</loc>
+    <lastmod>2026-04-30</lastmod>
+  </url>
+  <url>
+    <loc>https://freeaudiotrim.com/blog/how-to-generate-subtitles.html</loc>
+    <lastmod>2026-04-30</lastmod>
+  </url>
+
+  <!-- Legal / Static Pages -->
+  <url>
     <loc>https://freeaudiotrim.com/privacy-policy.html</loc>
     <lastmod>2026-03-09</lastmod>
   </url>
@@ -108,4 +130,5 @@
     <loc>https://freeaudiotrim.com/contact.html</loc>
     <lastmod>2026-03-09</lastmod>
   </url>
+
 </urlset>

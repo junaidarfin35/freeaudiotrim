@@ -1,416 +1,813 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
-  <link rel="preload" href="/assets/layout.css" as="style">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
-  <link rel="stylesheet" href="/assets/upload.css">
-  <link rel="stylesheet" href="/assets/layout.css">
 
-  <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
-  <link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
-  <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
-  <link rel="manifest" href="/assets/brand/site.webmanifest">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
 
-  <title>Audio Converter Online Free (Convert Any Format)</title>
-  <meta name="description" content="Convert audio files online instantly. Supports multiple formats. No upload required. Fast and free tool.">
-  <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://freeaudiotrim.com/audio-converter.html">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Raleway:wght@600;900&display=swap" rel="stylesheet">
 
-  <style>
-    .content-section { margin-bottom: 2rem; }
-    .tool-card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 1rem;
-    }
-    .tool-grid {
-      display: grid;
-      gap: 0.75rem;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-    .tool-grid label {
-      display: grid;
-      gap: 0.35rem;
-      font-size: 0.92rem;
-      color: #334155;
-    }
-    .tool-grid select,
-    .tool-grid input {
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 0.5rem 0.6rem;
-      font-size: 0.95rem;
-    }
-    .tool-actions {
-      margin-top: 0.75rem;
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .tool-btn {
-      border: 1px solid #2563eb;
-      background: #2563eb;
-      color: #fff;
-      border-radius: 8px;
-      padding: 0.5rem 0.9rem;
-      cursor: pointer;
-      font-size: 0.95rem;
-    }
-    .tool-btn:hover { background: #1d4ed8; }
-    .tool-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .tool-btn.tool-btn-ghost {
-      background: #fff;
-      color: #1e293b;
-      border-color: #cbd5e1;
-    }
-    .queue-wrap {
-      margin-top: 0.75rem;
-      overflow-x: auto;
-    }
-    .queue-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.94rem;
-    }
-    .queue-table th,
-    .queue-table td {
-      text-align: left;
-      padding: 0.55rem 0.45rem;
-      border-bottom: 1px solid #e2e8f0;
-      vertical-align: middle;
-    }
-    .queue-table th {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: #64748b;
-    }
-    .status-pill {
-      display: inline-block;
-      padding: 0.2rem 0.45rem;
-      border-radius: 999px;
-      border: 1px solid #cbd5e1;
-      font-size: 0.78rem;
-      color: #334155;
-      background: #f8fafc;
-    }
-    .status-pill.ok {
-      border-color: #16a34a;
-      color: #166534;
-      background: #f0fdf4;
-    }
-    .status-pill.err {
-      border-color: #b91c1c;
-      color: #991b1b;
-      background: #fef2f2;
-    }
-    .inline-btn {
-      border: 1px solid #cbd5e1;
-      background: #fff;
-      color: #1e293b;
-      border-radius: 6px;
-      padding: 0.25rem 0.5rem;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .inline-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .tool-status {
-      color: #334155;
-      font-size: 0.92rem;
-    }
-  </style>
+<title>Free Audio Converter Online | MP3, WAV, M4A, FLAC</title>
+<meta name="description" content="Convert audio and video files online in your browser. Free, private conversion for MP3, WAV, M4A, AAC, FLAC, and OGG with no upload required.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://freeaudiotrim.com/audio-converter.html">
+
+<!-- favicon -->
+<link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+<link rel="manifest" href="/assets/brand/site.webmanifest">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Free Audio Converter Online | MP3, WAV, M4A, FLAC">
+<meta property="og:description" content="Convert audio and video files online in your browser. Free, private conversion for MP3, WAV, M4A, AAC, FLAC, and OGG with no upload required.">
+<meta property="og:url" content="https://freeaudiotrim.com/audio-converter.html">
+<meta property="og:type" content="website">
+  <meta property="og:image" content="https://freeaudiotrim.com/assets/OG/converter.webp">
+<meta property="og:site_name" content="FreeAudioTrim">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free Audio Converter Online | MP3, WAV, M4A, FLAC">
+<meta name="twitter:description" content="Convert audio and video files online in your browser. Free, private conversion for MP3, WAV, M4A, AAC, FLAC, and OGG with no upload required.">
+  <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/converter.webp">
+
+<!-- CSS -->
+<link rel="stylesheet" href="/css/global.css">
+<link rel="stylesheet" href="/assets/layout.css">
+<link rel="stylesheet" href="/assets/upload.css">
+
+<!-- Structured Data -->
 <script type="application/ld+json">
 {
- "@context": "https://schema.org",
- "@type": "SoftwareApplication",
- "name": "Audio Converter",
- "applicationCategory": "MultimediaApplication",
- "operatingSystem": "Web Browser",
- "url": "https://freeaudiotrim.com/audio-converter.html",
- "description": "Convert audio files between formats such as MP3, WAV and M4A directly in your browser without uploading files.",
- "offers": {
-   "@type": "Offer",
-   "price": "0",
-   "priceCurrency": "USD"
- }
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "FreeAudioTrim",
+  "url": "https://freeaudiotrim.com/",
+  "description": "Free online audio tools — trim, convert, extract and edit audio directly in your browser."
 }
-</script></head>
-<body>
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Free Audio Converter Online | MP3, WAV, M4A, FLAC",
+  "url": "https://freeaudiotrim.com/audio-converter.html",
+  "description": "Convert audio and video files online in your browser. Free, private conversion for MP3, WAV, M4A, AAC, FLAC, and OGG with no upload required.",
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://freeaudiotrim.com/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Audio Converter",
+        "item": "https://freeaudiotrim.com/audio-converter.html"
+      }
+    ]
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Audio Converter Online",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web Browser",
+  "url": "https://freeaudiotrim.com/audio-converter.html",
+  "description": "Convert audio and video files directly in your browser. Supports MP3, WAV, M4A, AAC, FLAC, and OGG with fast local processing and no upload.",
+  "featureList": [
+  "Convert MP3 to WAV",
+  "Convert WAV to MP3",
+  "Convert M4A to MP3",
+  "Convert FLAC to MP3",
+  "Browser-based processing",
+  "No upload required"
+  ],
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "priceValidUntil": "2027-12-31"
+  }
+}
+</script>
+
+
+</head>
+<body class="audio-converter-page">
 <header>
   <div class="header-container">
-    <a href="/" class="logo"><img src="/assets/brand/logo.svg" alt="Free Audio Trim logo" width="28" height="28" decoding="async"> freeaudiotrim.com</a>
-    <nav>
-      <a href="/">MP3 Trimmer</a>
-      <a href="/convert-mp3-to-wav.html">Convert</a>
-      <a href="/normalize-audio-volume.html">Normalize Volume</a>
+    <a href="/" class="logo" aria-label="Free Audio Trim home"><img src="/assets/brand/logo.svg" alt="Free Audio Trim" width="207" height="32" decoding="async"></a>
+    <button class="menu-toggle" aria-label="Toggle menu">&#9776;</button>
+    <nav class="nav-links">
+      <a href="/tools.html">All Tools</a>
       <a href="/blog/">Blog</a>
+      <a href="/contact.html">Contact</a>
     </nav>
   </div>
 </header>
 
 <main class="container">
-  <section class="content-section section-intro section-surface hero">
-    <h1>Audio Converter Online &mdash; Convert Audio Files to Any Format</h1>
-    <p>This free audio converter allows you to convert audio files directly in your browser without installing any software. Whether you need to convert MP3 to WAV, change WAV to MP3, or switch between formats like AAC, FLAC, M4A, or OGG, this tool makes audio conversion simple and fast.</p>
-    <p>Different audio formats serve different purposes. Some prioritize sound quality while others focus on smaller file sizes or compatibility with devices and platforms. An audio converter helps you transform audio into the format you need for editing, sharing, or playback.</p>
-    <p>Unlike traditional desktop software, this browser-based audio converter processes files locally on your device. That means faster conversions and better privacy since your audio files never leave your computer.</p>
+
+  <section class="content-section section-intro hero">
+    <h1>Free Audio Converter Online<span class="hero-highlight">Convert MP3, WAV, M4A, FLAC & OGG</span></h1>
+    <p>Use this audio converter online as a flexible online audio tool to change audio and video files into the format you need without installing software. Convert MP3, WAV, M4A, AAC, FLAC, and OGG in your browser, keep your files private, and download the new version in seconds.</p>
   </section>
 
-  <section class="content-section section-surface tool-ui">
-    <h2>Upload Audio</h2>
-    <div class="upload-shell">
-      <input id="fileInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" multiple hidden>
-      <div class="upload-box" id="uploadDropzone" role="button" tabindex="0" aria-label="Drop audio file here or click to upload">
-        <div class="upload-content">
-          <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
-          <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
-          <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
-          <small class="upload-dropzone__meta">Max file size: 200MB</small>
-          <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
+  <section class="content-section tool-section">
+    <div class="tool-ui">
+      <input 
+         id="audioFileInput" 
+          class="is-hidden" 
+          type="file" 
+          accept="audio/*,video/*"
+          >
+      <div class="upload-shell" id="upload-shell">
+        <div class="upload-box"
+          id="upload-dropzone"
+          data-upload-dropzone
+          data-upload-input="audioFileInput"
+          role="button"
+          tabindex="0"
+          aria-label="Drop audio file here or click to upload">
+          <div class="upload-content">
+            <div class="upload-illustration" aria-hidden="true">
+              <img src="/assets/icons/upload-illustration.svg" alt="" />
+            </div>
+            <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
+            <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
 
-  <section class="content-section section-surface tool-ui">
-    <h2>Adjust Settings</h2>
+<div id="tool-shell" class="tool-shell is-hidden">
+
+  <!-- ðŸ”¥ UI SYSTEM ROOT (must wrap everything) -->
+  <div id="audio-tool" class="at-root">
+
+    <!-- ðŸ”¥ VISUAL CARD (inside, not outside) -->
     <div class="tool-card">
-      <div class="tool-grid">
-        <label>
-          Conversion Type
-          <select id="conversionType">
-            <option value="mp3-to-wav">MP3 to WAV</option>
-            <option value="wav-to-mp3">WAV to MP3</option>
-            <option value="m4a-to-mp3">M4A to MP3</option>
-            <option value="flac-to-mp3">FLAC to MP3</option>
-          </select>
-        </label>
-        <label>
-          MP3 Bitrate (for MP3 output)
-          <select id="mp3Bitrate">
-            <option value="128">128 kbps</option>
-            <option value="192" selected>192 kbps</option>
-            <option value="256">256 kbps</option>
-            <option value="320">320 kbps</option>
-          </select>
-        </label>
-      </div>
 
-      <div class="result-panel">
-        <div class="result-actions">
-          <button id="convertAllBtn" class="btn btn-primary" type="button">Convert Files</button>
-          <button id="clearBtn" class="btn btn-secondary" type="button">Clear Queue</button>
+      <!-- FILE HEADER -->
+      <div class="at-file-row is-hidden" data-role="fileRow">
+        <div class="at-file-info">
+          <i data-lucide="music" data-role="fileIcon"></i>
+          <span class="at-file-name" data-role="fileName"></span>
         </div>
-        <span id="toolStatus" class="tool-status" data-status-state="idle">Ready. Add files to begin.</span>
+
+        <button class="at-btn at-btn-soft" data-role="changeFile">
+          Change
+        </button>
+
+        <!-- File input (index pattern) -->
+      
       </div>
 
-      <div class="queue-wrap">
-        <table class="queue-table" aria-label="Audio conversion queue">
-          <thead>
-            <tr>
-              <th>File</th>
-              <th>Input</th>
-              <th>Output</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="queueBody"></tbody>
-        </table>
+      <!-- FORMAT -->
+      <div class="at-row">
+        <label class="at-label">Convert to</label>
+          <select data-role="formatSelect">
+            <option value="mp3">MP3</option>
+            <option value="wav">WAV</option>
+            <option value="m4a">M4A</option>
+            <option value="flac">FLAC</option>
+            <option value="ogg">OGG</option>
+          </select>
       </div>
+
+      <!-- STATUS -->
+      <div class="at-row">
+        <div class="at-status" data-role="status">
+          Ready to convert
+        </div>
+      </div>
+
+      <div class="at-row">
+        <button class="at-btn at-btn-primary" data-role="convertBtn">
+        Convert
+        </button>
+      </div>
+
+      <!-- POST ACTION TEXT -->
+      <div class="at-row" data-role="postActions">
+        <span>What else do you want to do with this file?</span>
+      </div>
+
+      <!-- POST ACTION BUTTONS -->
+      <div class="at-row at-tools">
+        <a href="/audio-cutter-online.html" class="at-pill">Trim Audio</a>
+        <a href="/extract-audio-from-video.html" class="at-pill">Extract Audio</a>
+        <a href="/normalize-audio-volume.html" class="at-pill">Normalize</a>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</div>
+    </div>
+    <div class="trust-line">
+      <i data-lucide="shield-check"></i>
+      <span><strong>100% Private</strong> — Files never leave your device — No upload required</span>
     </div>
   </section>
 
+  <!-- HOW IT WORKS -->
   <section class="content-section section-shell section-surface">
-    <h2>How to Convert Audio Files Online</h2>
-    <ol class="step-list">
-      <li><span class="step-title">Upload your audio</span><span class="step-description">Add one or more audio files to the conversion queue.</span></li>
-      <li><span class="step-title">Pick the output type</span><span class="step-description">Choose the conversion route and output settings you want to use.</span></li>
-      <li><span class="step-title">Start processing</span><span class="step-description">Run the conversion directly in your browser without uploading files.</span></li>
-      <li><span class="step-title">Download each result</span><span class="step-description">Save the converted audio files as soon as they finish processing.</span></li>
-    </ol>
-    <p>Because processing happens locally in your browser, conversions are fast and secure.</p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Best Audio Format by Use Case</h2>
-    <p>Choosing the right format depends on what you plan to do with the file after conversion. Each format has strengths for specific workflows.</p>
-    <ul>
-      <li><strong>MP3:</strong> Best for sharing, streaming, and mobile playback with smaller file sizes.</li>
-      <li><strong>WAV:</strong> Best for editing, production, and archiving where quality is the priority.</li>
-      <li><strong>AAC / M4A:</strong> Good for modern devices and efficient compression at lower bitrates.</li>
-      <li><strong>FLAC:</strong> Best when you want lossless quality with smaller files than WAV.</li>
-      <li><strong>OGG:</strong> Useful for web and app workflows that support open audio formats.</li>
-    </ul>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Audio Format Comparison</h2>
-    <p>Compressed formats such as MP3, AAC, and OGG reduce file size by removing some audio information. Lossless formats such as WAV and FLAC preserve more detail and are preferred for editing or mastering workflows.</p>
-    <p>If you need maximum compatibility, MP3 remains the safest choice for distribution. If you need high-fidelity source material for post-production, WAV or FLAC are stronger options.</p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Audio Quality vs File Size</h2>
-    <p>Audio conversion often involves balancing quality and storage. Higher quality output usually means larger files, while smaller files are easier to upload, store, and share.</p>
-    <p>For spoken recordings, medium-bitrate MP3 can offer a practical size-to-quality balance. For music production or detailed editing, lossless output may be better even if file size increases.</p>
-  </section>
-
-  <section class="content-section section-shell section-surface">
-    <h2>Common Uses for Audio Conversion</h2>
-    <ul class="icon-list">
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><span>Converting recordings for social media and podcast platforms</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Preparing audio for video editing timelines</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></span><span>Reducing large files before upload or sharing</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span><span>Creating device-friendly versions for phone playback</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>Standardizing formats across a project folder</span></li>
-    </ul>
-    <p>A fast converter helps keep these workflows simple when you need quick format changes without installing desktop software.</p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Continue Editing Your Audio</h2>
-      <ul class="tool-links">
-        <li>After conversion, you can continue refining your file with additional tools. Trim sections with our <a href="/free-mp3-cutter.html">audio cutter</a>.</li>
-        <li>After conversion, you can continue refining your file with additional tools. Balance levels with <a href="/normalize-audio-volume.html">balance audio volume</a>.</li>
-        <li>After conversion, you can continue refining your file with additional tools. Remove gaps using <a href="/remove-silence-from-audio.html">cut silent parts</a>.</li>
-      </ul>
+    <h2>How to Convert Audio Online</h2>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h3>Upload your audio</h3>
+        <p>Choose an audio or video file from your device. Processing stays local, so your file is never uploaded to a server and the audio is processed in your browser.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h3>Choose output format</h3>
+        <p>Select the format you want, such as MP3, WAV, M4A, FLAC, or OGG, based on playback, editing, or sharing needs.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h3>Convert instantly</h3>
+        <p>Run the conversion directly in your browser with fast local processing and no waiting on remote servers.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <h3>Download your file</h3>
+        <p>Download the converted file right away and use it for editing, upload, backup, or playback on another device.</p>
+      </div>
+    </div>
   </section>
 
   <section class="content-section section-surface">
     <h2>Supported Audio Formats</h2>
-    <p>This audio converter supports many widely used audio formats including:</p>
-    <ul>
-      <li>MP3</li>
-      <li>WAV</li>
-      <li>AAC</li>
-      <li>M4A</li>
-      <li>FLAC</li>
-      <li>OGG</li>
-    </ul>
-    <p>These formats include both compressed and lossless audio options so you can choose between smaller file sizes or higher audio fidelity.</p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Why Convert Audio Files</h2>
-    <p>Audio conversion is useful in many everyday scenarios:</p>
-    <ul>
-      <li>Making audio compatible with devices or editing software</li>
-      <li>Reducing file size for easier sharing</li>
-      <li>Preparing recordings for podcast publishing</li>
-      <li>Converting music files for mobile playback</li>
-      <li>Preparing audio clips for video editing projects</li>
-    </ul>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Browser-Based Audio Processing</h2>
-    <p>This tool uses modern browser audio technology to convert files directly on your computer. This provides several benefits:</p>
-    <ul>
-      <li>Faster processing</li>
-      <li>No software installation</li>
-      <li>Better privacy protection</li>
-      <li>No file uploads required</li>
-    </ul>
-      <p>If you want to edit the converted file afterwards, you can use our <a href="/free-mp3-cutter.html">trim audio file</a> workflow or adjust volume using the <a href="/normalize-audio-volume.html">adjust audio loudness</a> tool.</p>
-  </section>
-
-  <div id="related-tools"></div>
-  <div class="related-tools">
-    <h3>Try next</h3>
-    <ul>
-      <li><a href="/convert-mp3-to-wav.html">Convert MP3 to WAV online</a></li>
-      <li><a href="/extract-audio-from-video.html">Extract audio from video online</a></li>
-      <li><a href="/merge-audio-files.html">Merge audio files online</a></li>
-    </ul>
-  </div>
-
-  <section class="content-section section-surface">
-    <h2>Related Audio Conversion Guides</h2>
-    <p>If you are converting files for editing, publishing, or archiving, these articles explain the follow-up steps that usually matter most.</p>
-    <ul>
-      <li><a href="/blog/how-to-edit-audio-online.html">How to edit audio online</a> after converting into a more workable format.</li>
-      <li><a href="/blog/convert-mp3-to-wav-guide.html">Convert MP3 to WAV guide</a> for format-specific quality and workflow details.</li>
-      <li><a href="/blog/extract-audio-from-video-guide.html">Extract audio from video guide</a> when your source starts as an MP4 or MOV file.</li>
-    </ul>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>FAQ</h2>
-    <details>
-      <summary>What is an audio converter?</summary>
-      <p>An audio converter changes an audio file from one format to another so it can be used on different devices or software.</p>
-    </details>
-    <details>
-      <summary>Can I convert audio files online without installing software?</summary>
-      <p>Yes. Browser-based converters allow audio conversion directly in your browser.</p>
-    </details>
-    <details>
-      <summary>Which formats are commonly used?</summary>
-      <p>Popular formats include MP3, WAV, AAC, FLAC, and M4A.</p>
-    </details>
-    <details>
-      <summary>Does converting audio reduce quality?</summary>
-      <p>Converting between compressed formats may slightly reduce quality, while lossless formats preserve more audio data.</p>
-    </details>
-    <details>
-      <summary>Is online audio conversion safe?</summary>
-      <p>When conversion happens locally in your browser, your files remain private and secure.</p>
-    </details>
-    <details>
-      <summary>Which format should I use for editing?</summary>
-      <p>WAV or FLAC are usually better for editing because they preserve more audio detail than heavily compressed formats.</p>
-    </details>
-    <details>
-      <summary>Can I convert large audio files in the browser?</summary>
-      <p>Yes, but very large files depend on available memory and browser limits. Smaller batches usually process more reliably.</p>
-    </details>
-    <details>
-      <summary>Do I need to install any app to convert audio here?</summary>
-      <p>No installation is required. The converter runs directly in your browser and processes files locally.</p>
-    </details>
-  </section>
-</main>
-
-<footer>
-  <div class="footer-container">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
-      <div>
-        <div class="footer-title">AudioTools</div>
-        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
+    <div class="supported-wrapper">
+      <div class="supported-block supported-formats">
+        <p class="supported-label">Supported formats</p>
+        <div class="supported-items">
+          <span>MP3</span>
+          <span>WAV</span>
+          <span>AAC</span>
+          <span>M4A</span>
+          <span>FLAC</span>
+          <span>OGG</span>
+        </div>
       </div>
-      <div>
-        <div class="footer-title">Tools</div>
-        <p><a href="/" class="footer-text">MP3 Trimmer</a></p>
-        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
-        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
-      </div>
-      <div>
-        <div class="footer-title">Legal</div>
-        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
-        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
-        <p><a href="/contact.html" class="footer-text">Contact</a></p>
+      <div class="supported-divider"></div>
+      <div class="trust-block">
+        <div class="trust-items">
+          <div class="trust-item">
+            <i data-lucide="shield-check"></i>
+            <div><strong>100% Private</strong><span>Files never leave your device</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="cloud-off"></i>
+            <div><strong>No Upload Required</strong><span>Everything runs in your browser</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="zap"></i>
+            <div><strong>Instant Processing</strong><span>Convert audio in seconds</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="monitor"></i>
+            <div><strong>Works Everywhere</strong><span>Desktop, tablet, mobile</span></div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="footer-small">
-      (c) 2026 AudioTools. All rights reserved.
+  </section>
+
+  <!-- USE CASES -->
+  <section class="content-section use-cases">
+    <h2>Audio Converter Use Cases</h2>
+    <p>An audio converter online is useful whenever the file you have is not the format you need. Creators, students, teams, and everyday users rely on format conversion to make files easier to edit, upload, store, and share.</p>
+    <div class="use-case-grid">
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="mic"></i></div>
+        <h3>Podcasters & Creators</h3>
+        <p>Convert raw recordings into platform-friendly formats for publishing, clipping, archiving, or handing off to editors.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="music"></i></div>
+        <h3>Music Editing</h3>
+        <p>Prepare music files for DAWs, mobile devices, cloud storage, or clients that require a different audio format.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="audio-waveform"></i></div>
+        <h3>Voice Recordings</h3>
+        <p>Convert lectures, interviews, voice notes, and spoken recordings into formats that are easier to store, email, or reuse.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="briefcase"></i></div>
+        <h3>Business & Meetings</h3>
+        <p>Standardize training audio, recorded meetings, and presentation assets without asking your team to install extra software.</p>
+      </div>
+    </div>
+  </section>
+
+<!-- BENEFITS (ONLY ONE SECTION) -->
+
+<section class="content-section section-surface">
+  <h2>Why Use This Audio Converter</h2>
+
+  <p>
+    This browser-based audio converter is designed for speed, privacy, and high-quality output.
+    Convert audio files instantly without uploading them to any server — everything runs locally
+    on your device using modern web technology.
+  </p>
+
+  <div class="why-grid">
+
+    <div class="why-item">
+      <h3>100% Private Processing</h3>
+      <p>
+        Your files never leave your device. All audio conversion happens locally in your browser,
+        ensuring complete privacy and security.
+      </p>
+    </div>
+
+    <div class="why-item">
+      <h3>Fast Conversion</h3>
+      <p>
+        Convert audio files instantly without waiting for uploads or server processing.
+        Enjoy fast performance directly on your device.
+      </p>
+    </div>
+
+    <div class="why-item">
+      <h3>High Quality Output</h3>
+      <p>
+        Maintain excellent audio quality when converting between MP3, WAV, M4A, FLAC, and OGG formats.
+        Optimized encoding ensures the best balance between quality and file size.
+      </p>
+    </div>
+
+    <div class="why-item">
+      <h3>No Installation Required</h3>
+      <p>
+        Use the tool instantly in your browser without downloading or installing any software.
+        Works on desktop, tablet, and mobile devices.
+      </p>
+    </div>
+
+    <div class="why-item">
+      <h3>Supports Multiple Formats</h3>
+      <p>
+        Convert between popular audio formats including MP3, WAV, M4A, AAC, FLAC, and OGG
+        with a simple and intuitive workflow.
+      </p>
+    </div>
+
+    <div class="why-item">
+      <h3>Works Everywhere</h3>
+      <p>
+        Compatible with all modern browsers and devices, allowing you to convert audio anytime,
+        anywhere without limitations.
+      </p>
+    </div>
+
+  </div>
+</section>
+
+  <section class="content-section section-surface">
+    <h2>Convert Between All Audio Formats</h2>
+    <p>
+      This audio converter supports MP3, WAV, M4A, AAC, FLAC, and OGG, giving you the flexibility to switch between common playback, editing, and archive formats without leaving your browser.
+    </p>
+    <p>
+      Whether you need to convert MP3 to WAV for editing, turn WAV into MP3 for smaller file sizes, export M4A for Apple-friendly playback, or save FLAC and OGG for specific workflows, the tool is built to handle everyday conversion tasks quickly and privately.
+    </p>
+    <p>
+      Choose MP3 when you want smaller files and broad compatibility, WAV when you need an editing-friendly format, M4A for efficient playback on Apple devices, FLAC for lossless quality, and OGG for open-format workflows.
+    </p>
+  </section>
+
+      <section class="content-section related-tools">
+
+    <h2>Explore Audio Tools</h2>
+    <h3>Go beyond one conversion task and handle trimming, extraction, enhancement, and transcription in one browser-based workflow.</h3>
+
+    <div class="tool-links-grid">
+    <a href="/extract-audio-from-video.html" class="tool-link">
+      <strong>Extract Audio</strong>
+      <span>Pull audio tracks out of video files</span>
+    </a>
+    <a href="/convert-mp3-to-wav.html" class="tool-link">
+      <strong>MP3 to WAV</strong>
+      <span>Convert MP3 files into WAV format</span>
+    </a>
+    <a href="/audio-video-transcription-online.html" class="tool-link">
+      <strong>Audio Transcription</strong>
+      <span>Convert speech into text automatically</span>
+    </a>
+    <a href="/merge-audio-files.html" class="tool-link">
+      <strong>Merge Audio Files</strong>
+      <span>Combine multiple audio tracks into one</span>
+    </a>
+    <a href="/normalize-audio-volume.html" class="tool-link">
+      <strong>Normalize Audio</strong>
+      <span>Balance volume levels instantly</span>
+    </a>
+    </div>
+
+    <h3 class="tool-pills-label">More tools</h3>
+    <div class="tool-pills">
+    <a href="/audio-cutter-online.html" class="tool-pill">Audio Cutter</a>
+    <a href="/normalize-audio-volume.html" class="tool-pill">Normalize Audio</a>
+    <a href="/remove-silence-from-audio.html" class="tool-pill">Remove Silence</a>
+    <a href="/audio-speed-changer.html" class="tool-pill">Speed Changer</a>
+    <a href="/audio-pitch-changer.html" class="tool-pill">Pitch Changer</a>
+    </div>
+
+  </section>
+
+
+  <section class="content-section related-articles">
+    <h2>Related Articles</h2>
+    <div class="article-grid">
+      <a href="/blog/how-to-edit-audio-online.html" class="article-card">
+        <img src="/assets/blog/how-to-edit-audio-online.webp" alt="How to edit audio online">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>How to Edit Audio Online</h3>
+          <p class="article-desc">Learn how to edit audio files quickly using browser-based tools.</p>
+        </div>
+      </a>
+      <a href="/blog/convert-mp3-to-wav-guide.html" class="article-card">
+        <img src="/assets/blog/convert-mp3-to-wav-guide.webp" alt="Convert MP3 to WAV guide">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>Convert MP3 to WAV Easily</h3>
+          <p class="article-desc">Step-by-step guide to convert MP3 files into WAV format without losing quality.</p>
+        </div>
+      </a>
+      <a href="/blog/extract-audio-from-video-guide.html" class="article-card">
+        <img src="/assets/blog/extract-audio-from-video-guide.webp" alt="Extract audio from video guide">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>Extract Audio from Video</h3>
+          <p class="article-desc">Learn how to extract audio tracks from video files quickly and easily.</p>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <section class="content-section section-surface">
+      <p>
+      Need precise editing? Try our <a href="/audio-cutter-online.html">audio cutter</a>.
+      Want to extract audio from video? Use our <a href="/extract-audio-from-video.html">audio extractor</a>.
+      </p>
+  </section>
+
+<!-- FAQ (UPGRADED) -->
+<section class="content-section section-surface">
+  <h2>Frequently Asked Questions</h2>
+
+  <details>
+    <summary>How do I convert MP3 to WAV online?</summary>
+    <p>Upload your MP3 file, choose WAV as the output format, and run the conversion in your browser. The converted WAV file is ready to download as soon as processing finishes.</p>
+  </details>
+
+<details>
+  <summary>Can I convert audio without uploading files?</summary>
+  <p>Yes. This tool processes files locally on your device, so your audio is not uploaded to a remote server during conversion.</p>
+</details>
+
+  <details>
+    <summary>Can I extract audio from video files?</summary>
+    <p>Yes. You can upload a video file and convert or extract the audio into formats like MP3, WAV, M4A, or other supported outputs.</p>
+  </details>
+
+  <details>
+    <summary>Which audio format should I use?</summary>
+    <p>MP3 is usually best for smaller files and broad compatibility. WAV is useful for editing, FLAC is strong for lossless quality, and M4A can be a good balance between size and quality.</p>
+  </details>
+
+  <details>
+    <summary>Is audio conversion safe?</summary>
+    <p>Yes. Because conversion runs in your browser, your files stay on your device instead of being sent to an external upload service.</p>
+  </details>
+
+  <details>
+    <summary>Do I need to install any software?</summary>
+    <p>No. The converter works entirely in your browser, so you can convert files without downloading desktop software or setting up an account.</p>
+  </details>
+
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-container">
+    <div class="footer-brand">
+      <h3>FreeAudioTrim</h3>
+      <p>Simple, fast, and private audio tools that run entirely in your browser.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <ul>
+        <li><a href="/audio-cutter-online.html">Audio Cutter</a></li>
+        <li><a href="/free-mp3-cutter.html">MP3 Cutter</a></li>
+        <li><a href="/merge-audio-files.html">Merge Audio</a></li>
+        <li><a href="/remove-silence-from-audio.html">Remove Silence</a></li>
+        <li><a href="/normalize-audio-volume.html">Normalize Audio</a></li>
+        <li><a href="/audio-converter.html">Audio Converter</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>More Tools</h4>
+      <ul>
+        <li><a href="/audio-speed-changer.html">Speed Changer</a></li>
+        <li><a href="/audio-pitch-changer.html">Pitch Changer</a></li>
+        <li><a href="/extract-audio-from-video.html">Extract Audio</a></li>
+        <li><a href="/convert-mp3-to-wav.html">MP3 to WAV</a></li>
+        <li><a href="/mp3-to-m4r.html">MP3 to M4R</a></li>
+        <li><a href="/ringtone-maker.html">Ringtone Maker</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <ul>
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="/blog/audio-editing-guide.html">Audio Editing Guide</a></li>
+        <li><a href="/blog/how-to-trim-mp3-online.html">Trim MP3 Guide</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-legal">
+      <a href="/terms-of-service.html">Terms</a>
+      <a href="/privacy-policy.html">Privacy</a>
+      <a>Cookies</a>
+      <a>Security</a>
+    </div>
+    <div class="footer-social">
+      <a>LinkedIn</a>
+      <a>X</a>
+      <a>YouTube</a>
     </div>
   </div>
 </footer>
 
-<script src="/assets/encoders/lame.min.js" defer></script>
-<script src="/assets/encoders/mp3-encoder.js" defer></script>
-<script src="/assets/audio-converter.js" defer></script>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="/assets/encoders/lame.min.js"></script>
+<script src="/assets/encoders/mp3-encoder.js"></script>
+<script src="/assets/upload.js" defer></script>
 <script src="/assets/related-tools.js"></script>
+
+
+<script>
+let currentFile = null;
+let convertedBlob = null;
+
+// =========================
+// FFMPEG SETUP
+// =========================
+let ffmpeg = null;
+let ffmpegLoaded = false;
+let ffmpegLoadPromise = null;
+
+async function loadFFmpeg() {
+  if (ffmpegLoaded) return ffmpeg;
+  if (ffmpegLoadPromise) return ffmpegLoadPromise;
+
+  const status = document.querySelector('[data-role="status"]');
+  status.textContent = "Loading advanced converter...";
+
+  ffmpegLoadPromise = (async function() {
+    const { createFFmpeg } = FFmpeg;
+    const base = `${window.location.origin}/assets/ffmpeg`;
+
+    ffmpeg = createFFmpeg({
+      log: false,
+      corePath: `${base}/ffmpeg-core.js`,
+      mainName: "main"
+    });
+
+    await ffmpeg.load();
+    ffmpegLoaded = true;
+    return ffmpeg;
+  })();
+
+  try {
+    return await ffmpegLoadPromise;
+  } catch (error) {
+    ffmpegLoadPromise = null;
+    ffmpeg = null;
+    throw error;
+  }
+}
+
+// =========================
+// FILE SELECTED
+// =========================
+document.addEventListener('file:selected', function(e) {
+  const file = e.detail?.file;
+  if (!file) return;
+
+  currentFile = file;
+
+  const uploadShell = document.getElementById('upload-shell');
+  const toolShell = document.getElementById('tool-shell');
+
+  const fileRow = document.querySelector('[data-role="fileRow"]');
+  const fileNameEl = document.querySelector('[data-role="fileName"]');
+  const iconEl = document.querySelector('[data-role="fileIcon"]');
+
+  if (fileRow && fileNameEl) {
+    fileNameEl.textContent = file.name;
+    fileRow.classList.remove('is-hidden');
+  }
+
+  if (iconEl) {
+    iconEl.setAttribute(
+      "data-lucide",
+      file.type.startsWith('video') ? 'video' : 'music'
+    );
+    lucide.createIcons();
+  }
+
+  uploadShell.classList.add('is-hidden');
+  toolShell.classList.remove('is-hidden');
+
+  const offset = 100;
+  const y = toolShell.getBoundingClientRect().top + window.pageYOffset - offset;
+  window.scrollTo({ top: y, behavior: "smooth" });
+});
+
+// =========================
+// CHANGE FILE
+// =========================
+document.addEventListener('click', function(e) {
+  if (e.target.closest('[data-role="changeFile"]')) {
+    document.getElementById('audioFileInput')?.click();
+  }
+});
+
+// =========================
+// CONVERT
+// =========================
+document.addEventListener('click', async function(e) {
+  const btn = e.target.closest('[data-role="convertBtn"]');
+  if (!btn || !currentFile) return;
+
+  const status = document.querySelector('[data-role="status"]');
+  const format = document.querySelector('[data-role="formatSelect"]').value;
+
+  btn.textContent = "Processing...";
+  btn.disabled = true;
+
+  try {
+    let convertedBlobLocal = null;
+
+    // =========================
+    // FAST PATH (MP3 / WAV)
+    // =========================
+    if (format === "wav" || format === "mp3") {
+      const arrayBuffer = await currentFile.arrayBuffer();
+      const audioCtx = new AudioContext();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+      if (format === "wav") {
+        status.textContent = "Converting to WAV...";
+        convertedBlobLocal = bufferToWav(audioBuffer);
+
+      } else if (format === "mp3") {
+        status.textContent = "Converting to MP3...";
+
+        if (!window.MP3EncoderModule || !window.MP3EncoderModule.isAvailable()) {
+          throw new Error("MP3 encoder not available");
+        }
+
+        const channels = [];
+        for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+          channels.push(audioBuffer.getChannelData(i));
+        }
+
+        convertedBlobLocal = window.MP3EncoderModule.encode({
+          channels,
+          sampleRate: audioBuffer.sampleRate,
+          bitrateKbps: 192
+        });
+      }
+
+    } else {
+      // =========================
+      // ADVANCED PATH (FFMPEG)
+      // =========================
+      status.textContent = "Using advanced converter (first time may take a few seconds)...";
+
+      await loadFFmpeg();
+
+      const { fetchFile } = window.FFmpeg;
+
+      const inputName = "input";
+      const outputName = `output.${format}`;
+
+      ffmpeg.FS("writeFile", inputName, await fetchFile(currentFile));
+
+      status.textContent = "Converting with advanced engine...";
+
+      if (format === "m4a") {
+        await ffmpeg.run(
+          "-i", inputName,
+          "-c:a", "aac",
+          "-b:a", "192k",
+          "-movflags", "+faststart",
+          outputName
+        );
+
+      } else if (format === "ogg") {
+        await ffmpeg.run(
+          "-i", inputName,
+          "-c:a", "libvorbis",
+          "-q:a", "5",
+          outputName
+        );
+
+      } else if (format === "flac") {
+        await ffmpeg.run(
+          "-i", inputName,
+          "-c:a", "flac",
+          "-compression_level", "5",
+          outputName
+        );
+
+      } else {
+        await ffmpeg.run("-i", inputName, outputName);
+      }
+
+      const data = ffmpeg.FS("readFile", outputName);
+
+      convertedBlobLocal = new Blob([data.buffer], {
+        type: `audio/${format}`
+      });
+    }
+
+    // =========================
+    // SUCCESS (ALL FORMATS)
+    // =========================
+    convertedBlob = convertedBlobLocal;
+
+    btn.textContent = "Download";
+    btn.disabled = false;
+    status.textContent = "Ready";
+
+    btn.dataset.role = "downloadBtn";
+
+    document.querySelector('[data-role="postActions"]').style.display = "block";
+
+  } catch (err) {
+    console.error("REAL ERROR:", err);
+
+    const status = document.querySelector('[data-role="status"]');
+    status.textContent = "Conversion failed";
+
+    btn.textContent = "Convert";
+    btn.disabled = false;
+  }
+});
+
+// =========================
+// DOWNLOAD
+// =========================
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-role="downloadBtn"]');
+  if (!btn || !convertedBlob) return;
+
+  const format = document.querySelector('[data-role="formatSelect"]').value;
+
+  const url = URL.createObjectURL(convertedBlob);
+  const a = document.createElement('a');
+
+  const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
+
+  a.href = url;
+  a.download = `${baseName}.${format}`;
+  a.click();
+});
+</script>
+
+
+<script src="/assets/mobile-menu.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  lucide.createIcons();
+</script>
 </body>
 </html>
+

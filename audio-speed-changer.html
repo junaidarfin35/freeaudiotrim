@@ -1,401 +1,501 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
-  <link rel="preload" href="/assets/layout.css" as="style">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
-  <link rel="stylesheet" href="/assets/upload.css">
-  <link rel="stylesheet" href="/assets/layout.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
 
-  <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
-  <link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
-  <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
-  <link rel="manifest" href="/assets/brand/site.webmanifest">
+<link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+<link rel="manifest" href="/assets/brand/site.webmanifest">
 
-  <title>Change Audio Speed Online Free (No Upload Required)</title>
-  <meta name="description" content="Speed up or slow down audio instantly. Free browser-based tool with no upload needed. Fast and private.">
-  <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://freeaudiotrim.com/audio-speed-changer.html">
+<link rel="stylesheet" href="/css/global.css">
+<link rel="stylesheet" href="/assets/layout.css">
+<link rel="stylesheet" href="/assets/upload.css">
 
-  <style>
-    .content-section { margin-bottom: 2rem; }
-    .tool-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; }
-    .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 1rem; }
-    .editor-main,
-    .control-stack,
-    .waveform-shell { display: grid; gap: 0.9rem; }
-    .control-label { display: grid; gap: 0.35rem; font-size: 0.92rem; color: #334155; }
-    .range-row { display: flex; gap: 0.6rem; align-items: center; }
-    .range-row input[type="range"] { flex: 1; }
-    .speed-value { min-width: 52px; font-family: "JetBrains Mono", monospace; color: #0f172a; }
-    .toggle-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; color: #334155; }
-    .secondary-control[hidden] { display: none; }
-    .meta-grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); }
-    .meta-item { padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 0.9rem; }
-    .waveform-shell { padding: 1rem; border: 1px solid #dbe4f0; border-radius: 12px; background: #fff; }
-    .waveform-canvas { width: 100%; height: 180px; display: block; border-radius: 10px; }
-    .time-display { margin: 0; color: #52637a; font-size: 0.92rem; font-family: "JetBrains Mono", monospace; }
-    .transport-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
-    .ab-toggle { display: inline-flex; gap: 0.45rem; margin-left: auto; }
-    .analysis-card { padding: 1rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
-    .analysis-card h3 { margin-bottom: 0.75rem; }
-    .analysis-grid { display: grid; gap: 0.75rem; }
-    .analysis-item { padding: 0.75rem; border: 1px solid #dbe4f0; border-radius: 10px; background: #fff; }
-    .analysis-label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; }
-    .analysis-value { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
-    .status-text { color: #334155; font-size: 0.92rem; }
-    @media (max-width: 900px) {
-      .editor-layout { grid-template-columns: 1fr; }
-    }
-  </style>
+<title>Change Audio Speed Online Free (No Upload Required)</title>
+<meta name="description" content="Speed up or slow down audio in your browser. Change playback speed of MP3, WAV, M4A, AAC, FLAC, and more with real-time preview and no upload required.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://freeaudiotrim.com/audio-speed-changer.html">
+
 <script type="application/ld+json">
 {
- "@context": "https://schema.org",
- "@type": "SoftwareApplication",
- "name": "Audio Speed Changer",
- "applicationCategory": "MultimediaApplication",
- "operatingSystem": "Web Browser",
- "url": "https://freeaudiotrim.com/audio-speed-changer.html",
- "description": "Change the playback speed of audio files online while preserving audio quality.",
- "offers": {
-   "@type": "Offer",
-   "price": "0",
-   "priceCurrency": "USD"
- }
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Change Audio Speed Online Free (No Upload Required)",
+  "url": "https://freeaudiotrim.com/audio-speed-changer.html",
+  "description": "Speed up or slow down audio in your browser. Change playback speed of MP3, WAV, M4A, AAC, FLAC, and more with real-time preview and no upload required."
 }
-</script></head>
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Audio Speed Changer",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web Browser",
+  "url": "https://freeaudiotrim.com/audio-speed-changer.html",
+  "description": "Change the playback speed of audio files online while preserving audio quality.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+</script>
+
+<meta property="og:title" content="Change Audio Speed Online Free (No Upload Required)">
+<meta property="og:description" content="Speed up or slow down audio in your browser. Change playback speed of MP3, WAV, M4A, AAC, FLAC, and more with real-time preview and no upload required.">
+<meta property="og:url" content="https://freeaudiotrim.com/audio-speed-changer.html">
+<meta property="og:type" content="website">
+  <meta property="og:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
+<meta property="og:site_name" content="FreeAudioTrim">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Change Audio Speed Online Free (No Upload Required)">
+<meta name="twitter:description" content="Speed up or slow down audio in your browser. Change playback speed of MP3, WAV, M4A, AAC, FLAC, and more with real-time preview and no upload required.">
+  <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
+</head>
 <body>
 <header>
   <div class="header-container">
-    <a href="/" class="logo"><img src="/assets/brand/logo.svg" alt="Free Audio Trim logo" width="28" height="28" decoding="async"> freeaudiotrim.com</a>
-    <nav>
-      <a href="/">MP3 Trimmer</a>
-      <a href="/convert-mp3-to-wav.html">Convert</a>
-      <a href="/normalize-audio-volume.html">Normalize Volume</a>
+    <a href="/" class="logo" aria-label="Free Audio Trim home"><img src="/assets/brand/logo.svg" alt="Free Audio Trim" width="207" height="32" decoding="async"></a>
+    <button class="menu-toggle" aria-label="Toggle menu">&#9776;</button>
+    <nav class="nav-links">
+      <a href="/tools.html">All Tools</a>
       <a href="/blog/">Blog</a>
+      <a href="/contact.html">Contact</a>
     </nav>
   </div>
 </header>
 
 <main class="container">
-  <section class="content-section section-intro section-surface hero">
-    <h1>Audio Speed Changer &mdash; Speed Up or Slow Down Audio Online</h1>
-    <p>An audio speed changer allows you to adjust how fast or slow an audio recording plays. This can be helpful when learning music, studying lectures, reviewing podcasts, or editing voice recordings.</p>
-    <p>This browser-based tool allows you to speed up or slow down audio quickly without installing software. The processing happens directly on your device, keeping your audio private and making adjustments instantly.</p>
+
+  <section class="content-section section-intro hero">
+    <h1>Free Audio Speed Changer Online<span class="hero-highlight">Speed Up or Slow Down Audio</span></h1>
+    <p>Adjust the playback speed of any audio file directly in your browser with real-time preview. Change audio speed online to speed up podcasts and lectures, slow down audio online for practice, or fine-tune recordings without uploading your audio.</p>
   </section>
 
-  <section class="content-section section-surface">
-    <p class="hero-subtext">Trim, speed up, or change pitch of your audio instantly &mdash; no uploads, no waiting.</p>
-  </section>
-
-  <p class="upload-trust-line--conversion">100% browser-based &#8226; No uploads &#8226; Private by design</p>
-
-  <section class="content-section section-surface">
-    <h2>Common Uses</h2>
-    <ul class="icon-list">
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><span>Speed up podcasts and spoken-word audio.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Slow down lessons and lectures for easier review.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/></svg></span><span>Practice music or transcribe voice recordings faster.</span></li>
-    </ul>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Why This Tool</h2>
-    <ul class="icon-list">
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7h8"/></svg></span><span>No uploads, so your audio stays on your device.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M8 8v8"/><path d="M16 6v12"/></svg></span><span>Fast processing with instant preview feedback.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>Free to use in any modern browser.</span></li>
-    </ul>
-  </section>
-
-  <section class="content-section section-surface tool-ui">
-    <h2>Upload Audio</h2>
-    <input id="fileInput" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape" hidden>
-    <div class="upload-box" id="uploadDropzone" role="button" tabindex="0" aria-label="Drop audio file here or click to upload">
-      <div class="upload-content">
-        <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
-        <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
-        <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
-        <small class="upload-dropzone__meta">Max file size: 200MB</small>
-        <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
-      </div>
-    </div>
-    <p class="upload-helper-text">Upload a file to start editing</p>
-    <p class="upload-trust-line">Free &bull; No upload &bull; Works in your browser</p>
-  </section>
-
-  <section class="content-section section-surface tool-ui">
-    <h2>Adjust Settings</h2>
-    <div class="tool-card">
-      <div class="editor-layout">
-        <div class="editor-main">
-          <div class="control-stack">
-            <label class="control-label" for="speedRange">
-              Playback Speed
-              <div class="range-row">
-                <input id="speedRange" type="range" min="0.5" max="2" step="0.05" value="1">
-                <span class="speed-value" id="speedValue">1.00x</span>
-              </div>
-            </label>
-
-            <label class="toggle-row" for="alsoAdjustPitch">
-              <input id="alsoAdjustPitch" type="checkbox">
-              <span>Also adjust pitch</span>
-            </label>
-
-            <label class="control-label secondary-control" id="pitchControlGroup" for="linkedPitchRange" hidden>
-              Pitch Shift
-              <div class="range-row">
-                <input id="linkedPitchRange" type="range" min="-12" max="12" step="1" value="0">
-                <span class="speed-value" id="linkedPitchValue">+0 st</span>
-              </div>
-            </label>
-
-            <div class="meta-grid">
-              <div class="meta-item" id="rateValue">Preview Mode: Modified</div>
-              <div class="meta-item" id="originalDuration">Original Duration: -</div>
-              <div class="meta-item" id="newDuration">Processed Duration: -</div>
+  <section class="content-section tool-section">
+    <div class="tool-ui">
+      <input id="audioFileInput" class="is-hidden" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape">
+      <div class="upload-shell" id="upload-shell">
+        <div class="upload-box"
+          id="upload-dropzone"
+          data-upload-dropzone
+          data-upload-input="audioFileInput"
+          role="button"
+          tabindex="0"
+          aria-label="Drop audio file here or click to upload">
+          <div class="upload-content">
+            <div class="upload-illustration" aria-hidden="true">
+              <img src="/assets/icons/upload-illustration.svg" alt="">
             </div>
-          </div>
-
-          <div class="waveform-shell">
-            <canvas id="waveformCanvas" class="waveform-canvas" aria-label="Waveform preview"></canvas>
-            <p id="waveformTime" class="time-display">00:00 / 00:00</p>
-            <input id="seekBar" class="seek-bar" type="range" min="0" max="0" step="0.01" value="0" aria-label="Seek audio">
-            <div class="transport-bar">
-              <button class="btn btn-secondary" id="jumpStartBtn" type="button">Jump to Start</button>
-              <button class="btn btn-secondary" id="previewBtn" type="button">Play</button>
-              <button class="btn btn-secondary" id="pauseBtn" type="button">Pause</button>
-              <button class="btn btn-secondary" id="stopBtn" type="button">Stop</button>
-              <span id="transportTime" class="time-display">00:00 / 00:00</span>
-              <div class="ab-toggle">
-                <button class="btn btn-secondary" id="originalModeBtn" type="button">A Original</button>
-                <button class="btn btn-primary" id="modifiedModeBtn" type="button">B Modified</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="result-panel">
-            <div class="result-actions">
-              <button class="btn btn-primary" id="exportBtn" type="button">Export Modified File</button>
-              <a id="downloadLink" class="btn btn-secondary" style="display:none;text-decoration:none" aria-label="Download modified audio">Download</a>
-            </div>
-            <p class="result-helper-text result-helper-text--processing">Processing... Almost ready.</p>
-            <p class="result-helper-text result-helper-text--success">Your audio is ready &mdash; download now</p>
-            <p id="status" class="status-text" data-status-state="idle">Upload a file to start.</p>
-          </div>
-
-          <div class="related-tools">
-            <h3>Try next</h3>
-            <ul>
-              <li><a href="/audio-pitch-changer.html">Change audio pitch online</a></li>
-              <li><a href="/normalize-audio-volume.html">Normalize audio volume</a></li>
-              <li><a href="/merge-audio-files.html">Merge audio files online</a></li>
-            </ul>
+            <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
+            <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
           </div>
         </div>
+      </div>
+      <div id="tool-shell" class="tool-shell is-hidden">
+        <div id="audio-tool" class="at-root">
+          <div class="tool-card">
+            <div class="at-file-row is-hidden" data-role="fileRow">
+              <div class="at-file-info">
+                <i data-lucide="music"></i>
+                <span class="at-file-name" data-role="fileName"></span>
+              </div>
+              <button class="at-btn at-btn-soft" data-role="changeFile">
+                Change
+              </button>
+            </div>
 
-        <aside class="analysis-card">
-          <h3>Analysis</h3>
-          <div class="analysis-grid">
-            <div class="analysis-item analysis-item--key" id="keyAnalysis">
-              <span class="analysis-label">Key</span>
-              <span class="analysis-value" id="keyValue">Waiting for file</span>
+            <div class="at-row at-wave-wrap">
+              <canvas id="waveformCanvas" class="at-wave" aria-label="Waveform preview"></canvas>
             </div>
-            <label class="toggle-row" for="semitoneMode">
-              <input id="semitoneMode" type="checkbox" checked>
-              <span>semitones</span>
-            </label>
-            <div class="analysis-item analysis-item--bpm" id="bpmAnalysis">
-              <span class="analysis-label">BPM</span>
-              <span class="analysis-value" id="bpmValue">-</span>
+
+            <div class="at-times">
+              <span id="waveformTime">0:00 / 0:00</span>
             </div>
-            <div class="analysis-item analysis-item--confidence" id="confidenceAnalysis">
-              <span class="analysis-label">Confidence</span>
-              <span class="analysis-value" id="confidenceValue">Low confidence</span>
+
+            <div class="pitch-controls">
+              <button class="at-btn at-btn-primary" id="previewBtn" type="button">
+                Play
+              </button>
+
+              <div class="pitch-inline speed-inline">
+                <input id="speedRange" type="range" min="0.5" max="2" step="0.05" value="1">
+                <span id="speedValue" class="pitch-bubble">1.00x</span>
+              </div>
+
+              <p class="advanced-note">
+                Keep small speed changes for the most natural sound. Use More options if you want speed and pitch to move together.
+              </p>
+
+              <button class="at-btn at-btn-soft" id="exportBtn" type="button">
+                Export
+              </button>
+            </div>
+
+            <div class="at-row at-status" id="status" data-status-state="idle">
+              Upload a file to start.
+            </div>
+
+            <details class="at-advanced">
+              <summary class="at-btn at-btn-soft">
+                More options
+              </summary>
+
+              <div class="advanced-panel">
+                <label class="at-checkbox" for="alsoAdjustPitch">
+                  <input id="alsoAdjustPitch" type="checkbox">
+                  Also adjust pitch
+                </label>
+
+                <div id="pitchControlGroup" class="pitch-inline speed-inline" hidden>
+                  <input id="linkedPitchRange" type="range" min="-12" max="12" step="1" value="0">
+                  <span id="linkedPitchValue" class="pitch-bubble">+0 st</span>
+                </div>
+
+                <input id="semitoneMode" type="checkbox" checked hidden>
+              </div>
+            </details>
+
+            <div class="is-hidden">
+              <button id="pauseBtn" class="at-btn at-btn-soft" type="button"></button>
+              <button id="stopBtn" class="at-btn at-btn-soft" type="button"></button>
+              <button id="jumpStartBtn" class="at-btn at-btn-soft" type="button"></button>
+              <input id="seekBar" type="range" min="0" max="0" step="0.01" value="0" aria-label="Seek audio">
+              <span id="transportTime"></span>
+              <button id="originalModeBtn" class="at-btn at-btn-soft" type="button"></button>
+              <button id="modifiedModeBtn" class="at-btn at-btn-soft" type="button"></button>
+              <div id="rateValue"></div>
+              <div id="originalDuration"></div>
+              <div id="newDuration"></div>
+              <span id="keyValue" hidden></span>
+              <span id="bpmValue" hidden></span>
+              <span id="confidenceValue" hidden></span>
+              <a id="downloadLink" aria-label="Download modified audio"></a>
             </div>
           </div>
-        </aside>
+        </div>
       </div>
+    </div>
+    <div class="trust-line">
+      <i data-lucide="shield-check"></i>
+      <span><strong>100% Private</strong> — Files never leave your device — No upload required</span>
     </div>
   </section>
 
   <section class="content-section section-shell section-surface">
-    <h2>How to Change Audio Speed</h2>
-    <ol class="step-list">
-      <li><span class="step-title">Upload your file</span><span class="step-description">Choose the audio track you want to speed up or slow down.</span></li>
-      <li><span class="step-title">Adjust the speed</span><span class="step-description">Use the playback slider to set the exact pace you want.</span></li>
-      <li><span class="step-title">Preview the change</span><span class="step-description">Listen to the updated playback before committing to export.</span></li>
-      <li><span class="step-title">Export the result</span><span class="step-description">Download the modified audio once the speed change sounds right.</span></li>
-    </ol>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Recommended Audio Speed Settings</h2>
-
-    <p>Different playback speeds work better for different types of audio content. Adjusting audio speed carefully helps maintain clarity while improving listening efficiency.</p>
-
-    <ul>
-      <li><strong>1.1&times; &ndash; 1.25&times;:</strong> Ideal for podcasts and casual listening.</li>
-      <li><strong>1.5&times;:</strong> Common speed for lectures, interviews, and educational content.</li>
-      <li><strong>1.75&times; &ndash; 2&times;:</strong> Useful for reviewing long recordings quickly.</li>
-      <li><strong>0.75&times; &ndash; 0.5&times;:</strong> Helpful for music practice and language learning.</li>
-    </ul>
-
-    <p>Many users speed up spoken recordings while slowing down music passages to better understand musical details.</p>
-  </section>
-
-  <section class="content-section section-shell section-surface">
-    <h2>Audio Speed vs Pitch</h2>
-
-    <ul class="feature-list feature-list--icon">
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M8 8v8"/><path d="M16 6v12"/></svg></span><span>Audio speed and pitch are two different sound properties. Speed controls how fast audio plays, while pitch determines how high or low the tone sounds.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17V7"/><path d="M7 14V10"/><path d="M11 19V5"/><path d="M15 12V8"/><path d="M19 16V8"/></svg></span><span>Traditional playback methods change both speed and pitch together. For example, speeding up audio would also make voices sound higher. Modern audio processing can preserve pitch while adjusting speed.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M8 7h8"/><path d="M6 17h12"/></svg></span><span>If you want to modify the tonal pitch instead of playback speed, you can use our <a href="/audio-pitch-changer.html">Audio Pitch Changer</a>.</span></li>
-    </ul>
+    <h2>How Speed Changing Works</h2>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h3>Upload your audio</h3>
+        <p>Select an audio file from your device, including MP3, WAV, M4A, AAC, FLAC, OGG, and other supported formats.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h3>Adjust speed</h3>
+        <p>Use the playback slider to set the exact pace you want, whether you need a subtle timing change or a much faster or slower version.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h3>Preview</h3>
+        <p>Listen to the updated playback before exporting so you can confirm the pace, clarity, and overall feel of the result.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <h3>Export</h3>
+        <p>Download the modified audio instantly and continue editing, studying, sharing, or publishing it in your workflow.</p>
+      </div>
+    </div>
   </section>
 
   <section class="content-section section-surface">
     <h2>Supported Audio Formats</h2>
-
-    <p>This audio speed changer works with most common audio formats supported by modern browsers.</p>
-
-    <ul>
-      <li>MP3</li>
-      <li>WAV</li>
-      <li>AAC</li>
-      <li>M4A</li>
-      <li>FLAC</li>
-      <li>OGG</li>
-    </ul>
-
-    <p>Compatibility depends on your browser&rsquo;s audio decoding capabilities. Modern browsers such as Chrome, Edge, Firefox, and Safari support most of these formats.</p>
-  </section>
-
-  <section class="content-section section-shell section-surface">
-    <h2>Common Uses for Changing Audio Speed</h2>
-
-    <p>Changing playback speed is useful in many everyday scenarios. Students, creators, and professionals frequently adjust audio speed to improve productivity or learning.</p>
-
-    <ul class="icon-list">
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><span>Listening to podcasts faster</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Reviewing recorded lectures</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></span><span>Transcribing speech recordings</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3"/><path d="M9 8v8"/><path d="M15 5v14"/><path d="M21 10v4"/></svg></span><span>Practicing musical instruments</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>Analyzing vocal recordings</span></li>
-    </ul>
-
-    <p>Speed control is especially helpful for spoken content where clarity remains strong even at faster playback speeds.</p>
-  </section>
-
-  <section class="content-section section-shell section-surface">
-    <h2>When to Speed Up Audio</h2>
-    <p>Speeding up audio can help you consume content faster or shorten recordings.</p>
-    <p>Common uses include:</p>
-    <ul class="icon-list">
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><span>Listening to podcasts faster</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Reviewing lectures quickly</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7"/><path d="M13 17h7"/><path d="m11 4 3 3-3 3"/><path d="m13 14-3 3 3 3"/></svg></span><span>Adjusting narration timing in video projects</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3"/><path d="M9 8v8"/><path d="M15 5v14"/><path d="M21 10v4"/></svg></span><span>Compressing spoken recordings</span></li>
-    </ul>
-  </section>
-
-  <section class="content-section section-shell section-surface">
-    <h2>When to Slow Down Audio</h2>
-    <p>Slowing down audio makes it easier to hear details.</p>
-    <p>Typical uses include:</p>
-    <ul class="icon-list">
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3"/><path d="M9 8v8"/><path d="M15 5v14"/><path d="M21 10v4"/></svg></span><span>Music practice</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="m9 12 2 2 4-4"/></svg></span><span>Learning instruments</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></span><span>Language learning</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Speech transcription</span></li>
-    </ul>
+    <div class="supported-wrapper">
+      <div class="supported-block supported-formats">
+        <p class="supported-label">Supported formats</p>
+        <div class="supported-items">
+          <span>MP3</span>
+          <span>WAV</span>
+          <span>M4A</span>
+          <span>AAC</span>
+          <span>FLAC</span>
+          <span>OGG</span>
+        </div>
+      </div>
+      <div class="supported-divider"></div>
+      <div class="trust-block">
+        <div class="trust-items">
+          <div class="trust-item">
+            <i data-lucide="shield-check"></i>
+            <div><strong>100% Private</strong><span>Files never leave your device</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="cloud-off"></i>
+            <div><strong>No Upload Required</strong><span>Everything runs in your browser</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="zap"></i>
+            <div><strong>Instant Processing</strong><span>Change speed in seconds</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="monitor"></i>
+            <div><strong>Works Everywhere</strong><span>Desktop, tablet, mobile</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section class="content-section section-surface">
-    <h2>Speed vs Pitch</h2>
-    <p>Playback speed controls how fast audio plays, while pitch controls how high or low the sound is. After adjusting playback speed you may want to <a href="/normalize-audio-volume.html">balance audio volume</a> to smooth out loudness or trim the recording using the <a href="/free-mp3-cutter.html">trim audio file</a> workflow before exporting.</p>
-    <p>If you need to adjust pitch instead of speed, you can use our <a href="/audio-pitch-changer.html">Audio Pitch Changer</a>.</p>
+    <h2>Why FreeAudioTrim</h2>
+    <div class="why-grid">
+      <div class="why-item">
+        <h3>No Uploads</h3>
+        <p>Your audio stays on your device, which keeps the process private and removes the delay that comes with uploading files to a remote server.</p>
+      </div>
+      <div class="why-item">
+        <h3>Instant Preview</h3>
+        <p>Hear speed changes in real time before exporting so you can fine-tune playback without making blind edits.</p>
+      </div>
+      <div class="why-item">
+        <h3>Pitch Preservation</h3>
+        <p>Change speed without altering tonal pitch when desired, which is useful for podcasts, lectures, and practice tracks.</p>
+      </div>
+      <div class="why-item">
+        <h3>Free to Use</h3>
+        <p>No signups, no subscriptions, and no hidden limitations for everyday audio speed adjustments in your browser.</p>
+      </div>
+    </div>
   </section>
 
-  <div id="related-tools"></div>
+  <section class="content-section content-flow">
+    <h2>Why Audio Speed Changer</h2>
+    <p>Speed changing adjusts playback rate so audio plays faster or slower without necessarily changing pitch. People use it to move through spoken content more efficiently, slow songs for practice, review interviews, and refine timing inside creative workflows.</p>
+    <p>A browser-based audio speed changer also works as a simple tempo changer for music practice. Modern local audio processing keeps files private while making preview and export much faster for everyday edits.</p>
+  </section>
 
-  <section class="content-section section-surface">
-    <h2>Guides for Better Speed-Edit Workflows</h2>
-    <p>Use these step-by-step articles when you want to tighten pacing, prepare a lecture clip, or continue editing after changing playback speed.</p>
-    <ul>
-      <li><a href="/blog/how-to-edit-audio-online.html">How to edit audio online</a> for a complete browser workflow.</li>
-      <li><a href="/blog/how-to-trim-mp3-online.html">How to trim MP3 online</a> to remove rough starts before speeding up or slowing down the file.</li>
-      <li><a href="/blog/how-to-make-audio-louder.html">How to make audio louder</a> if the processed result needs stronger playback.</li>
-    </ul>
+  <section class="content-section ai-section">
+    <h2>Powered by Advanced Browser Technology</h2>
+    <p>This tool uses modern browser audio processing to handle speed changes directly on your device. That gives you fast local preview, no server upload step, and more control when you want to test different playback settings before export.</p>
   </section>
 
   <section class="content-section section-surface">
-    <h2>FAQ</h2>
+    <h2>Key Benefits</h2>
+    <div class="benefits-grid">
+      <div class="benefit-item">
+        <h3>Speed Control</h3>
+        <p>Adjust playback from 0.5x to 2x with precise slider control for both small timing changes and more dramatic speed shifts.</p>
+      </div>
+      <div class="benefit-item">
+        <h3>Pitch Preservation</h3>
+        <p>Change speed without affecting tonal pitch, which helps preserve natural voices and musical character when playback rate changes.</p>
+      </div>
+      <div class="benefit-item">
+        <h3>Real-Time Preview</h3>
+        <p>Listen to changes instantly before committing to export so your final file is closer to what you want on the first pass.</p>
+      </div>
+      <div class="benefit-item">
+        <h3>BPM Detection</h3>
+        <p>Built-in analysis shows detected BPM to help with music practice, timing checks, and more controlled speed adjustments.</p>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="content-section use-cases">
+    <h2>Audio Speed Changer Use Cases</h2>
+    <p>Audio speed adjustment helps students, creators, editors, and musicians across many workflows. Here are some of the most common ways people use an audio speed changer online.</p>
+    <div class="use-case-grid">
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="mic"></i></div>
+        <h3>Podcasts & Spoken Word</h3>
+        <p>Speed up podcasts, audiobooks, and lectures to move through spoken content faster while keeping playback clear and understandable.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="music"></i></div>
+        <h3>Music Practice</h3>
+        <p>Slow down songs to learn complex passages, transcribe parts, practice difficult sections, or use the tool as a lightweight tempo changer before returning to full speed.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="audio-waveform"></i></div>
+        <h3>Transcription</h3>
+        <p>Slow down speech recordings to make transcription, review, and note-taking easier without losing the overall clarity of the source audio.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="briefcase"></i></div>
+        <h3>Video Editing</h3>
+        <p>Adjust narration timing in video and media projects when pacing needs to fit a cut, scene length, or delivery target more closely.</p>
+      </div>
+    </div>
+  </section>
+
+      <section class="content-section related-tools">
+
+    <h2>Explore Audio Tools</h2>
+    <h3>Go beyond speed changes and handle trimming, pitch shifting, transcription, conversion, and more with related browser-based audio tools.</h3>
+
+    <div class="tool-links-grid">
+    <a href="/audio-pitch-changer.html" class="tool-link">
+      <strong>Pitch Changer</strong>
+      <span>Raise or lower pitch without changing length</span>
+    </a>
+    <a href="/audio-cutter-online.html" class="tool-link">
+      <strong>Audio Cutter</strong>
+      <span>Trim audio with precise waveform controls</span>
+    </a>
+    <a href="/audio-video-transcription-online.html" class="tool-link">
+      <strong>Audio Transcription</strong>
+      <span>Convert speech into text automatically</span>
+    </a>
+    <a href="/ringtone-maker.html" class="tool-link">
+      <strong>Ringtone Maker</strong>
+      <span>Trim audio into ringtone-ready clips</span>
+    </a>
+    <a href="/merge-audio-files.html" class="tool-link">
+      <strong>Merge Audio Files</strong>
+      <span>Combine multiple audio tracks into one</span>
+    </a>
+    </div>
+
+    <h3 class="tool-pills-label">More tools</h3>
+    <div class="tool-pills">
+    <a href="/merge-audio-files.html" class="tool-pill">Merge Audio Files</a>
+    <a href="/normalize-audio-volume.html" class="tool-pill">Normalize Audio</a>
+    <a href="/remove-silence-from-audio.html" class="tool-pill">Remove Silence</a>
+    <a href="/audio-converter.html" class="tool-pill">Audio Converter</a>
+    <a href="/extract-audio-from-video.html" class="tool-pill">Extract Audio</a>
+    </div>
+
+  </section>
+
+  <section class="content-section related-articles">
+    <h2>Related Articles</h2>
+    <div class="article-grid">
+      <a href="/blog/how-to-edit-audio-online.html" class="article-card">
+        <img src="/assets/blog/audio-editing-guide.webp" alt="How to edit audio online">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>How to Edit Audio Online</h3>
+          <p class="article-desc">Learn how to edit audio files quickly using browser-based tools.</p>
+        </div>
+      </a>
+      <a href="/blog/how-to-trim-mp3-online.html" class="article-card">
+        <img src="/assets/blog/trim-mp3-online-guide.webp" alt="How to trim MP3 online">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>How to Trim MP3 Online</h3>
+          <p class="article-desc">Step-by-step guide to cut MP3 files directly in your browser.</p>
+        </div>
+      </a>
+      <a href="/blog/how-to-make-audio-louder.html" class="article-card">
+        <img src="/assets/blog/make-audio-louder.webp" alt="How to make audio louder">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>How to Make Audio Louder</h3>
+          <p class="article-desc">Increase audio volume safely using browser-based normalization.</p>
+        </div>
+      </a>
+    </div>
+  </section>
+
+<section class="content-section section-surface">
+    <h2>Why Use a Browser-Based Speed Changer</h2>
+    <p>Traditional audio software can feel heavy for a simple timing change. This browser-based tool lets you adjust playback speed without installing anything while keeping processing local on your device. After changing speed, you can <a href="/free-mp3-cutter.html">trim the audio</a> or <a href="/normalize-audio-volume.html">adjust volume</a> before downloading.</p>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Frequently Asked Questions</h2>
     <details>
-      <summary>How do I speed up audio online?</summary>
-      <p>Upload your file and increase the playback speed using the control slider.</p>
+      <summary>How do I speed up or slow down audio online?</summary>
+      <p>Upload your file and adjust the playback speed slider. Preview the change in real time, then export when it sounds right.</p>
     </details>
     <details>
-      <summary>Can I slow down audio without distortion?</summary>
-      <p>Modern audio processing can slow audio while maintaining natural sound quality.</p>
+      <summary>Does changing speed affect pitch?</summary>
+      <p>By default, pitch is preserved when you change speed. Enable "Also adjust pitch" if you want speed and pitch to change together.</p>
     </details>
     <details>
-      <summary>Why would someone change audio speed?</summary>
-      <p>People change audio speed for learning, transcription, podcast editing, and music practice.</p>
+      <summary>Can I slow down audio without distorting it?</summary>
+      <p>Modern audio processing can slow audio while maintaining natural sound quality within reasonable speed ranges, especially when changes are moderate.</p>
     </details>
     <details>
-      <summary>Can MP3 files be sped up or slowed down?</summary>
-      <p>Yes. Most speed changers support MP3 and other common audio formats.</p>
-    </details>
-    <details>
-      <summary>Does speed affect pitch?</summary>
-      <p>Traditional speed changes may affect pitch, but some processing methods preserve pitch.</p>
+      <summary>How do I speed up a song online?</summary>
+      <p>Upload the song, move the speed slider upward until the timing feels right, preview the result, and export the new version once it sounds natural.</p>
     </details>
     <details>
       <summary>Does speeding up audio reduce quality?</summary>
-      <p>Small speed adjustments usually maintain good audio quality. Extreme speed changes may introduce artifacts depending on the processing algorithm.</p>
+      <p>Small speed adjustments usually maintain good audio quality. Extreme changes may introduce artifacts depending on the processing algorithm.</p>
     </details>
     <details>
-      <summary>What is the fastest safe playback speed?</summary>
-      <p>Most listeners can comfortably understand speech between 1.5&times; and 2&times; speed.</p>
+      <summary>Can I change pitch instead of speed?</summary>
+      <p>Yes. Use the <a href="/audio-pitch-changer.html">Audio Pitch Changer</a> to adjust tonal pitch without affecting playback speed.</p>
     </details>
     <details>
-      <summary>Can I slow down audio for music practice?</summary>
-      <p>Yes. Slowing down audio makes it easier to hear musical details and learn complex passages.</p>
+      <summary>What formats are supported?</summary>
+      <p>MP3, WAV, M4A, AAC, FLAC, and OGG are supported in most modern browsers.</p>
     </details>
   </section>
+
 </main>
 
-<footer>
+<footer class="site-footer">
   <div class="footer-container">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
-      <div>
-        <div class="footer-title">AudioTools</div>
-        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
-      </div>
-      <div>
-        <div class="footer-title">Tools</div>
-        <p><a href="/" class="footer-text">MP3 Trimmer</a></p>
-        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
-        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
-      </div>
-      <div>
-        <div class="footer-title">Legal</div>
-        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
-        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
-        <p><a href="/contact.html" class="footer-text">Contact</a></p>
-      </div>
+    <div class="footer-brand">
+      <h3>FreeAudioTrim</h3>
+      <p>Simple, fast, and private audio tools that run entirely in your browser.</p>
     </div>
-    <div class="footer-small">
-      (c) 2026 AudioTools. All rights reserved.
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <ul>
+        <li><a href="/audio-cutter-online.html">Audio Cutter</a></li>
+        <li><a href="/free-mp3-cutter.html">MP3 Cutter</a></li>
+        <li><a href="/merge-audio-files.html">Merge Audio</a></li>
+        <li><a href="/remove-silence-from-audio.html">Remove Silence</a></li>
+        <li><a href="/normalize-audio-volume.html">Normalize Audio</a></li>
+        <li><a href="/audio-converter.html">Audio Converter</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>More Tools</h4>
+      <ul>
+        <li><a href="/audio-speed-changer.html">Speed Changer</a></li>
+        <li><a href="/audio-pitch-changer.html">Pitch Changer</a></li>
+        <li><a href="/extract-audio-from-video.html">Extract Audio</a></li>
+        <li><a href="/convert-mp3-to-wav.html">MP3 to WAV</a></li>
+        <li><a href="/mp3-to-m4r.html">MP3 to M4R</a></li>
+        <li><a href="/ringtone-maker.html">Ringtone Maker</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <ul>
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="/blog/audio-editing-guide.html">Audio Editing Guide</a></li>
+        <li><a href="/blog/how-to-trim-mp3-online.html">Trim MP3 Guide</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-legal">
+      <a href="/terms-of-service.html">Terms</a>
+      <a href="/privacy-policy.html">Privacy</a>
+      <a>Cookies</a>
+      <a>Security</a>
+    </div>
+    <div class="footer-social">
+      <a>LinkedIn</a>
+      <a>X</a>
+      <a>YouTube</a>
     </div>
   </div>
 </footer>
@@ -404,5 +504,66 @@
 <script src="/assets/speed-tool.js" defer></script>
 <script src="/assets/upload.js" defer></script>
 <script src="/assets/related-tools.js"></script>
+<script>
+document.addEventListener('file:selected', function(e) {
+  const file = e.detail.file;
+  const input = e.detail.input;
+
+  const uploadShell = document.getElementById('upload-shell');
+  const toolShell = document.getElementById('tool-shell');
+
+  if (!file || (input && input.id !== 'audioFileInput') || !toolShell.classList.contains('is-hidden')) return;
+
+  if (uploadShell) uploadShell.classList.add('is-hidden');
+  if (toolShell) toolShell.classList.remove('is-hidden');
+
+  const fileRow = document.querySelector('[data-role="fileRow"]');
+  if (fileRow) fileRow.classList.remove('is-hidden');
+
+  const fileNameEl = document.querySelector('[data-role="fileName"]');
+  if (fileNameEl) fileNameEl.textContent = file.name;
+
+  if (window.AudioSpeedTool) {
+    window.AudioSpeedTool.addFile(file);
+  }
+
+  if (toolShell) {
+    const offset = 100;
+    const y = toolShell.getBoundingClientRect().top + window.pageYOffset - offset;
+    window.scrollTo({ top: y, behavior: "smooth" });
+  }
+});
+
+document.addEventListener("click", function(e) {
+  const changeBtn = e.target.closest('[data-role="changeFile"]');
+  if (!changeBtn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const input = document.getElementById("audioFileInput");
+  if (!input) return;
+
+  input.value = "";
+  input.click();
+}, true);
+
+document.addEventListener('converter:empty', () => {
+  const uploadShell = document.getElementById('upload-shell');
+  const toolShell = document.getElementById('tool-shell');
+  const input = document.getElementById('audioFileInput');
+
+  if (uploadShell) uploadShell.classList.remove('is-hidden');
+  if (toolShell) toolShell.classList.add('is-hidden');
+
+  if (input) input.value = '';
+});
+</script>
+<script src="/assets/mobile-menu.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  lucide.createIcons();
+</script>
 </body>
 </html>
+

@@ -15,8 +15,6 @@
   const BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
 
   const elements = {
-    fileInput: document.getElementById("fileInput"),
-    uploadDropzone: document.getElementById("uploadDropzone"),
     conversionType: document.getElementById("conversionType"),
     mp3Bitrate: document.getElementById("mp3Bitrate"),
     convertAllBtn: document.getElementById("convertAllBtn"),
@@ -25,7 +23,14 @@
     toolStatus: document.getElementById("toolStatus")
   };
 
-  if (!elements.fileInput || !elements.uploadDropzone) {
+  if (
+    !elements.conversionType ||
+    !elements.mp3Bitrate ||
+    !elements.convertAllBtn ||
+    !elements.clearBtn ||
+    !elements.queueBody ||
+    !elements.toolStatus
+  ) {
     return;
   }
 
@@ -33,37 +38,6 @@
   renderQueue();
 
   function wireEvents() {
-    elements.uploadDropzone.addEventListener("click", () => {
-      elements.fileInput.click();
-    });
-
-    elements.uploadDropzone.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        elements.fileInput.click();
-      }
-    });
-
-    elements.uploadDropzone.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      elements.uploadDropzone.classList.add("is-dragover");
-    });
-
-    elements.uploadDropzone.addEventListener("dragleave", () => {
-      elements.uploadDropzone.classList.remove("is-dragover");
-    });
-
-    elements.uploadDropzone.addEventListener("drop", (event) => {
-      event.preventDefault();
-      elements.uploadDropzone.classList.remove("is-dragover");
-      addFiles(event.dataTransfer ? event.dataTransfer.files : []);
-    });
-
-    elements.fileInput.addEventListener("change", () => {
-      addFiles(elements.fileInput.files || []);
-      elements.fileInput.value = "";
-    });
-
     elements.convertAllBtn.addEventListener("click", () => {
       void convertQueue();
     });
@@ -198,6 +172,7 @@
 
     renderQueue();
     setStatus("File removed from queue.");
+    emitEmptyStateIfNeeded();
   }
 
   function downloadItem(id) {
@@ -221,6 +196,7 @@
     state.queue = [];
     renderQueue();
     setStatus("Queue cleared.");
+    document.dispatchEvent(new Event("converter:empty"));
   }
 
   function renderQueue() {
@@ -379,4 +355,16 @@
   function setStatus(message) {
     elements.toolStatus.textContent = message;
   }
+
+  function emitEmptyStateIfNeeded() {
+    if (state.queue.length === 0) {
+      document.dispatchEvent(new Event("converter:empty"));
+    }
+  }
+
+  window.AudioConverter = {
+    addFile(file) {
+      addFiles([file]);
+    }
+  };
 })();

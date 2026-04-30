@@ -10,12 +10,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 180px;
+  min-height: 152px;
   width: 100%;
-  max-width: 640px;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
-  border: 2px dashed var(--upload-border);
+  padding: 1.35rem 1.5rem;
+  border: 1px solid #707ddd;
   border-radius: var(--radius-lg);
   background: var(--upload-bg);
   color: var(--upload-text);
@@ -57,7 +56,7 @@
 .upload-content {
   display: grid;
   justify-items: center;
-  gap: 0.55rem;
+  gap: 0.4rem;
   max-width: 28rem;
 }
 
@@ -182,7 +181,16 @@
 @media (max-width: 640px) {
   .upload-dropzone,
   .upload-box {
-    min-height: 160px;
-    padding: 1.5rem 1rem;
+    min-height: 132px;
+    padding: 1.05rem 0.95rem;
+  }
+
+  .upload-content {
+    gap: 0.32rem;
+  }
+
+  .upload-dropzone__primary,
+  .upload-content h2 {
+    font-size: 1.05rem;
   }
 }

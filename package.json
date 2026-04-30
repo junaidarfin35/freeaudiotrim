@@ -1,5 +1,12 @@
 {
+  "scripts": {
+    "seo:orchestrate": "node automation/seo-orchestrator/index.mjs",
+    "seo:orchestrate:dry": "node automation/seo-orchestrator/index.mjs --dry-run"
+  },
   "dependencies": {
     "lamejs": "^1.2.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.1"
   }
 }

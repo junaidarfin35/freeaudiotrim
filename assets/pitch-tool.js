@@ -6,7 +6,6 @@
     return;
   }
 
-  const fileInput = document.getElementById("fileInput");
   const semitoneRange = document.getElementById("semitoneRange");
   const semitoneValue = document.getElementById("semitoneValue");
   const linkedSpeedRange = document.getElementById("linkedSpeedRange");
@@ -17,7 +16,6 @@
   const previewBtn = document.getElementById("previewBtn");
   const pauseBtn = document.getElementById("pauseBtn");
   const stopBtn = document.getElementById("stopBtn");
-  const jumpStartBtn = document.getElementById("jumpStartBtn");
   const exportBtn = document.getElementById("exportBtn");
   const downloadLink = document.getElementById("downloadLink");
   const status = document.getElementById("status");
@@ -32,10 +30,9 @@
   const rateValue = document.getElementById("rateValue");
   const keyValue = document.getElementById("keyValue");
   const bpmValue = document.getElementById("bpmValue");
-  const originalModeBtn = document.getElementById("originalModeBtn");
   const modifiedModeBtn = document.getElementById("modifiedModeBtn");
 
-  if (!fileInput || !semitoneRange || !previewBtn || !exportBtn) {
+  if (!semitoneRange || !previewBtn || !exportBtn) {
     return;
   }
 
@@ -64,6 +61,7 @@
     },
     onStateChange: updateState,
   });
+  window.__audioEngine = engine;
 
   bindEvents();
   updatePitchSliderUI();
@@ -71,27 +69,54 @@
   applySettings();
 
   function bindEvents() {
-    fileInput.addEventListener("change", () => {
-      const file = fileInput.files && fileInput.files[0];
-      if (file) {
-        clearDownload();
-        void engine.loadFile(file).then(() => {
-          applySettings();
-        });
-      }
-      fileInput.value = "";
+    semitoneRange.addEventListener("input", () => {
+      updatePitchSliderUI(); // instant UI only
     });
 
-    semitoneRange.addEventListener("input", () => {
+    semitoneRange.addEventListener("change", () => {
       pauseBeforeUpdate();
-      updatePitchSliderUI();
-      applySettings();
+      applySettings(); // process only after release/snap
+    });
+
+    semitoneRange.addEventListener("pointerdown", () => {
+      semitoneValue.style.opacity = "1";
+    });
+
+    semitoneRange.addEventListener("pointerup", () => {
+      semitoneValue.style.opacity = "0.6";
+    });
+
+    semitoneRange.addEventListener("touchstart", () => {
+      semitoneValue.style.opacity = "1";
+    });
+
+    semitoneRange.addEventListener("touchend", () => {
+      semitoneValue.style.opacity = "0.6";
     });
 
     linkedSpeedRange.addEventListener("input", () => {
+      updateSpeedUI(); // instant UI only
+    });
+
+    linkedSpeedRange.addEventListener("change", () => {
       pauseBeforeUpdate();
-      updateSpeedUI();
-      applySettings();
+      applySettings(); // process after release
+    });
+
+    linkedSpeedRange.addEventListener("pointerdown", () => {
+      linkedSpeedValue.style.opacity = "1";
+    });
+
+    linkedSpeedRange.addEventListener("pointerup", () => {
+      linkedSpeedValue.style.opacity = "0.6";
+    });
+
+    linkedSpeedRange.addEventListener("touchstart", () => {
+      linkedSpeedValue.style.opacity = "1";
+    });
+
+    linkedSpeedRange.addEventListener("touchend", () => {
+      linkedSpeedValue.style.opacity = "0.6";
     });
 
     alsoAdjustSpeed.addEventListener("change", () => {
@@ -112,9 +137,6 @@
     previewBtn.addEventListener("click", () => void engine.togglePlayPause());
     pauseBtn.addEventListener("click", () => engine.pause());
     stopBtn.addEventListener("click", () => engine.stop());
-    jumpStartBtn.addEventListener("click", () => engine.jumpToStart());
-    seekBar.addEventListener("input", () => void engine.seekTo(Number(seekBar.value) || 0));
-    originalModeBtn.addEventListener("click", () => void engine.setMode("original"));
     modifiedModeBtn.addEventListener("click", () => void engine.setMode("modified"));
     exportBtn.addEventListener("click", () => void exportAudio());
 
@@ -132,6 +154,16 @@
       engine.pause();
     }
     clearDownload();
+  }
+
+  function loadSelectedFile(file) {
+    if (!file) {
+      return;
+    }
+    clearDownload();
+    void engine.loadFile(file).then(() => {
+      applySettings();
+    });
   }
 
   function syncPitchScaleMode() {
@@ -159,16 +191,41 @@
 
   function updatePitchSliderUI() {
     const pitch = getPitchSemitones();
+
     if (semitoneMode.checked) {
       semitoneValue.textContent = `${pitch >= 0 ? "+" : ""}${Math.round(pitch)} st`;
     } else {
       semitoneValue.textContent = `${Math.pow(2, pitch / 12).toFixed(2)}x`;
     }
+
+    // 🔥 position bubble above thumb
+    const min = Number(semitoneRange.min);
+    const max = Number(semitoneRange.max);
+    const val = Number(semitoneRange.value);
+
+    const percent = (val - min) / (max - min);
+    semitoneValue.style.left = `calc(${percent * 100}% + (${6 - percent * 12}px))`;
+
+    // show quality note only for large shifts
+    const note = document.getElementById("pitchQualityNote");
+
+    if (note) {
+      note.classList.toggle("is-visible", Math.abs(pitch) > 5);
+    }
+
     updateAnalysisDisplay();
   }
 
   function updateSpeedUI() {
     linkedSpeedValue.textContent = `${getSpeed().toFixed(2)}x`;
+
+    // 🔥 match pitch bubble positioning
+    const min = Number(linkedSpeedRange.min);
+    const max = Number(linkedSpeedRange.max);
+    const val = Number(linkedSpeedRange.value);
+
+    const percent = (val - min) / (max - min);
+    linkedSpeedValue.style.left = `calc(${percent * 100}% + (${6 - percent * 12}px))`;
   }
 
   function getSpeed() {
@@ -182,7 +239,7 @@
     });
     rateValue.textContent = `Preview Mode: ${engine.getPlaybackState().mode === "original" ? "Original" : "Modified"}`;
     updateAnalysisDisplay();
-    setStatus("Settings updated. Press Preview or Spacebar.");
+    setStatus("Ready to preview.");
   }
 
   async function exportAudio() {
@@ -203,6 +260,9 @@
   }
 
   function updateState(state) {
+    if (window.updatePlayhead) {
+      window.updatePlayhead(state.currentTime, state.duration);
+    }
     rateValue.textContent = `Preview Mode: ${state.mode === "original" ? "Original" : "Modified"}`;
     previewBtn.textContent = state.isPlaying ? "Pause" : "Play";
     if (seekBar) {
@@ -210,7 +270,6 @@
       seekBar.value = String(Math.min(state.currentTime || 0, state.duration || 0));
     }
     updateAnalysisDisplay();
-    setModeButtonState(originalModeBtn, state.mode === "original");
     setModeButtonState(modifiedModeBtn, state.mode === "modified");
   }
 
@@ -304,5 +363,11 @@
     "A#": 10,
     BB: 10,
     B: 11,
+  };
+
+  window.AudioPitchTool = {
+    addFile(file) {
+      loadSelectedFile(file);
+    }
   };
 })();

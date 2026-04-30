@@ -19,6 +19,9 @@
       this.startedAt = 0;
       this.pausedOffset = 0;
       this.rafId = 0;
+      this.waveformCache = null;
+      this.waveformCacheWidth = 0;
+      this.waveformCacheHeight = 0;
       this.settings = {
         pitchSemitones: 0,
         speed: 1,
@@ -36,6 +39,9 @@
       try {
         this.stop();
         this.clearProcessedCache();
+        this.waveformCache = null;
+        this.waveformCacheWidth = 0;
+        this.waveformCacheHeight = 0;
         this.onStatus("Decoding audio...");
         const ctx = this.getContext();
         const arrayBuffer = await file.arrayBuffer();
@@ -65,6 +71,9 @@
         ...this.settings,
         ...nextSettings,
       };
+      this.waveformCache = null;
+      this.waveformCacheWidth = 0;
+      this.waveformCacheHeight = 0; 
       this.clearProcessedCache();
       if (this.previewMode === "B" && this.originalBuffer) {
         void this.primeProcessedBuffer();
@@ -396,6 +405,7 @@
         this.updateTimeDisplays(this.getCurrentTime());
         this.drawWaveform();
         this.updateState();
+
         if (this.isPlaying) {
           this.rafId = window.requestAnimationFrame(tick);
         }
@@ -421,60 +431,91 @@
     }
 
     drawWaveform() {
-      if (!this.canvas) {
-        return;
-      }
+      if (!this.canvas) return;
+
       const buffer = this.getCurrentBufferSync();
       const canvas = this.canvas;
       const rect = canvas.getBoundingClientRect();
-      const width = Math.max(320, Math.floor(rect.width || canvas.width || 640));
-      const height = Math.max(140, Math.floor(rect.height || canvas.height || 180));
-      const dpr = window.devicePixelRatio || 1;
+
+      const width = Math.max(320, Math.floor(canvas.clientWidth || rect.width || 640));
+      const height = Math.max(140, Math.floor(canvas.clientHeight || rect.height || 180));
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
       const ctx = canvas.getContext("2d");
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = "#f8fbff";
-      ctx.fillRect(0, 0, width, height);
-      ctx.strokeStyle = "#cfe0f7";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+      const cacheInvalid =
+      this.waveformCacheWidth !== canvas.width ||
+      this.waveformCacheHeight !== canvas.height;
 
-      if (!buffer) {
-        ctx.fillStyle = "#71829a";
-        ctx.font = "500 15px DM Sans, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("Upload a file to preview waveform", width / 2, height / 2);
-        return;
-      }
+    if (cacheInvalid) {
+      this.waveformCache = null;
+    }
 
-      const mono = mergeToMono(buffer);
-      const samplesPerPixel = Math.max(1, Math.floor(mono.length / width));
-      const centerY = height / 2;
+    if (this.waveformCache) {
+        ctx.drawImage(this.waveformCache, 0, 0, canvas.width, canvas.height, 0, 0, width, height);
+      } else {
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "#fafafa";
+        ctx.fillRect(0, 0, width, height);
 
-      ctx.beginPath();
-      ctx.strokeStyle = "#5f88bd";
-      ctx.lineWidth = 1;
-      for (let x = 0; x < width; x += 1) {
-        const start = x * samplesPerPixel;
-        const end = Math.min(mono.length, start + samplesPerPixel);
-        let min = 1;
-        let max = -1;
-        for (let i = start; i < end; i += 1) {
-          const value = mono[i];
-          if (value < min) min = value;
-          if (value > max) max = value;
+        if (!buffer) {
+          ctx.fillStyle = "#71829a";
+          ctx.font = "500 15px DM Sans, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("Upload a file to preview waveform", width / 2, height / 2);
+          return;
         }
-        ctx.moveTo(x + 0.5, centerY + min * centerY * 0.88);
-        ctx.lineTo(x + 0.5, centerY + max * centerY * 0.88);
+
+        const mono = mergeToMono(buffer);
+        const blockSize = mono.length / width;
+        const centerY = height / 2;
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, "#c7d2fe");
+        gradient.addColorStop(1, "#4338ca");
+
+        ctx.fillStyle = gradient;
+
+        for (let x = 0; x < width; x += 2) {
+          const start = Math.floor(x * blockSize);
+          const end = Math.max(start + 1, Math.floor((x + 2) * blockSize));
+
+          let peak = 0;
+
+          for (let i = start; i < end; i++) {
+            peak = Math.max(peak, Math.abs(mono[i] || 0));
+          }
+
+          const barHeight = Math.max(1, peak * height * 0.85);
+          const y = centerY - barHeight / 2;
+
+          ctx.fillRect(x, y, 1.6, barHeight);
+        }
+
+        const offscreen = document.createElement("canvas");
+        offscreen.width = canvas.width;
+        offscreen.height = canvas.height;
+
+        const offCtx = offscreen.getContext("2d");
+        offCtx.drawImage(canvas, 0, 0);
+
+        this.waveformCache = offscreen;
+        this.waveformCacheWidth = canvas.width;
+        this.waveformCacheHeight = canvas.height;
       }
-      ctx.stroke();
+
+      if (!buffer) return;
 
       const duration = buffer.duration || 1;
       const progress = clamp(this.getCurrentTime() / duration, 0, 1);
-      const playheadX = progress * width;
+      const playheadX = Math.round(progress * width) + 0.5;
+
       ctx.beginPath();
       ctx.strokeStyle = "#2563eb";
       ctx.lineWidth = 2;
@@ -502,14 +543,15 @@
     let working = cloneBuffer(ctx, sourceBuffer);
     const pitch = Number(settings.pitchSemitones || 0);
     const speed = Math.max(0.25, Number(settings.speed || 1));
+    const pitchRate = Math.abs(pitch) > 0.001 ? Math.pow(2, pitch / 12) : 1;
+    const stretchRatio = speed / pitchRate;
 
-    if (Math.abs(pitch) > 0.001) {
-      const pitchRate = Math.pow(2, pitch / 12);
+    if (Math.abs(pitchRate - 1) > 0.001) {
       working = pitchShiftBuffer(ctx, working, pitchRate);
     }
 
-    if (Math.abs(speed - 1) > 0.001) {
-      working = timeStretchBuffer(ctx, working, speed);
+    if (Math.abs(stretchRatio - 1) > 0.001) {
+      working = timeStretchBuffer(ctx, working, stretchRatio);
     }
 
     return working;
@@ -519,8 +561,7 @@
     if (Math.abs(pitchRate - 1) < 0.001) {
       return cloneBuffer(ctx, sourceBuffer);
     }
-    const resampled = resampleBuffer(ctx, sourceBuffer, pitchRate);
-    return timeStretchBuffer(ctx, resampled, 1 / pitchRate);
+    return resampleBuffer(ctx, sourceBuffer, pitchRate);
   }
 
   function timeStretchBuffer(ctx, sourceBuffer, speed) {
@@ -528,30 +569,36 @@
       return cloneBuffer(ctx, sourceBuffer);
     }
 
-    const grainSize = 2048;
-    const synthesisHop = 512;
-    const analysisHop = Math.max(1, Math.round(synthesisHop * speed));
+    const safeSpeed = Math.max(0.125, Math.min(8, Number(speed) || 1));
+    const grainSize = getStretchGrainSize(sourceBuffer.length);
+    const synthesisHop = Math.max(32, Math.round(grainSize / 4));
+    const analysisHop = Math.max(1, Math.round(synthesisHop * safeSpeed));
+    const searchRadius = Math.max(48, Math.min(192, Math.round(Math.abs(analysisHop - synthesisHop) * 1.5 + 64)));
     const window = buildHannWindow(grainSize);
-    const expectedLength = Math.max(1, Math.ceil(sourceBuffer.length / speed));
-    const outputLength = expectedLength + grainSize * 2;
+    const expectedLength = Math.max(1, Math.ceil(sourceBuffer.length / safeSpeed));
+    const outputLength = expectedLength + grainSize + synthesisHop;
     const output = ctx.createBuffer(sourceBuffer.numberOfChannels, outputLength, sourceBuffer.sampleRate);
 
     for (let channel = 0; channel < sourceBuffer.numberOfChannels; channel += 1) {
       const input = sourceBuffer.getChannelData(channel);
       const out = output.getChannelData(channel);
       const norm = new Float32Array(outputLength);
-      let inPos = 0;
+      let targetInPos = 0;
       let outPos = 0;
+      let previousInputIndex = -1;
 
-      while (Math.floor(inPos) + grainSize < input.length && outPos + grainSize < outputLength) {
-        const inputIndex = Math.floor(inPos);
-        for (let i = 0; i < grainSize; i += 1) {
-          const value = input[inputIndex + i] || 0;
-          const weight = window[i];
-          out[outPos + i] += value * weight;
-          norm[outPos + i] += weight;
+      while (outPos + grainSize < outputLength) {
+        const inputIndex = previousInputIndex < 0
+          ? 0
+          : findBestStretchIndex(input, targetInPos, previousInputIndex, grainSize, synthesisHop, searchRadius);
+
+        if (inputIndex + grainSize >= input.length) {
+          break;
         }
-        inPos += analysisHop;
+
+        applyWindowedGrain(input, out, norm, inputIndex, outPos, grainSize, window);
+        previousInputIndex = inputIndex;
+        targetInPos += analysisHop;
         outPos += synthesisHop;
       }
 
@@ -576,12 +623,108 @@
         const position = i * rate;
         const index = Math.floor(position);
         const frac = position - index;
-        const sampleA = input[index] || 0;
-        const sampleB = input[Math.min(index + 1, input.length - 1)] || 0;
-        out[i] = sampleA + (sampleB - sampleA) * frac;
+        out[i] = cubicInterpolate(
+          sampleAt(input, index - 1),
+          sampleAt(input, index),
+          sampleAt(input, index + 1),
+          sampleAt(input, index + 2),
+          frac
+        );
       }
     }
     return output;
+  }
+
+  function findBestStretchIndex(input, targetInPos, previousInputIndex, grainSize, synthesisHop, searchRadius) {
+    const maxIndex = Math.max(0, input.length - grainSize - 1);
+    const targetIndex = clamp(Math.round(targetInPos), 0, maxIndex);
+    const overlapSize = grainSize - synthesisHop;
+
+    if (previousInputIndex < 0 || overlapSize <= 0) {
+      return targetIndex;
+    }
+
+    const referenceStart = previousInputIndex + synthesisHop;
+    if (referenceStart + overlapSize >= input.length) {
+      return targetIndex;
+    }
+
+    const coarseStart = clamp(targetIndex - searchRadius, 0, maxIndex);
+    const coarseEnd = clamp(targetIndex + searchRadius, 0, maxIndex);
+    let bestIndex = targetIndex;
+    let bestScore = -Infinity;
+
+    for (let candidate = coarseStart; candidate <= coarseEnd; candidate += 8) {
+      const score = scoreOverlap(input, referenceStart, candidate, overlapSize, 4)
+        - (Math.abs(candidate - targetIndex) * 1e-5);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = candidate;
+      }
+    }
+
+    const refineStart = clamp(bestIndex - 8, 0, maxIndex);
+    const refineEnd = clamp(bestIndex + 8, 0, maxIndex);
+    for (let candidate = refineStart; candidate <= refineEnd; candidate += 1) {
+      const score = scoreOverlap(input, referenceStart, candidate, overlapSize, 1)
+        - (Math.abs(candidate - targetIndex) * 1e-5);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = candidate;
+      }
+    }
+
+    return bestIndex;
+  }
+
+  function scoreOverlap(input, aStart, bStart, length, step) {
+    let cross = 0;
+    let energyA = 0;
+    let energyB = 0;
+
+    for (let i = 0; i < length; i += step) {
+      const a = input[aStart + i] || 0;
+      const b = input[bStart + i] || 0;
+      cross += a * b;
+      energyA += a * a;
+      energyB += b * b;
+    }
+
+    if (energyA < 1e-8 || energyB < 1e-8) {
+      return 0;
+    }
+
+    return cross / Math.sqrt(energyA * energyB);
+  }
+
+  function applyWindowedGrain(input, out, norm, inputIndex, outPos, grainSize, window) {
+    for (let i = 0; i < grainSize; i += 1) {
+      const value = input[inputIndex + i] || 0;
+      const weight = window[i];
+      out[outPos + i] += value * weight;
+      norm[outPos + i] += weight;
+    }
+  }
+
+  function sampleAt(input, index) {
+    const safeIndex = clamp(index, 0, input.length - 1);
+    return input[safeIndex] || 0;
+  }
+
+  function cubicInterpolate(a, b, c, d, t) {
+    const p = (d - c) - (a - b);
+    const q = (a - b) - p;
+    const r = c - a;
+    return ((p * t + q) * t + r) * t + b;
+  }
+
+  function getStretchGrainSize(length) {
+    let size = 2048;
+    const limit = Math.max(128, Math.floor(length / 2));
+    while (size > limit && size > 128) {
+      size /= 2;
+    }
+    return size;
   }
 
   function cloneBuffer(ctx, sourceBuffer) {
@@ -606,6 +749,10 @@
       window[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (size - 1));
     }
     return window;
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
   }
 
   function encodeWav(buffer) {
@@ -664,6 +811,13 @@
 
     return new Blob([out], { type: "audio/wav" });
   }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  // then
+  const clamp01 = (v) => clamp(v, 0, 1);
 
   function analyzeBuffer(buffer) {
     const mono = mergeToMono(buffer);

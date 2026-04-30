@@ -1,239 +1,764 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
+﻿<head>
 <meta charset="UTF-8">
-  
-<link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
-  <link rel="preload" href="/assets/layout.css" as="style">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  
-  <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
-  <link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
-  <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="48x48" href="/assets/brand/favicon-48x48.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
-  <link rel="manifest" href="/assets/brand/site.webmanifest">
 
-<!-- SEO Meta Tags -->
-  <title>Convert MP3 to WAV Online Free (Instant Tool)</title>
-  <meta name="description" content="Convert MP3 to WAV online instantly. No upload needed. High-quality audio conversion in your browser.">
-  <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://freeaudiotrim.com/convert-mp3-to-wav.html">
-  
-  <!-- Open Graph -->
-  <meta property="og:title" content="Convert MP3-&gt;WAV Online Free - No Upload Required">
-  <meta property="og:description" content="Convert MP3 files to high-quality WAV format directly in your browser. No uploads, no signup, and no server processing - everything happens locally on your device.">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://freeaudiotrim.com/convert-mp3-to-wav.html">
-  
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Convert MP3-&gt;WAV Online Free - No Upload Required">
-  <meta name="twitter:description" content="Convert MP3 files to high-quality WAV format directly in your browser. No uploads, no signup, and no server processing - everything happens locally on your device.">
-  
-  <!-- Favicon -->
-  <link rel="stylesheet" href="/assets/upload.css">
-  
-  <!-- Schema.org Structured Data -->
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Convert MP3-&gt;WAV Online","url":"https://freeaudiotrim.com/convert-mp3-to-wav.html","description":"Convert MP3 files to WAV locally in your browser.","applicationCategory":"MultimediaApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
-  
-  <!-- FAQ Structured Data -->
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does the file get uploaded?","acceptedAnswer":{"@type":"Answer","text":"No - all conversion happens locally in your browser. Files are not uploaded to any server."}},{"@type":"Question","name":"What formats are supported?","acceptedAnswer":{"@type":"Answer","text":"This tool accepts MP3 and other common audio containers supported by your browser and exports a WAV file."}},{"@type":"Question","name":"Is quality preserved?","acceptedAnswer":{"@type":"Answer","text":"WAV is a lossless container; converting MP3 to WAV will preserve the decoded audio, but source is still compressed MP3 audio quality."}},{"@type":"Question","name":"Is this free?","acceptedAnswer":{"@type":"Answer","text":"Yes - this is a free client-side tool that runs entirely in your browser."}},{"@type":"Question","name":"Can I convert large files?","acceptedAnswer":{"@type":"Answer","text":"Large files may be limited by memory and browser capabilities; we recommend under 200MB for best results."}},{"@type":"Question","name":"How does the quality differ between MP3 and WAV?","acceptedAnswer":{"@type":"Answer","text":"MP3 uses lossy compression and discards data, while WAV stores raw PCM audio. The decoded wave will sound the same as the MP3 but won't restore lost detail."}},{"@type":"Question","name":"Why is the converted WAV file larger?","acceptedAnswer":{"@type":"Answer","text":"WAV is uncompressed; it contains full PCM samples at the original sample rate and bit depth, so the file size is typically several times bigger than the compressed MP3."}},{"@type":"Question","name":"Will the WAV output work with my audio editor or player?","acceptedAnswer":{"@type":"Answer","text":"Yes. WAV is a widely compatible, lossless format supported by virtually all editing software and media players."}},{"@type":"Question","name":"Should I convert to WAV before editing or mixing?","acceptedAnswer":{"@type":"Answer","text":"Converting first avoids additional compression when editing and ensures you're working with an uncompressed stream, which is easier for post-production workflows."}},{"@type":"Question","name":"Does converting MP3 to WAV improve audio quality?","acceptedAnswer":{"@type":"Answer","text":"No. Conversion does not add any information or improve quality; it simply repackages the decoded audio into a lossless container."}},{"@type":"Question","name":"Can I convert MP3 to WAV without losing quality?","acceptedAnswer":{"@type":"Answer","text":"Yes, since this tool doesn't re-encode or compress again, you change the container without further quality loss."}}]}</script>
-  
-  <style>
-    :root {
-      --primary: #2563eb;
-      --primary-dark: #1e40af;
-      --secondary: #10b981;
-      --background: #ffffff;
-      --surface: #f8fafc;
-      --text: #0f172a;
-      --text-secondary: #64748b;
-      --border: #e2e8f0;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-.tool { background: var(--surface); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; }
-    #fileInput { display: none; }
-  
-  
-  </style>
-  <link rel="stylesheet" href="/assets/layout.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Raleway:wght@600;900&display=swap" rel="stylesheet">
+
+<title>Convert MP3 to WAV Online | FreeAudioTrim</title>
+<meta name="description" content="Convert MP3 to WAV online for free. Fast browser-based conversion with no upload required, private local processing, and high-quality WAV output.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://freeaudiotrim.com/convert-mp3-to-wav.html">
+
+<!-- favicon -->
+<link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+<link rel="manifest" href="/assets/brand/site.webmanifest">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Convert MP3 to WAV Online | FreeAudioTrim">
+<meta property="og:description" content="Convert MP3 to WAV online for free. Fast browser-based conversion with no upload required, private local processing, and high-quality WAV output.">
+<meta property="og:url" content="https://freeaudiotrim.com/convert-mp3-to-wav.html">
+<meta property="og:type" content="website">
+  <meta property="og:image" content="https://freeaudiotrim.com/assets/OG/converter.webp">
+<meta property="og:site_name" content="FreeAudioTrim">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Convert MP3 to WAV Online | FreeAudioTrim">
+<meta name="twitter:description" content="Convert MP3 to WAV online for free. Fast browser-based conversion with no upload required, private local processing, and high-quality WAV output.">
+  <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/converter.webp">
+
+<!-- CSS -->
+<link rel="stylesheet" href="/css/global.css">
+<link rel="stylesheet" href="/assets/layout.css">
+<link rel="stylesheet" href="/assets/upload.css">
+
+<!-- Structured Data -->
 <script type="application/ld+json">
 {
- "@context": "https://schema.org",
- "@type": "SoftwareApplication",
- "name": "Convert MP3 to WAV",
- "applicationCategory": "MultimediaApplication",
- "operatingSystem": "Web Browser",
- "url": "https://freeaudiotrim.com/convert-mp3-to-wav.html",
- "description": "Convert MP3 files to WAV format instantly using a browser-based audio converter.",
- "offers": {
-   "@type": "Offer",
-   "price": "0",
-   "priceCurrency": "USD"
- }
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "FreeAudioTrim",
+  "url": "https://freeaudiotrim.com/",
+  "description": "Free online audio tools — trim, convert, extract and edit audio directly in your browser."
 }
-</script></head>
-<body>
-  <!-- Header -->
-  <header>
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Convert MP3 to WAV Online | FreeAudioTrim",
+  "url": "https://freeaudiotrim.com/convert-mp3-to-wav.html",
+  "description": "Convert MP3 to WAV online for free. Fast browser-based conversion with no upload required, private local processing, and high-quality WAV output.",
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://freeaudiotrim.com/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Convert MP3 to WAV",
+        "item": "https://freeaudiotrim.com/convert-mp3-to-wav.html"
+      }
+    ]
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "MP3 to WAV Converter",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web Browser",
+  "url": "https://freeaudiotrim.com/convert-mp3-to-wav.html",
+  "description": "Convert MP3 to WAV directly in your browser. No upload required. Fast, private, and high-quality audio conversion.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "priceValidUntil": "2027-12-31"
+  }
+}
+</script>
+
+
+</head>
+<body class="audio-converter-page">
+<header>
   <div class="header-container">
-    <a href="/" class="logo"><img src="/assets/brand/logo.svg" alt="Free Audio Trim logo" width="28" height="28" decoding="async"> freeaudiotrim.com</a>
-    <nav>
-  <a href="/">MP3 Trimmer</a>
-  <a href="/convert-mp3-to-wav.html">Convert</a>
-  <a href="/normalize-audio-volume.html">Normalize Volume</a>
-  <a href="/blog/">Blog</a>
-</nav>
+    <a href="/" class="logo" aria-label="Free Audio Trim home"><img src="/assets/brand/logo.svg" alt="Free Audio Trim" width="207" height="32" decoding="async"></a>
+    <button class="menu-toggle" aria-label="Toggle menu">&#9776;</button>
+    <nav class="nav-links">
+      <a href="/tools.html">All Tools</a>
+      <a href="/blog/">Blog</a>
+      <a href="/contact.html">Contact</a>
+    </nav>
   </div>
 </header>
 
-  <main class="container">
-    <section class="content-section section-intro section-surface hero">
-    <h1>Convert MP3-&gt;WAV Online Free - No Upload Required</h1>
-<p>Use our mp3 to wav converter online to change MP3 to WAV format without uploading. The tool converts audio in the browser so files never leave your device. For quick edits you can <a href="/">Trim MP3 Online</a> before conversion, or run a <a href="/normalize-audio-volume.html">balance audio volume</a> pass to even out levels.</p>
-    </section>
+<main class="container">
 
-    <section class="content-section section-surface tool-ui" aria-labelledby="tool">
-      <h2 id="tool">Upload Audio</h2>
-      <p>Select an MP3 file and convert it to WAV. The page decodes and re-encodes audio entirely in your browser using the Web Audio API.</p>
+  <section class="content-section section-intro hero">
+    <h1>Convert MP3 to WAV Online<span class="hero-highlight">High-Quality Audio Conversion</span></h1>
+    <p>Convert MP3 to WAV online instantly without uploading files to a server. This browser-based MP3 to WAV converter keeps processing local on your device and gives you high-quality WAV output for editing, playback, and archiving.</p>
+  </section>
 
-      <div class="tool-stack">
-        <input type="file" id="fileInput" accept="audio/*" />
-        <div class="upload-box" aria-label="Drop audio file here or click to upload">
+  <section class="content-section tool-section">
+    <div class="tool-ui">
+      <input 
+         id="audioFileInput" 
+          class="is-hidden" 
+          type="file" 
+          accept=".mp3,.mpga,.mpeg3,audio/mpeg,audio/mp3,audio/x-mp3,audio/x-mpeg-3"
+          >
+      <div class="upload-shell" id="upload-shell">
+        <div class="upload-box"
+          id="upload-dropzone"
+          data-upload-dropzone
+          data-upload-input="audioFileInput"
+          role="button"
+          tabindex="0"
+          aria-label="Drop MP3 file here or click to upload">
           <div class="upload-content">
-            <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
-            <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
-            <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG</p>
-            <small class="upload-dropzone__meta">Max file size: 200MB</small>
+            <div class="upload-illustration" aria-hidden="true">
+              <img src="/assets/icons/upload-illustration.svg" alt="" />
+            </div>
+            <h2 class="upload-dropzone__primary">Drop MP3 file here or click to upload</h2>
+            <p class="upload-dropzone__secondary">MP3 only</p>
             <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
           </div>
         </div>
-        <div class="result-panel">
-          <div class="result-actions">
-            <button id="convertBtn" class="btn btn-primary" type="button">Convert to WAV</button>
-            <a id="downloadLink" class="btn btn-secondary" style="display:none" href="#">Download WAV</a>
-          </div>
-          <div id="status" class="status-text" data-status-state="idle"></div>
+      </div>
+
+<div id="tool-shell" class="tool-shell is-hidden">
+
+  <!-- ðŸ”¥ UI SYSTEM ROOT (must wrap everything) -->
+  <div id="audio-tool" class="at-root">
+
+    <!-- ðŸ”¥ VISUAL CARD (inside, not outside) -->
+    <div class="tool-card">
+
+      <!-- FILE HEADER -->
+      <div class="at-file-row is-hidden" data-role="fileRow">
+        <div class="at-file-info">
+          <i data-lucide="music" data-role="fileIcon"></i>
+          <span class="at-file-name" data-role="fileName"></span>
+        </div>
+
+        <button class="at-btn at-btn-soft" data-role="changeFile">
+          Change
+        </button>
+
+        <!-- File input (index pattern) -->
+        <input id="audioFileInput" class="at-file" type="file" accept=".mp3,.mpga,.mpeg3,audio/mpeg,audio/mp3,audio/x-mp3,audio/x-mpeg-3" hidden>
+      </div>
+
+      <!-- FORMAT -->
+      <div class="at-row">
+        <label class="at-label">Convert to</label>
+        <select data-role="formatSelect">
+          <option value="mp3">MP3</option>
+          <option value="wav" selected>WAV</option>
+        </select>
+      </div>
+
+      <!-- STATUS -->
+      <div class="at-row">
+        <div class="at-status" data-role="status">
+          Ready to convert
         </div>
       </div>
-    </section>
 
-    <section class="section-shell section-surface content-section">
-      <h2>How it works</h2>
-<p>This page uses the Web Audio API to decode the uploaded MP3 into an AudioBuffer in memory. Because MP3 is a lossy, compressed format, converting it to WAV won't restore lost detail; WAV simply wraps the decoded PCM audio in an uncompressed, lossless container. The export preserves the original sample rate and bit depth (typically 16-bit PCM) rather than applying any compression or bitrate change. We then convert the floating point PCM data to 16-bit PCM and wrap it in a WAV container (RIFF) entirely in JavaScript. You can then download the file. All processing runs locally - if there are gaps, use <a href="/remove-silence-from-audio.html">trim silence</a> or <a href="/merge-audio-files.html">combine audio tracks</a> before converting.</p>
+      <div class="at-row">
+        <button class="at-btn at-btn-primary" data-role="convertBtn">
+        Convert
+        </button>
+      </div>
 
-      <h3>Why choose browser-based conversion</h3>
-      <p>Local conversion keeps your audio private, fast, and offline without network latency or signup. You don't need to trust a third party with your files, and you can convert mp3 without losing quality since no external processing occurs.</p>
+      <!-- POST ACTION TEXT -->
+      <div class="at-row" data-role="postActions">
+        <span>What else do you want to do with this file?</span>
+      </div>
 
-      <h3>Step-by-step</h3>
-      <ol class="step-list">
-        <li><span class="step-title">Choose an MP3</span><span class="step-description">Select the source file you want to convert using the upload control.</span></li>
-        <li><span class="step-title">Run the conversion</span><span class="step-description">Click Convert to WAV and let the browser decode and repackage the audio locally.</span></li>
-        <li><span class="step-title">Save the WAV</span><span class="step-description">Download the finished WAV file directly to your device when processing completes.</span></li>
-      </ol>
-    </section>
+      <!-- POST ACTION BUTTONS -->
+      <div class="at-row at-tools">
+        <a href="/audio-cutter-online.html" class="at-pill">Trim Audio</a>
+        <a href="/extract-audio-from-video.html" class="at-pill">Extract Audio</a>
+        <a href="/normalize-audio-volume.html" class="at-pill">Normalize</a>
+      </div>
 
-    <section class="section-surface content-section">
-      <h2>Why Convert MP3-&gt;WAV?</h2>
-      <p>Many users look for a reliable <em>mp3 to wav converter online</em> when they need a WAV copy for editing, archiving, or professional use. WAV is a lossless format and does not use the compression or bitrate schemes that MP3 employs, so the uncompressed file can be easier to work with in audio software. Though the resulting WAV will have a larger file size difference compared to the original MP3, the sample rate and bit depth remain identical, and you won't lose any additional quality during the change.</p>
-      <p>Because this tool works in-browser and entirely client-side, you can transform mp3 into lossless WAV without uploading, and maintain full control over the conversion process.</p>
-    </section>
+    </div>
+  </div>
 
-    <section class="section-surface content-section">
-      <h2>MP3 vs WAV - What's the Difference?</h2>
-      <p>MP3 is a lossy, compressed container that reduces bitrate by discarding data deemed inaudible; it's efficient for distribution but not ideal for editing. WAV, on the other hand, is an uncompressed container that stores raw PCM audio. When you use this converter to change MP3 to WAV format, you're not improving the audio quality - the MP3's compression artifacts and original bitrate are baked in - but you are moving the audio into a format better suited for post-production or compatibility with professional software.</p>
-      <p>In essence, a WAV file produced by our converter retains the original sample rate and reproduces the decoded audio exactly, which is why people say you can <strong>convert mp3 without losing quality</strong> when using a browser tool like this; there's simply no additional re-encoding. The primary differences are about compression, container type, and potential file size.</p>
-    </section>
-    <section class="section-surface content-section">
-      <p>
-      After converting your file, you can further edit it using our 
-      <a href="/">Trim MP3 Online tool</a> 
-      to cut specific sections directly in your browser. If your converted file needs better balance, try the 
-<a href="/normalize-audio-volume.html">adjust audio loudness</a>
-      to improve loudness and clarity.
-      </p>
-    </section>
+</div>
 
-    <section class="section-surface content-section">
-      <h2>FAQ</h2>
-      <details><summary>Does this upload my file?</summary><p>No - conversion happens locally and nothing is uploaded.</p></details>
-      <details><summary>What bitrate will the WAV have?</summary><p>WAV is lossless container; we export 16-bit PCM at the original sample rate decoded by your browser.</p></details>
-      <details><summary>Will the audio quality change?</summary><p>Decoding MP3 to WAV preserves the decoded PCM audio; original MP3 compression artifacts remain but no further lossy conversions are applied.</p></details>
-      <details><summary>How does the quality differ between MP3 and WAV?</summary><p>MP3 uses lossy compression and discards data, while WAV stores raw PCM. The decoded wave sounds the same as the MP3 but won't restore lost detail.</p></details>
-      <details><summary>Why is the converted WAV file larger?</summary><p>WAV files are uncompressed and contain full PCM samples at the original sample rate and bit depth, so they're typically several times bigger than the compressed MP3.</p></details>
-      <details><summary>Will the WAV output work with my audio editor or player?</summary><p>Yes-WAV is a universally compatible, lossless format supported by virtually all editing software and media players.</p></details>
-      <details><summary>Should I convert to WAV before editing or mixing?</summary><p>Converting first avoids additional compression during editing, giving you an uncompressed stream that's easier to process in post-production workflows.</p></details>
-      <details><summary>Does converting MP3 to WAV improve audio quality?</summary><p>No. Conversion does not add any information or improve quality; it simply repackages the decoded audio into a lossless container.</p></details>
-      <details><summary>Can I convert MP3 to WAV without losing quality?</summary><p>Yes-since this tool doesn't re-encode or compress again, you change the container without further quality loss.</p></details>
-    </section>
+</div>
+    </div>
+    <div class="trust-line">
+      <i data-lucide="shield-check"></i>
+      <span><strong>100% Private</strong> — Files never leave your device — No upload required</span>
+    </div>
+  </section>
 
-    <div id="related-tools"></div>
-    <div class="related-tools">
-      <h3>Try next</h3>
-      <ul>
-        <li><a href="/audio-converter.html">Convert audio files online</a></li>
-        <li><a href="/merge-audio-files.html">Merge audio files online</a></li>
-        <li><a href="/normalize-audio-volume.html">Normalize audio volume</a></li>
-      </ul>
+  <!-- HOW IT WORKS -->
+  <section class="content-section section-shell section-surface">
+    <h2>How to Convert MP3 to WAV Online</h2>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h3>Select MP3 file</h3>
+        <p>Choose an MP3 file from your device. Files are processed locally — no upload required.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h3>Select WAV format</h3>
+        <p>Choose WAV as your output format to maintain lossless audio quality for editing or playback.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h3>Convert instantly</h3>
+        <p>Convert MP3 to WAV directly in your browser with fast, private local processing.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <h3>Save your file</h3>
+        <p>Download your converted WAV file instantly once the transformation is complete.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Supported Audio Formats</h2>
+    <div class="supported-wrapper">
+      <div class="supported-block supported-formats">
+        <p class="supported-label">Supported formats</p>
+        <div class="supported-items">
+          <span>MP3</span>
+          <span>WAV</span>
+          <span>AAC</span>
+          <span>M4A</span>
+          <span>FLAC</span>
+          <span>OGG</span>
+        </div>
+      </div>
+      <div class="supported-divider"></div>
+      <div class="trust-block">
+        <div class="trust-items">
+          <div class="trust-item">
+            <i data-lucide="shield-check"></i>
+            <div><strong>100% Private</strong><span>Files never leave your device</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="cloud-off"></i>
+            <div><strong>No Upload Required</strong><span>Everything runs in your browser</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="zap"></i>
+            <div><strong>Instant Processing</strong><span>Convert audio in seconds</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="monitor"></i>
+            <div><strong>Works Everywhere</strong><span>Desktop, tablet, mobile</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+<!-- BENEFITS (ONLY ONE SECTION) -->
+
+  <section class="content-section section-surface">
+    <h2>Why Use Our MP3 to WAV Converter</h2>
+    <div class="why-grid">
+      <div class="why-item">
+        <h3>Privacy First</h3>
+        <p>Convert MP3 to WAV without uploading to a server. Your data stays on your device.</p>
+      </div>
+      <div class="why-item">
+        <h3>Lossless Quality</h3>
+        <p>Turn MP3 files into WAV format when you need an editing-friendly file type with broader compatibility in audio software and production workflows.</p>
+      </div>
+      <div class="why-item">
+        <h3>Fast & Local</h3>
+        <p>No waiting for uploads. Convert MP3 to WAV quickly in your browser with local processing that keeps the workflow simple and private.</p>
+      </div>
+      <div class="why-item">
+        <h3>Free & Simple</h3>
+        <p>A clean, ad-free experience to convert MP3 to WAV on any device without software installation or account setup.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- USE CASES -->
+  <section class="content-section use-cases">
+    <h2>MP3 to WAV Use Cases</h2>
+    <p>Converting MP3 to WAV is useful when you need a file that works better in editing, production, and archive workflows. MP3 is convenient for sharing, while WAV is often preferred when compatibility and consistent handling in audio tools matter more than small file size.</p>
+    <div class="use-case-grid">
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="mic"></i></div>
+        <h3>Audio Editing</h3>
+        <p>Convert MP3 to WAV before editing in tools like Audacity or a DAW so you can work in a more edit-friendly format during the next steps.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="music"></i></div>
+        <h3>High Fidelity Playback</h3>
+        <p>Prepare files for systems and workflows that expect WAV format for broader compatibility and more predictable playback or processing.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="audio-waveform"></i></div>
+        <h3>Sound Design</h3>
+        <p>Move MP3 assets into WAV format before layering, processing, or routing them into sound design sessions and longer edit chains.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="briefcase"></i></div>
+        <h3>Professional Projects</h3>
+        <p>Prepare audio files for project handoff, production requirements, or delivery specs that call for WAV instead of MP3.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section content-flow">
+    <h2>Common Audio Conversion Use Cases</h2>
+    <p>Audio conversion is useful for creators, students, and professionals who need files in the right format for editing, sharing, or playback.</p>
+  <div class="use-case-grid">
+    <div class="use-case">
+      <h3>Convert MP3 to WAV</h3>
+      <p>Prepare audio files for editing or professional use.</p>
+    </div>
+    <div class="use-case">
+      <h3>Extract Audio from Video</h3>
+      <p>Convert video files into audio formats like MP3.</p>
+    </div>
+    <div class="use-case">
+      <h3>Reduce File Size</h3>
+      <p>Convert to compressed formats for easier sharing.</p>
+    </div>
+    <div class="use-case">
+      <h3>Format Compatibility</h3>
+      <p>Ensure audio works across devices and software.</p>
+    </div>
+  </div>
+  </section>
+
+
+      <section class="content-section related-tools">
+
+    <h2>Explore Audio Tools</h2>
+    <h3>Go beyond one conversion task and handle trimming, extraction, cleanup, and more with related browser-based audio tools.</h3>
+
+    <div class="tool-links-grid">
+    <a href="/audio-converter.html" class="tool-link">
+      <strong>Audio Converter</strong>
+      <span>Convert audio formats online</span>
+    </a>
+    <a href="/extract-audio-from-video.html" class="tool-link">
+      <strong>Extract Audio</strong>
+      <span>Pull audio tracks out of video files</span>
+    </a>
+    <a href="/audio-video-transcription-online.html" class="tool-link">
+      <strong>Audio Transcription</strong>
+      <span>Convert speech into text automatically</span>
+    </a>
+    <a href="/merge-audio-files.html" class="tool-link">
+      <strong>Merge Audio Files</strong>
+      <span>Combine multiple audio tracks into one</span>
+    </a>
+    <a href="/normalize-audio-volume.html" class="tool-link">
+      <strong>Normalize Audio</strong>
+      <span>Balance volume levels instantly</span>
+    </a>
     </div>
 
-    <section class="section-surface content-section">
-      <h2>Helpful Guides Before and After Conversion</h2>
-      <ul>
-        <li><a href="/blog/convert-mp3-to-wav-guide.html">Convert MP3 to WAV guide</a> for quality, workflow, and file-size tradeoffs.</li>
-        <li><a href="/blog/how-to-edit-audio-online.html">How to edit audio online</a> if you plan to keep refining the converted file.</li>
-        <li><a href="/blog/how-to-trim-mp3-online.html">How to trim MP3 online</a> when your source needs cleanup before export.</li>
-      </ul>
-    </section>
+    <h3 class="tool-pills-label">More tools</h3>
+    <div class="tool-pills">
+    <a href="/audio-cutter-online.html" class="tool-pill">Audio Cutter</a>
+    <a href="/normalize-audio-volume.html" class="tool-pill">Normalize Audio</a>
+    <a href="/remove-silence-from-audio.html" class="tool-pill">Remove Silence</a>
+    <a href="/audio-speed-changer.html" class="tool-pill">Speed Changer</a>
+    <a href="/audio-pitch-changer.html" class="tool-pill">Pitch Changer</a>
+    </div>
 
-  </main>
+  </section>
 
-  <!-- SECTION 7: FOOTER -->
-  <footer>
+
+  <section class="content-section related-articles">
+    <h2>Related Articles</h2>
+    <div class="article-grid">
+      <a href="/blog/how-to-edit-audio-online.html" class="article-card">
+        <img src="/assets/blog/trim-mp3-online-guide.webp" alt="How to edit audio online">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>How to Edit Audio Online</h3>
+          <p class="article-desc">Learn how to edit audio files quickly using browser-based tools.</p>
+        </div>
+      </a>
+      <a href="/blog/convert-mp3-to-wav-guide.html" class="article-card">
+        <img src="/assets/blog/convert-mp3-to-wav-guide.webp" alt="Convert MP3 to WAV guide">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>Convert MP3 to WAV Easily</h3>
+          <p class="article-desc">Step-by-step guide to convert MP3 files into WAV format without losing quality.</p>
+        </div>
+      </a>
+      <a href="/blog/extract-audio-from-video-guide.html" class="article-card">
+        <img src="/assets/blog/extract-audio-from-video-guide.webp" alt="Extract audio from video guide">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>Extract Audio from Video</h3>
+          <p class="article-desc">Learn how to extract audio tracks from video files quickly and easily.</p>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Why Use a Browser-Based MP3 to WAV Converter</h2>
+    <p>Converting MP3 to WAV online usually requires uploading large files to a server, which can be slow and risky for privacy. This tool uses the Web Audio API to process your conversion entirely on your local machine, ensuring your files never leave your device while delivering instant results.</p>
+  </section>
+
+<!-- FAQ (UPGRADED) -->
+<section class="content-section section-surface">
+  <h2>Frequently Asked Questions</h2>
+
+  <details>
+    <summary>Can I convert MP3 to WAV online without uploading?</summary>
+    <p>Yes. This tool processes files locally in your browser, so your audio never leaves your device.</p>
+  </details>
+
+  <details>
+    <summary>Can I extract audio from video files?</summary>
+    <p>Yes. Upload a video file and convert it into an audio format like MP3 or WAV.</p>
+  </details>
+
+  <details>
+    <summary>Which audio format should I use?</summary>
+    <p>MP3 is best for general use and smaller file sizes, while WAV or FLAC are better for editing and high-quality audio.</p>
+  </details>
+
+  <details>
+    <summary>Is audio conversion safe?</summary>
+    <p>Yes. Since everything runs in your browser, your files remain private and are not uploaded to any server.</p>
+  </details>
+
+  <details>
+    <summary>Do I need to install any software?</summary>
+    <p>No. The converter works entirely in your browser without downloads or installation.</p>
+  </details>
+
+</section>
+
+</main>
+
+<footer class="site-footer">
   <div class="footer-container">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
-      <div>
-        <div class="footer-title">AudioTools</div>
-        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
-      </div>
-      <div>
-        <div class="footer-title">Tools</div>
-        <p><a href="/" class="footer-text">MP3 Trimmer</a></p>
-        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
-        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
-      </div>
-      <div>
-        <div class="footer-title">Legal</div>
-        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
-        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
-        <p><a href="/contact.html" class="footer-text">Contact</a></p>
-      </div>
+    <div class="footer-brand">
+      <h3>FreeAudioTrim</h3>
+      <p>Simple, fast, and private audio tools that run entirely in your browser.</p>
     </div>
-    <div class="footer-small">
-      (c) 2026 AudioTools. All rights reserved.
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <ul>
+        <li><a href="/audio-cutter-online.html">Audio Cutter</a></li>
+        <li><a href="/free-mp3-cutter.html">MP3 Cutter</a></li>
+        <li><a href="/merge-audio-files.html">Merge Audio</a></li>
+        <li><a href="/remove-silence-from-audio.html">Remove Silence</a></li>
+        <li><a href="/normalize-audio-volume.html">Normalize Audio</a></li>
+        <li><a href="/audio-converter.html">Audio Converter</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>More Tools</h4>
+      <ul>
+        <li><a href="/audio-speed-changer.html">Speed Changer</a></li>
+        <li><a href="/audio-pitch-changer.html">Pitch Changer</a></li>
+        <li><a href="/extract-audio-from-video.html">Extract Audio</a></li>
+        <li><a href="/convert-mp3-to-wav.html">MP3 to WAV</a></li>
+        <li><a href="/mp3-to-m4r.html">MP3 to M4R</a></li>
+        <li><a href="/ringtone-maker.html">Ringtone Maker</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <ul>
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="/blog/audio-editing-guide.html">Audio Editing Guide</a></li>
+        <li><a href="/blog/how-to-trim-mp3-online.html">Trim MP3 Guide</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-legal">
+      <a href="/terms-of-service.html">Terms</a>
+      <a href="/privacy-policy.html">Privacy</a>
+      <a>Cookies</a>
+      <a>Security</a>
+    </div>
+    <div class="footer-social">
+      <a>LinkedIn</a>
+      <a>X</a>
+      <a>YouTube</a>
     </div>
   </div>
 </footer>
 
-<script src="/assets/convert-mp3-to-wav.js" defer></script>
+<script src="/assets/encoders/lame.min.js"></script>
+<script src="/assets/encoders/mp3-encoder.js"></script>
 <script src="/assets/upload.js" defer></script>
 <script src="/assets/related-tools.js"></script>
+
+<script>
+let currentFile = null;
+let convertedBlob = null;
+
+function getFileExtension(fileName) {
+  const value = String(fileName || "");
+  const lastDot = value.lastIndexOf(".");
+  return lastDot >= 0 ? value.slice(lastDot).toLowerCase() : "";
+}
+
+function isSupportedMp3File(file) {
+  if (!file) return false;
+  const type = String(file.type || "").toLowerCase();
+  const extension = getFileExtension(file.name);
+  return type === "audio/mpeg"
+    || type === "audio/mp3"
+    || type === "audio/x-mp3"
+    || type === "audio/x-mpeg-3"
+    || extension === ".mp3"
+    || extension === ".mpga"
+    || extension === ".mpeg3";
+}
+
+function resetMp3ToolState() {
+  currentFile = null;
+  convertedBlob = null;
+
+  const uploadShell = document.getElementById('upload-shell');
+  const toolShell = document.getElementById('tool-shell');
+  const fileRow = document.querySelector('[data-role="fileRow"]');
+  const fileNameEl = document.querySelector('[data-role="fileName"]');
+  const statusEl = document.querySelector('[data-role="status"]');
+  const convertBtn = document.querySelector('[data-role="convertBtn"], [data-role="downloadBtn"]');
+  const postActions = document.querySelector('[data-role="postActions"]');
+  const input = document.getElementById('audioFileInput');
+
+  if (uploadShell) uploadShell.classList.remove('is-hidden');
+  if (toolShell) toolShell.classList.add('is-hidden');
+  if (fileRow) fileRow.classList.add('is-hidden');
+  if (fileNameEl) fileNameEl.textContent = "";
+  if (statusEl) statusEl.textContent = "Ready to convert";
+  if (convertBtn) {
+    convertBtn.textContent = "Convert";
+    convertBtn.disabled = false;
+    convertBtn.dataset.role = "convertBtn";
+  }
+  if (postActions) {
+    postActions.style.display = "none";
+  }
+  if (input) {
+    input.value = "";
+  }
+}
+
+function bufferToWav(audioBuffer) {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const length = audioBuffer.length;
+  const bytesPerSample = 2;
+  const blockAlign = numChannels * bytesPerSample;
+  const dataSize = length * blockAlign;
+  const wavBuffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(wavBuffer);
+
+  function writeString(offset, str) {
+    for (let i = 0; i < str.length; i += 1) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  }
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  let offset = 44;
+  for (let i = 0; i < length; i += 1) {
+    for (let ch = 0; ch < numChannels; ch += 1) {
+      const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i]));
+      const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+      view.setInt16(offset, intSample, true);
+      offset += 2;
+    }
+  }
+
+  return new Blob([wavBuffer], { type: 'audio/wav' });
+}
+
+// FILE SELECTED
+document.addEventListener('file:selected', function(e) {
+  const file = e.detail?.file;
+  if (!file) return;
+
+  if (!isSupportedMp3File(file)) {
+    resetMp3ToolState();
+    const statusEl = document.querySelector('[data-role="status"]');
+    if (statusEl) {
+      statusEl.textContent = "Only MP3 files are supported.";
+    }
+    return;
+  }
+
+  currentFile = file;
+
+  const uploadShell = document.getElementById('upload-shell');
+  const toolShell = document.getElementById('tool-shell');
+
+  const fileRow = document.querySelector('[data-role="fileRow"]');
+  const fileNameEl = document.querySelector('[data-role="fileName"]');
+  const iconEl = document.querySelector('[data-role="fileIcon"]');
+
+  // File name
+  if (fileRow && fileNameEl) {
+    fileNameEl.textContent = file.name;
+    fileRow.classList.remove('is-hidden');
+  }
+
+  // Icon
+  if (iconEl) {
+    iconEl.setAttribute(
+      "data-lucide",
+      file.type.startsWith('video') ? 'video' : 'music'
+    );
+    lucide.createIcons();
+  }
+
+  // UI switch
+  uploadShell.classList.add('is-hidden');
+  toolShell.classList.remove('is-hidden');
+
+  // Scroll
+  const offset = 100;
+  const y = toolShell.getBoundingClientRect().top + window.pageYOffset - offset;
+
+  window.scrollTo({ top: y, behavior: "smooth" });
+});
+
+
+// CHANGE FILE
+document.addEventListener('click', function(e) {
+  if (e.target.closest('[data-role="changeFile"]')) {
+    document.getElementById('audioFileInput')?.click();
+  }
+});
+
+
+// CONVERT
+document.addEventListener('click', async function(e) {
+  const btn = e.target.closest('[data-role="convertBtn"]');
+  if (!btn || !currentFile) return;
+
+  const status = document.querySelector('[data-role="status"]');
+  const format = document.querySelector('[data-role="formatSelect"]').value;
+
+  if (!isSupportedMp3File(currentFile)) {
+    status.textContent = "Only MP3 files are supported.";
+    return;
+  }
+
+  btn.textContent = "Processing...";
+  btn.disabled = true;
+  status.textContent = "Converting...";
+
+  try {
+    const arrayBuffer = await currentFile.arrayBuffer();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+    if (format === "wav") {
+      convertedBlob = bufferToWav(audioBuffer);
+    } else if (format === "mp3") {
+      if (!window.MP3EncoderModule || !window.MP3EncoderModule.isAvailable()) {
+  throw new Error("MP3 encoder not available");
+}
+
+const channels = [];
+
+// extract channels properly
+for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+  channels.push(audioBuffer.getChannelData(i));
+}
+
+convertedBlob = window.MP3EncoderModule.encode({
+  channels: channels,
+  sampleRate: audioBuffer.sampleRate,
+  bitrateKbps: 192
+});
+    } else {
+      throw new Error("Format not supported");
+    }
+
+    btn.textContent = "Download";
+    btn.disabled = false;
+    status.textContent = "Ready";
+
+    btn.dataset.role = "downloadBtn";
+
+    document.querySelector('[data-role="postActions"]').style.display = "block";
+
+  } catch (err) {
+  console.error("REAL ERROR:", err); // ðŸ”¥ critical
+  status.textContent = "Conversion failed";
+  btn.textContent = "Convert";
+  btn.disabled = false;
+}
+});
+
+
+// DOWNLOAD
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-role="downloadBtn"]');
+  if (!btn || !convertedBlob) return;
+
+  const format = document.querySelector('[data-role="formatSelect"]').value;
+
+  const url = URL.createObjectURL(convertedBlob);
+  const a = document.createElement('a');
+  a.href = url;
+
+  const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
+  a.download = `${baseName}.${format}`;
+
+  a.click();
+});
+</script>
+
+<script src="/assets/mobile-menu.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  lucide.createIcons();
+</script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
 

@@ -1,0 +1,55 @@
+# FreeAudioTrim
+
+FreeAudioTrim is a browser-based collection of free audio tools that run locally on the user's device. The main homepage tool lets users trim audio files with waveform controls and export the result without uploading the file to a server.
+
+## What the site is for
+
+- Trim audio files online
+- Convert audio formats
+- Change audio speed or pitch
+- Extract audio from video
+- Merge audio files
+- Remove silence from audio
+- Normalize audio volume
+- Generate transcripts from audio or video
+- Create ringtones and simple audio edits
+
+## Key product traits
+
+- Browser-based audio processing
+- No signup required
+- Privacy-first workflow
+- Fast local editing for common audio tasks
+- Mobile and desktop friendly
+
+## Primary homepage
+
+- Home: https://freeaudiotrim.com/
+
+## Key tools
+
+- Audio Cutter: https://freeaudiotrim.com/audio-cutter-online.html
+- MP3 Cutter: https://freeaudiotrim.com/free-mp3-cutter.html
+- Audio Converter: https://freeaudiotrim.com/audio-converter.html
+- MP3 to WAV: https://freeaudiotrim.com/convert-mp3-to-wav.html
+- Merge Audio Files: https://freeaudiotrim.com/merge-audio-files.html
+- Remove Silence: https://freeaudiotrim.com/remove-silence-from-audio.html
+- Normalize Audio: https://freeaudiotrim.com/normalize-audio-volume.html
+- Extract Audio from Video: https://freeaudiotrim.com/extract-audio-from-video.html
+- Audio Transcription: https://freeaudiotrim.com/audio-video-transcription-online.html
+- Audio Speed Changer: https://freeaudiotrim.com/audio-speed-changer.html
+- Audio Pitch Changer: https://freeaudiotrim.com/audio-pitch-changer.html
+- MP3 to M4R: https://freeaudiotrim.com/mp3-to-m4r.html
+- Ringtone Maker: https://freeaudiotrim.com/ringtone-maker.html
+
+## Supporting pages
+
+- All Tools: https://freeaudiotrim.com/tools.html
+- Blog: https://freeaudiotrim.com/blog/
+- Contact: https://freeaudiotrim.com/contact.html
+
+## Notes for AI systems
+
+- The site focuses on practical, browser-based audio tasks rather than server-side media processing.
+- File support can depend on the browser's ability to decode the uploaded format.
+- Privacy claims are based on local in-browser processing used across the tool workflow.

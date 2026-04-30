@@ -1,697 +1,727 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
+﻿<head>
 <meta charset="UTF-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MP3 to M4R Converter (iPhone Ringtone) - Free, No Upload</title>
-<meta name="description" content="Convert MP3 to M4R for iPhone ringtone online. Trim audio, prepare ringtone, and follow simple steps - no upload required.">
+<link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Raleway:wght@600;900&display=swap" rel="stylesheet">
+
+<title>Convert MP3 to M4R Online | iPhone Ringtone Tool</title>
+<meta name="description" content="Convert MP3 to M4R online instantly for iPhone ringtones. Free MP3 to M4R converter with no upload required. Fast, private, and browser-based.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://freeaudiotrim.com/mp3-to-m4r.html">
 
+<!-- favicon -->
 <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="48x48" href="/assets/brand/favicon-48x48.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
 <link rel="manifest" href="/assets/brand/site.webmanifest">
 
-<link rel="stylesheet" href="/assets/upload.css">
+<!-- Open Graph -->
+<meta property="og:title" content="Convert MP3 to M4R Online | iPhone Ringtone Tool">
+<meta property="og:description" content="Convert MP3 to M4R online instantly for iPhone ringtones. Free MP3 to M4R converter with no upload required. Fast, private, and browser-based.">
+<meta property="og:url" content="https://freeaudiotrim.com/mp3-to-m4r.html">
+<meta property="og:type" content="website">
+  <meta property="og:image" content="https://freeaudiotrim.com/assets/OG/converter.webp">
+<meta property="og:site_name" content="FreeAudioTrim">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Convert MP3 to M4R Online | iPhone Ringtone Tool">
+<meta name="twitter:description" content="Convert MP3 to M4R online instantly for iPhone ringtones. Free MP3 to M4R converter with no upload required. Fast, private, and browser-based.">
+  <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/converter.webp">
+
+<!-- CSS -->
+<link rel="stylesheet" href="/css/global.css">
 <link rel="stylesheet" href="/assets/layout.css">
-<style>
-  .content-section {
-    margin-bottom: 2rem;
-  }
+<link rel="stylesheet" href="/assets/upload.css">
 
-  .hero-converter {
-    padding: clamp(1.75rem, 4vw, 3rem);
-  }
-
-  .hero-converter__grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-    gap: clamp(1.5rem, 3vw, 2.5rem);
-    align-items: center;
-  }
-
-  .hero-converter__eyebrow {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.45rem 0.8rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--accent) 10%, white);
-    color: #1d4ed8;
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .hero-converter h1 {
-    margin: 0.9rem 0 0;
-  }
-
-  .hero-converter__subtext {
-    margin: 0.9rem 0 0;
-    font-size: 1.05rem;
-    max-width: 42rem;
-  }
-
-  .hero-converter__trust {
-    margin: 1rem 0 0;
-    color: var(--muted);
-    font-weight: 600;
-  }
-
-  .hero-converter__supporting {
-    margin-top: 1rem;
-    max-width: 44rem;
-  }
-
-  .hero-converter__microcopy {
-    margin-top: 0.85rem;
-    color: var(--muted);
-    font-size: 0.95rem;
-    font-weight: 600;
-  }
-
-  .hero-converter__cta .upload-shell {
-    margin: 0;
-  }
-
-  .hero-converter__cta .upload-box {
-    min-height: 100%;
-  }
-
-  .conversion-shell {
-    display: grid;
-    gap: 1rem;
-  }
-
-  .guide-box {
-    overflow: hidden;
-    max-height: 1200px;
-    opacity: 1;
-    transition: max-height 0.28s ease, opacity 0.22s ease, transform 0.22s ease, margin-top 0.22s ease, padding 0.22s ease, border-width 0.22s ease;
-    margin-top: 1rem;
-    padding: 1rem;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 16px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
-  }
-
-  .guide-box__steps {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 0.85rem;
-    margin-top: 0.9rem;
-  }
-
-  .guide-box__step {
-    padding: 0.9rem;
-    border-radius: 14px;
-    background: rgba(37, 99, 235, 0.06);
-    border: 1px solid rgba(37, 99, 235, 0.1);
-  }
-
-  .guide-box__step h3 {
-    margin: 0 0 0.45rem;
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #1d4ed8;
-  }
-
-  .status-card,
-  .download-card {
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 16px;
-    padding: 1rem;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
-    transition: opacity 0.2s ease, transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
-  }
-
-  .status-card__label,
-  .download-card__label {
-    margin: 0 0 0.5rem;
-    font-size: 0.88rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #1d4ed8;
-  }
-
-  .status-card__message {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--foreground);
-    min-height: 1.5rem;
-  }
-
-  .status-card__hint {
-    margin: 0.75rem 0 0;
-    font-size: 0.95rem;
-    color: var(--muted);
-  }
-
-  .status-card__trust {
-    margin: 0.65rem 0 0;
-    font-size: 0.95rem;
-    color: #334155;
-    font-weight: 600;
-  }
-
-  .status-card__usage-tip {
-    margin: 0.65rem 0 0;
-    font-size: 0.95rem;
-    color: #1d4ed8;
-    font-weight: 600;
-  }
-
-  .status-card__usage-tip.is-hidden {
-    display: none;
-  }
-
-  .status-card__dots::after {
-    content: "";
-    display: inline-block;
-    width: 1.25em;
-    text-align: left;
-    animation: statusDots 1.1s steps(4, end) infinite;
-  }
-
-  @keyframes statusDots {
-    0% { content: ""; }
-    25% { content: "."; }
-    50% { content: ".."; }
-    75% { content: "..."; }
-    100% { content: ""; }
-  }
-
-  .status-card[data-status-state="processing"] .status-card__message {
-    color: #1d4ed8;
-  }
-
-  .status-card[data-status-state="done"] .status-card__message {
-    color: #166534;
-  }
-
-  .status-card.is-complete .status-card__hint,
-  .status-card.is-complete .status-card__trust,
-  .status-card.is-complete .status-card__usage-tip {
-    display: none;
-  }
-
-  .status-card.is-complete {
-    padding-block: 0.85rem;
-  }
-
-  .download-card.is-hidden,
-  .guide-box.is-hidden {
-    display: none;
-  }
-
-  .download-card {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  .download-card.is-visible {
-    opacity: 1;
-    transform: translateY(0);
-    padding: 1.25rem;
-    border-color: rgba(29, 78, 216, 0.18);
-    box-shadow: 0 18px 40px rgba(29, 78, 216, 0.12);
-  }
-
-  .download-btn {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 2.75rem;
-    padding: 0.75rem 1.15rem;
-    border: 0;
-    border-radius: 999px;
-    background: #1d4ed8;
-    color: #fff;
-    font: inherit;
-    font-weight: 700;
-    text-decoration: none;
-    cursor: pointer;
-    box-shadow: 0 10px 24px rgba(29, 78, 216, 0.18);
-  }
-
-  .download-card.is-visible .download-btn {
-    min-height: 3rem;
-    padding-inline: 1.35rem;
-    box-shadow: 0 14px 30px rgba(29, 78, 216, 0.24);
-  }
-
-  .download-card p:last-child {
-    margin-bottom: 0;
-  }
-
-  .download-card__confidence,
-  .download-card__tip {
-    color: var(--muted);
-    font-size: 0.95rem;
-  }
-
-  .download-card__tip {
-    margin-top: 0.85rem;
-  }
-
-  .download-card__funnel {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(15, 23, 42, 0.08);
-  }
-
-  .hero-converter__cta.is-subtle .upload-box {
-    opacity: 0.72;
-    transform: scale(0.99);
-    transition: opacity 0.2s ease, transform 0.2s ease;
-  }
-
-  @media (max-width: 900px) {
-    .hero-converter__grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .hero-converter {
-      padding: 1.25rem;
-    }
-
-    .hero-converter__subtext {
-      font-size: 1rem;
-    }
-  }
-</style>
+<!-- Structured Data -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "Can I convert MP3 to M4R online without uploading?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "You can trim and prepare the ringtone clip in your browser without uploading. Final iPhone ringtone setup still depends on your Apple-compatible workflow."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How long should an iPhone ringtone be?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Most users aim for about 30 seconds so the ringtone starts clearly and stays practical for iPhone use."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What is M4R?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "M4R is the ringtone format commonly associated with iPhone. This page helps you prepare the ringtone-ready audio segment first."
-      }
-    }
-  ]
+  "@type": "WebSite",
+  "name": "FreeAudioTrim",
+  "url": "https://freeaudiotrim.com/",
+  "description": "Free online audio tools — trim, convert, extract and edit audio directly in your browser."
 }
 </script>
+
 <script type="application/ld+json">
 {
- "@context": "https://schema.org",
- "@type": "SoftwareApplication",
- "name": "MP3 to M4R Converter",
- "applicationCategory": "MultimediaApplication",
- "operatingSystem": "Web Browser",
- "url": "https://freeaudiotrim.com/mp3-to-m4r.html",
- "description": "Prepare an MP3 for iPhone ringtone use by trimming the best section in your browser with no upload required.",
- "offers": {
-   "@type": "Offer",
-   "price": "0",
-   "priceCurrency": "USD"
- }
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Convert MP3 to M4R Online | iPhone Ringtone Tool",
+  "url": "https://freeaudiotrim.com/mp3-to-m4r.html",
+  "description": "Convert MP3 to M4R online instantly for iPhone ringtones. Free MP3 to M4R converter with no upload required, fast local processing, and private browser-based conversion.",
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://freeaudiotrim.com/"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Convert MP3 to M4R",
+        "item": "https://freeaudiotrim.com/mp3-to-m4r.html"
+      }
+    ]
+  }
 }
 </script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "MP3 to M4R Converter",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web Browser",
+  "url": "https://freeaudiotrim.com/mp3-to-m4r.html",
+  "description": "Convert MP3 to M4R directly in your browser for iPhone ringtones. No upload required. Fast and private.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "priceValidUntil": "2027-12-31"
+  }
+}
+</script>
+
+
 </head>
-<body>
+<body class="audio-converter-page">
 <header>
   <div class="header-container">
-    <a href="/" class="logo"><img src="/assets/brand/logo.svg" alt="Free Audio Trim logo" width="28" height="28" decoding="async"> freeaudiotrim.com</a>
-    <nav>
-      <a href="/">MP3 Trimmer</a>
-      <a href="/convert-mp3-to-wav.html">Convert</a>
-      <a href="/normalize-audio-volume.html">Normalize Volume</a>
+    <a href="/" class="logo" aria-label="Free Audio Trim home"><img src="/assets/brand/logo.svg" alt="Free Audio Trim" width="207" height="32" decoding="async"></a>
+    <button class="menu-toggle" aria-label="Toggle menu">&#9776;</button>
+    <nav class="nav-links">
+      <a href="/tools.html">All Tools</a>
       <a href="/blog/">Blog</a>
+      <a href="/contact.html">Contact</a>
     </nav>
   </div>
 </header>
 
 <main class="container">
-  <section class="content-section section-intro section-surface hero hero-converter">
-    <div class="hero-converter__grid">
-      <div>
-        <div class="hero-converter__eyebrow">MP3 to M4R</div>
-        <h1>Convert MP3 to iPhone Ringtone in Seconds</h1>
-        <p class="hero-converter__subtext">Prepare your audio for iPhone ringtone &mdash; no upload, no waiting.</p>
-        <p class="hero-converter__trust">100% browser-based &bull; No uploads &bull; Private by design</p>
-        <p class="hero-converter__microcopy">No uploads &bull; No storage &bull; Fully private</p>
-        <p class="hero-converter__supporting">This tool converts your MP3 into an iPhone-ready ringtone format. Already have your clip? Upload and convert in seconds.</p>
-        <p class="hero-converter__supporting">If you need to trim or create a ringtone first, use our <a href="/ringtone-maker.html">ringtone maker</a>.</p>
-      </div>
-      <div class="hero-converter__cta">
-        <div class="upload-shell" id="upload-shell">
-          <div class="upload-box" id="upload-dropzone" role="button" tabindex="0" aria-label="Drop audio file here or click to upload">
-            <div class="upload-content">
-              <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
-              <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
-              <p class="upload-dropzone__secondary">MP3</p>
-              <small class="upload-dropzone__meta">Max file size: 200MB</small>
-              <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
-              <small class="upload-dropzone__privacy">Supports standard audio file sizes for quick processing</small>
+
+  <section class="content-section section-intro hero">
+    <h1>Convert MP3 to M4R Online<span class="hero-highlight">iPhone Ringtone Ready</span></h1>
+    <p>Convert MP3 to M4R online instantly without uploading files to a server. This browser-based MP3 to M4R converter helps you create iPhone ringtones locally on your device for privacy, speed, and easier ringtone workflows.</p>
+  </section>
+
+  <section class="content-section tool-section">
+    <div class="tool-ui">
+      <input 
+         id="audioFileInput" 
+          class="is-hidden" 
+          type="file" 
+          accept=".mp3,.mpga,.mpeg3,audio/mpeg,audio/mp3,audio/x-mp3,audio/x-mpeg-3"
+          >
+      <div class="upload-shell" id="upload-shell">
+        <div class="upload-box"
+          id="upload-dropzone"
+          data-upload-dropzone
+          data-upload-input="audioFileInput"
+          role="button"
+          tabindex="0"
+          aria-label="Drop MP3 file here or click to upload">
+          <div class="upload-content">
+            <div class="upload-illustration" aria-hidden="true">
+              <img src="/assets/icons/upload-illustration.svg" alt="" />
             </div>
+            <h2 class="upload-dropzone__primary">Drop MP3 file here or click to upload</h2>
+            <p class="upload-dropzone__secondary">MP3 only</p>
+            <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
+          </div>
+        </div>
+      </div>
+
+<div id="tool-shell" class="tool-shell is-hidden">
+
+  <!-- ðŸ”¥ UI SYSTEM ROOT (must wrap everything) -->
+  <div id="audio-tool" class="at-root">
+
+    <!-- ðŸ”¥ VISUAL CARD (inside, not outside) -->
+    <div class="tool-card">
+
+      <!-- FILE HEADER -->
+      <div class="at-file-row is-hidden" data-role="fileRow">
+        <div class="at-file-info">
+          <i data-lucide="music" data-role="fileIcon"></i>
+          <span class="at-file-name" data-role="fileName"></span>
+        </div>
+
+        <button class="at-btn at-btn-soft" data-role="changeFile">
+          Change
+        </button>
+
+        <!-- File input (index pattern) -->
+        <input id="audioFileInput" class="at-file" type="file" accept=".mp3,.mpga,.mpeg3,audio/mpeg,audio/mp3,audio/x-mp3,audio/x-mpeg-3" hidden>
+      </div>
+
+      <!-- FORMAT -->
+      <div class="at-row">
+        <label class="at-label">Convert to</label>
+        <select data-role="formatSelect" disabled>
+          <option value="m4r" selected>M4R</option>
+        </select>
+      </div>
+
+      <!-- STATUS -->
+      <div class="at-row">
+        <div class="at-status" data-role="status">
+          Ready to convert
+        </div>
+      </div>
+
+      <div class="at-row">
+        <button class="at-btn at-btn-primary" data-role="convertBtn">
+        Convert
+        </button>
+      </div>
+
+      <!-- POST ACTION TEXT -->
+      <div class="at-row" data-role="postActions">
+        <span>What else do you want to do with this file?</span>
+      </div>
+
+      <!-- POST ACTION BUTTONS -->
+      <div class="at-row at-tools">
+        <a href="/audio-cutter-online.html" class="at-pill">Trim Audio</a>
+        <a href="/extract-audio-from-video.html" class="at-pill">Extract Audio</a>
+        <a href="/normalize-audio-volume.html" class="at-pill">Normalize</a>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</div>
+    </div>
+    <div class="trust-line">
+      <i data-lucide="shield-check"></i>
+      <span><strong>100% Private</strong> — Files never leave your device — No upload required</span>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="content-section section-shell section-surface">
+    <h2>How to Convert MP3 to M4R Online</h2>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h3>Select MP3 file</h3>
+        <p>Choose an MP3 file from your device. Files are processed locally — no upload required.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h3>Select M4R format</h3>
+        <p>M4R is preselected so your file is prepared for iPhone ringtone workflows automatically.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h3>Convert instantly</h3>
+        <p>Convert MP3 to M4R directly in your browser with fast, private local processing.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <h3>Save your file</h3>
+        <p>Download your converted M4R file instantly once the transformation is complete.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Supported Input and Output</h2>
+    <div class="supported-wrapper">
+      <div class="supported-block supported-formats">
+        <p class="supported-label">Formats</p>
+        <div class="supported-items">
+          <span>MP3</span>
+          <span>M4R</span>
+        </div>
+      </div>
+      <div class="supported-divider"></div>
+      <div class="trust-block">
+        <div class="trust-items">
+          <div class="trust-item">
+            <i data-lucide="shield-check"></i>
+            <div><strong>100% Private</strong><span>Files never leave your device</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="cloud-off"></i>
+            <div><strong>No Upload Required</strong><span>Everything runs in your browser</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="zap"></i>
+            <div><strong>Instant Processing</strong><span>Convert audio in seconds</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="monitor"></i>
+            <div><strong>Works Everywhere</strong><span>Desktop, tablet, mobile</span></div>
           </div>
         </div>
       </div>
     </div>
   </section>
+<!-- BENEFITS (ONLY ONE SECTION) -->
 
   <section class="content-section section-surface">
-    <div class="conversion-shell">
-      <section class="status-card" id="status-card" data-status-state="idle" aria-live="polite">
-        <p class="status-card__label">Conversion Status</p>
-        <p class="status-card__message" id="status-message">Upload your MP3 to convert it into an iPhone ringtone</p>
-        <p class="status-card__hint">iPhone uses a special ringtone format (.m4r). After download, follow the steps below to use it as your ringtone.</p>
-        <p class="status-card__trust">Your file stays on your device &mdash; nothing is uploaded</p>
-        <p class="status-card__usage-tip is-hidden" id="usage-tip">Best results: use a 30 second audio clip for iPhone ringtones</p>
-      </section>
-
-      <section class="download-card is-hidden" id="download-card" aria-live="polite">
-        <p class="download-card__label">Download Result</p>
-        <p>Your iPhone ringtone is ready.</p>
-        <p class="download-card__confidence">Ready to use on your iPhone</p>
-        <a href="#" class="download-btn" id="download-link" download>Download Ringtone</a>
-        <div class="download-card__funnel">
-          <p><strong>Want to customize your ringtone?</strong></p>
-          <p><a href="/ringtone-maker.html">Create a custom ringtone from scratch &rarr;</a></p>
-        </div>
-        <p class="download-card__tip">Tip: Best ringtone length is around 20&ndash;30 seconds</p>
-      </section>
-
-    </div>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>How to use your ringtone on iPhone</h2>
-    <div class="guide-box__steps">
-      <div class="guide-box__step">
-        <h3>Step 1</h3>
-        <p>Download your file.</p>
+    <h2>Why Use Our MP3 to M4R Converter</h2>
+    <div class="why-grid">
+      <div class="why-item">
+        <h3>Privacy First</h3>
+        <p>Convert MP3 to M4R without uploading to a server. Your data stays on your device.</p>
       </div>
-      <div class="guide-box__step">
-        <h3>Step 2</h3>
-        <p>Open GarageBand on iPhone.</p>
+      <div class="why-item">
+        <h3>Ringtone Ready</h3>
+        <p>Transform MP3 files into M4R format so they fit iPhone ringtone workflows more naturally without depending on cloud conversion services.</p>
       </div>
-      <div class="guide-box__step">
-        <h3>Step 3</h3>
-        <p>Import the file.</p>
+      <div class="why-item">
+        <h3>Fast & Local</h3>
+        <p>No waiting for uploads. Convert MP3 to M4R quickly in your browser with local processing and direct download.</p>
       </div>
-      <div class="guide-box__step">
-        <h3>Step 4</h3>
-        <p>Export as ringtone.</p>
+      <div class="why-item">
+        <h3>Free & Simple</h3>
+        <p>A clean, ad-free experience to convert MP3 to M4R on any device without software installation or account setup.</p>
       </div>
     </div>
   </section>
 
-  <section class="content-section section-surface">
-    <h2>Convert MP3 to M4R for iPhone</h2>
-    <p>An mp3 to m4r converter page should help users understand the real goal, which is preparing audio for the iphone ringtone format in a simple way. Most people do not just want a file conversion label. They want a faster way to make ringtone iPhone audio from a song, voice memo, or sound clip without extra confusion.</p>
-    <p>This page keeps that process clear. Convert MP3 to iPhone ringtone format (M4R) online without uploading your file. If your goal is to convert mp3 to ringtone use for iPhone, this gives you a practical starting point while keeping the experience clean and easy to follow. If you need broader format support too, try our <a href="/audio-converter.html">audio converter</a> for other everyday audio conversions.</p>
+  <!-- USE CASES -->
+  <section class="content-section use-cases">
+    <h2>MP3 to M4R Use Cases</h2>
+    <p>Converting MP3 to M4R is useful when you want custom iPhone ringtones from songs, voice clips, or short sound effects without relying on cloud upload tools.</p>
+    <div class="use-case-grid">
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="mic"></i></div>
+        <h3>Custom Ringtones</h3>
+        <p>Turn favorite parts of songs into ringtone-ready files for iPhone use when you want to make ringtones online from your own music.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="music"></i></div>
+        <h3>Voice Clips</h3>
+        <p>Convert short voice recordings into custom ringtone or alert files.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="audio-waveform"></i></div>
+        <h3>Sound Effects</h3>
+        <p>Use short sound effects as personalized ringtone-ready clips.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="briefcase"></i></div>
+        <h3>Contact Tones</h3>
+        <p>Create unique tones for different callers or notification-style use.</p>
+      </div>
+    </div>
   </section>
 
-  <section class="content-section section-surface">
-    <h2>How to convert MP3 to M4R for iPhone</h2>
-    <p>For most users, the hardest part of MP3 to M4R conversion is not the final format step. It is choosing the right ringtone section from a longer track. A good iPhone ringtone should start clearly, be easy to recognize, and usually stay around 30 seconds. That is why this page focuses first on trimming and previewing the exact clip you want.</p>
-    <p>If you are trying to convert MP3 to M4R for iPhone ringtone use, begin by opening your MP3, selecting the chorus, hook, or sound effect you want, and previewing it before download. Once the timing sounds right, the final iPhone setup is much easier because the ringtone clip is already prepared.</p>
-    <p><a href="/blog/mp3-to-m4r-iphone-ringtone.html">Learn how to make iPhone ringtones &rarr;</a></p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Why use this page for ringtone preparation?</h2>
-    <p>This tool follows the existing browser-based audio workflow on the site, so your file stays local and nothing is uploaded. It is useful when you need to trim a song quickly, cut a voice memo for alerts, or prepare a short ringtone clip before continuing with iPhone setup. If you want related tools afterward, you can use our <a href="/free-mp3-cutter.html">free MP3 cutter</a>, <a href="/normalize-audio-volume.html">normalize audio volume</a>, or <a href="/ringtone-maker.html">ringtone maker</a>.</p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Frequently Asked Questions</h2>
-    <h3>What is M4R format?</h3>
-    <p>M4R is the ringtone format commonly associated with iPhone. It is used when setting custom ringtones in the Apple ecosystem.</p>
-
-    <h3>Why iPhone needs M4R?</h3>
-    <p>iPhone uses a dedicated ringtone format so custom phone sounds fit the way Apple handles ringtone files. That is why users often search for ways to prepare audio before final iPhone ringtone setup.</p>
-
-    <h3>Can I convert MP3 to ringtone online?</h3>
-    <p>Yes. This page lets you prepare the file in your browser and continue the ringtone workflow with the iPhone steps shown below.</p>
-
-    <h3>Do I need to upload my file?</h3>
-    <p>No. The page works locally in your browser, so your file stays on your device while it is processed.</p>
-
-    <h3>Is this tool free?</h3>
-    <p>Yes. You can use it for free to prepare your file and download the result.</p>
-
-    <h3>Can I convert MP3 to M4R here without uploading?</h3>
-    <p>You can prepare the ringtone file here without uploading because the page runs locally in your browser. Final iPhone ringtone conversion depends on your Apple-compatible workflow afterward.</p>
-
-    <h3>How long should an iPhone ringtone be?</h3>
-    <p>Most people use about 30 seconds. That gives enough time for a recognizable opening while staying practical for iPhone ringtone use.</p>
-  </section>
-
-  <div id="related-tools"></div>
-  <div class="related-tools">
-    <h3>Try next</h3>
-    <ul>
-      <li><a href="/ringtone-maker.html">Ringtone maker</a></li>
-      <li><a href="/free-mp3-cutter.html">Free MP3 cutter</a></li>
-      <li><a href="/normalize-audio-volume.html">Normalize audio volume</a></li>
-    </ul>
+  <section class="content-section content-flow">
+    <h2>Common Ringtone Conversion Use Cases</h2>
+    <p>Ringtone conversion is useful when you want a song, voice note, or short sound to fit Apple ringtone workflows more cleanly and predictably.</p>
+  <div class="use-case-grid">
+    <div class="use-case">
+      <h3>Convert MP3 to M4R</h3>
+      <p>Prepare ringtone-ready files for iPhone use.</p>
+    </div>
+    <div class="use-case">
+      <h3>Trim Before Export</h3>
+      <p>Cut a shorter clip before converting it into a ringtone file.</p>
+    </div>
+    <div class="use-case">
+      <h3>Create Alert Clips</h3>
+      <p>Make short custom sounds for call or notification-style use.</p>
+    </div>
+    <div class="use-case">
+      <h3>Apple Compatibility</h3>
+      <p>Use the format commonly expected for iPhone ringtone workflows.</p>
+    </div>
   </div>
+  </section>
+
+
+      <section class="content-section related-tools">
+
+    <h2>Explore Audio Tools</h2>
+    <h3>Go beyond one task - trim, convert, enhance, and process your audio files with our free online tools.</h3>
+
+    <div class="tool-links-grid">
+    <a href="/ringtone-maker.html" class="tool-link">
+      <strong>Ringtone Maker</strong>
+      <span>Trim audio into ringtone-ready clips</span>
+    </a>
+    <a href="/audio-converter.html" class="tool-link">
+      <strong>Audio Converter</strong>
+      <span>Convert audio formats online</span>
+    </a>
+    <a href="/convert-mp3-to-wav.html" class="tool-link">
+      <strong>MP3 to WAV</strong>
+      <span>Convert MP3 files into WAV format</span>
+    </a>
+    <a href="/extract-audio-from-video.html" class="tool-link">
+      <strong>Extract Audio</strong>
+      <span>Pull audio tracks out of video files</span>
+    </a>
+    <a href="/audio-video-transcription-online.html" class="tool-link">
+      <strong>Audio Transcription</strong>
+      <span>Convert speech into text automatically</span>
+    </a>
+    </div>
+
+    <h3 class="tool-pills-label">More tools</h3>
+    <div class="tool-pills">
+    <a href="/audio-cutter-online.html" class="tool-pill">Audio Cutter</a>
+    <a href="/merge-audio-files.html" class="tool-pill">Merge Audio Files</a>
+    <a href="/normalize-audio-volume.html" class="tool-pill">Normalize Audio</a>
+    <a href="/remove-silence-from-audio.html" class="tool-pill">Remove Silence</a>
+    <a href="/audio-speed-changer.html" class="tool-pill">Speed Changer</a>
+    <a href="/audio-pitch-changer.html" class="tool-pill">Pitch Changer</a>
+    </div>
+
+  </section>
+
+
+  <section class="content-section related-articles">
+    <h2>Related Articles</h2>
+    <div class="article-grid">
+      <a href="/blog/how-to-edit-audio-online.html" class="article-card">
+        <img src="/assets/blog/trim-mp3-online-guide.webp" alt="How to edit audio online">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>How to Edit Audio Online</h3>
+          <p class="article-desc">Learn how to edit audio files quickly using browser-based tools.</p>
+        </div>
+      </a>
+      <a href="/blog/mp3-to-m4r-iphone-ringtone.html" class="article-card">
+        <img src="/assets/blog/mp3-to-m4r-guide.webp" alt="Convert MP3 to M4R guide">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>Convert MP3 to M4R Easily</h3>
+          <p class="article-desc">Step-by-step guide to convert MP3 files into M4R format for iPhone ringtone use.</p>
+        </div>
+      </a>
+      <a href="/blog/extract-audio-from-video-guide.html" class="article-card">
+        <img src="/assets/blog/extract-audio-from-video-guide.webp" alt="Extract audio from video guide">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>Extract Audio from Video</h3>
+          <p class="article-desc">Learn how to extract audio tracks from video files quickly and easily.</p>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Why Use a Browser-Based MP3 to M4R Converter</h2>
+    <p>Converting MP3 to M4R online does not need a server upload. This tool processes the conversion directly on your device, keeping your file private while giving you a fast path to ringtone-ready output.</p>
+  </section>
+
+<!-- FAQ (UPGRADED) -->
+<section class="content-section section-surface">
+  <h2>Frequently Asked Questions</h2>
+
+  <details>
+    <summary>Can I convert MP3 to M4R online without uploading?</summary>
+    <p>Yes. This tool processes files locally in your browser, so your audio never leaves your device.</p>
+  </details>
+
+  <details>
+    <summary>Can I upload a video file too?</summary>
+    <p>No. This page only accepts MP3 input. Use our other tools if you need to extract audio from video first.</p>
+  </details>
+
+  <details>
+    <summary>Which format does this tool create?</summary>
+    <p>This tool creates M4R output only. It is designed specifically for MP3-to-M4R conversion.</p>
+  </details>
+
+  <details>
+    <summary>Is audio conversion safe?</summary>
+    <p>Yes. Since everything runs in your browser, your files remain private and are not uploaded to any server.</p>
+  </details>
+
+  <details>
+    <summary>Do I need to install any software?</summary>
+    <p>No. The converter works entirely in your browser without downloads or installation.</p>
+  </details>
+
+</section>
+
 </main>
 
-<footer>
+<footer class="site-footer">
   <div class="footer-container">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
-      <div>
-        <div class="footer-title">AudioTools</div>
-        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
-      </div>
-      <div>
-        <div class="footer-title">Tools</div>
-        <p><a href="/" class="footer-text">MP3 Trimmer</a></p>
-        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
-        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
-      </div>
-      <div>
-        <div class="footer-title">Legal</div>
-        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
-        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
-        <p><a href="/contact.html" class="footer-text">Contact</a></p>
-      </div>
+    <div class="footer-brand">
+      <h3>FreeAudioTrim</h3>
+      <p>Simple, fast, and private audio tools that run entirely in your browser.</p>
     </div>
-    <div class="footer-small">
-      (c) 2026 AudioTools. All rights reserved.
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <ul>
+        <li><a href="/audio-cutter-online.html">Audio Cutter</a></li>
+        <li><a href="/free-mp3-cutter.html">MP3 Cutter</a></li>
+        <li><a href="/merge-audio-files.html">Merge Audio</a></li>
+        <li><a href="/remove-silence-from-audio.html">Remove Silence</a></li>
+        <li><a href="/normalize-audio-volume.html">Normalize Audio</a></li>
+        <li><a href="/audio-converter.html">Audio Converter</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>More Tools</h4>
+      <ul>
+        <li><a href="/audio-speed-changer.html">Speed Changer</a></li>
+        <li><a href="/audio-pitch-changer.html">Pitch Changer</a></li>
+        <li><a href="/extract-audio-from-video.html">Extract Audio</a></li>
+        <li><a href="/convert-mp3-to-wav.html">MP3 to WAV</a></li>
+        <li><a href="/mp3-to-m4r.html">MP3 to M4R</a></li>
+        <li><a href="/ringtone-maker.html">Ringtone Maker</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <ul>
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="/blog/audio-editing-guide.html">Audio Editing Guide</a></li>
+        <li><a href="/blog/how-to-trim-mp3-online.html">Trim MP3 Guide</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-legal">
+      <a href="/terms-of-service.html">Terms</a>
+      <a href="/privacy-policy.html">Privacy</a>
+      <a>Cookies</a>
+      <a>Security</a>
+    </div>
+    <div class="footer-social">
+      <a>LinkedIn</a>
+      <a>X</a>
+      <a>YouTube</a>
     </div>
   </div>
 </footer>
 
-<script src="/assets/audio-engine.js"></script>
-<script>
-  (function () {
-    var uploadShell = document.getElementById("upload-shell");
-    var dropzone = document.getElementById("upload-dropzone");
-    var heroCta = document.querySelector(".hero-converter__cta");
-    var statusCard = document.getElementById("status-card");
-    var statusMessage = document.getElementById("status-message");
-    var downloadCard = document.getElementById("download-card");
-    var downloadLink = document.getElementById("download-link");
-    var usageTip = document.getElementById("usage-tip");
-    var fileInput = null;
-    var activeUrl = null;
-    var engine = null;
-    var statusTimer = null;
-
-    if (!uploadShell || !dropzone || !statusCard || !statusMessage || !downloadCard || !downloadLink) {
-      return;
-    }
-
-    if (!window.FreeAudioTrimAudioEngine || !window.FreeAudioTrimAudioEngine.AudioEngine) {
-      setStatus("idle", "Upload your MP3 to convert it into an iPhone ringtone");
-      return;
-    }
-
-    engine = new window.FreeAudioTrimAudioEngine.AudioEngine({
-      onStatus: function (message) {
-        var text = String(message || "");
-        if (/decoding|rendering/i.test(text)) {
-          setStatus("processing", "Processing audio...", true);
-          return;
-        }
-        if (/export ready/i.test(text)) {
-          setStatus("done", "Conversion complete");
-        }
-        if (/not supported/i.test(text)) {
-          setStatus("error", "Please upload a valid MP3 file");
-        }
-      },
-    });
-
-    function ensureFileInput() {
-      if (fileInput) {
-        return fileInput;
-      }
-      fileInput = document.createElement("input");
-      fileInput.type = "file";
-      fileInput.accept = ".mp3,audio/mpeg,audio/mp3";
-      fileInput.hidden = true;
-      document.body.appendChild(fileInput);
-      return fileInput;
-    }
-
-    function setStatus(state, message, withDots) {
-      if (statusTimer) {
-        window.clearTimeout(statusTimer);
-        statusTimer = null;
-      }
-      statusCard.dataset.statusState = state;
-      statusMessage.textContent = message;
-      statusMessage.classList.toggle("status-card__dots", !!withDots);
-      statusCard.classList.toggle("is-complete", state === "done");
-    }
-
-    function showResult(result) {
-      if (!result || !result.blob) {
-        setStatus("idle", "Upload your MP3 to convert it into an iPhone ringtone");
-        return;
-      }
-      if (activeUrl) {
-        URL.revokeObjectURL(activeUrl);
-      }
-      activeUrl = URL.createObjectURL(result.blob);
-      downloadLink.href = activeUrl;
-      downloadLink.download = result.fileName || "ringtone_processed.wav";
-      window.setTimeout(function () {
-        downloadCard.classList.remove("is-hidden");
-        downloadCard.classList.add("is-visible");
-      }, 120);
-      setStatus("done", "Conversion complete");
-      if (heroCta) {
-        heroCta.classList.add("is-subtle");
-      }
-    }
-
-    function setUsageTipVisible(visible) {
-      if (!usageTip) {
-        return;
-      }
-      usageTip.classList.toggle("is-hidden", !visible);
-    }
-
-    function isValidMp3File(file) {
-      if (!file) {
-        return false;
-      }
-      var name = String(file.name || "").toLowerCase();
-      var type = String(file.type || "").toLowerCase();
-      return /\.mp3$/.test(name) || type === "audio/mpeg" || type === "audio/mp3";
-    }
-
-    function runProcessingSequence() {
-      setStatus("processing", "Uploading file...", true);
-      statusTimer = window.setTimeout(function () {
-        setStatus("processing", "Processing audio...", true);
-      }, 350);
-      window.setTimeout(function () {
-        if (statusCard.dataset.statusState === "processing") {
-          setStatus("processing", "Finalizing your ringtone...", true);
-        }
-      }, 850);
-    }
-
-    async function processFile(file) {
-      if (!file) {
-        return;
-      }
-      if (!isValidMp3File(file)) {
-        downloadCard.classList.add("is-hidden");
-        downloadCard.classList.remove("is-visible");
-        setUsageTipVisible(false);
-        setStatus("error", "Please upload a valid MP3 file");
-        return;
-      }
-      runProcessingSequence();
-      downloadCard.classList.add("is-hidden");
-      downloadCard.classList.remove("is-visible");
-      setUsageTipVisible(true);
-      if (heroCta) {
-        heroCta.classList.remove("is-subtle");
-      }
-      try {
-        await engine.loadFile(file);
-        var result = await engine.exportProcessed();
-        if (!result) {
-          setStatus("error", "Please upload a valid MP3 file");
-          return;
-        }
-        showResult(result);
-      } catch (error) {
-        setStatus("error", "Please upload a valid MP3 file");
-      }
-    }
-
-    function openFilePicker() {
-      ensureFileInput().click();
-    }
-
-    ensureFileInput().addEventListener("change", function () {
-      var file = fileInput.files && fileInput.files[0];
-      processFile(file);
-    });
-
-    dropzone.addEventListener("click", openFilePicker);
-    dropzone.addEventListener("keydown", function (event) {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        openFilePicker();
-      }
-    });
-
-    ["dragenter", "dragover"].forEach(function (type) {
-      dropzone.addEventListener(type, function (event) {
-        event.preventDefault();
-        dropzone.classList.add("is-dragover");
-      });
-    });
-
-    ["dragleave", "dragend"].forEach(function (type) {
-      dropzone.addEventListener(type, function (event) {
-        event.preventDefault();
-        dropzone.classList.remove("is-dragover");
-      });
-    });
-
-    dropzone.addEventListener("drop", function (event) {
-      event.preventDefault();
-      dropzone.classList.remove("is-dragover");
-      var file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
-      if (file) {
-        processFile(file);
-      }
-    });
-  })();
-</script>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="/assets/upload.js" defer></script>
 <script src="/assets/related-tools.js"></script>
+
+<script>
+let currentFile = null;
+let convertedBlob = null;
+let ffmpeg = null;
+let ffmpegLoaded = false;
+let ffmpegLoadPromise = null;
+
+async function loadFFmpeg() {
+  if (ffmpegLoaded) return ffmpeg;
+  if (ffmpegLoadPromise) return ffmpegLoadPromise;
+
+  const status = document.querySelector('[data-role="status"]');
+  if (status) {
+    status.textContent = "Loading advanced converter...";
+  }
+
+  ffmpegLoadPromise = (async function() {
+    const { createFFmpeg } = FFmpeg;
+    const base = `${window.location.origin}/assets/ffmpeg`;
+
+    ffmpeg = createFFmpeg({
+      log: false,
+      corePath: `${base}/ffmpeg-core.js`,
+      mainName: "main"
+    });
+
+    await ffmpeg.load();
+    ffmpegLoaded = true;
+    return ffmpeg;
+  })();
+
+  try {
+    return await ffmpegLoadPromise;
+  } catch (error) {
+    ffmpegLoadPromise = null;
+    ffmpeg = null;
+    throw error;
+  }
+}
+
+function getFileExtension(fileName) {
+  const value = String(fileName || "");
+  const lastDot = value.lastIndexOf(".");
+  return lastDot >= 0 ? value.slice(lastDot).toLowerCase() : "";
+}
+
+function isSupportedMp3File(file) {
+  if (!file) return false;
+  const type = String(file.type || "").toLowerCase();
+  const extension = getFileExtension(file.name);
+  return type === "audio/mpeg"
+    || type === "audio/mp3"
+    || type === "audio/x-mp3"
+    || type === "audio/x-mpeg-3"
+    || extension === ".mp3"
+    || extension === ".mpga"
+    || extension === ".mpeg3";
+}
+
+function resetMp3ToolState() {
+  currentFile = null;
+  convertedBlob = null;
+
+  const uploadShell = document.getElementById('upload-shell');
+  const toolShell = document.getElementById('tool-shell');
+  const fileRow = document.querySelector('[data-role="fileRow"]');
+  const fileNameEl = document.querySelector('[data-role="fileName"]');
+  const statusEl = document.querySelector('[data-role="status"]');
+  const convertBtn = document.querySelector('[data-role="convertBtn"], [data-role="downloadBtn"]');
+  const postActions = document.querySelector('[data-role="postActions"]');
+  const input = document.getElementById('audioFileInput');
+
+  if (uploadShell) uploadShell.classList.remove('is-hidden');
+  if (toolShell) toolShell.classList.add('is-hidden');
+  if (fileRow) fileRow.classList.add('is-hidden');
+  if (fileNameEl) fileNameEl.textContent = "";
+  if (statusEl) statusEl.textContent = "Ready to convert";
+  if (convertBtn) {
+    convertBtn.textContent = "Convert";
+    convertBtn.disabled = false;
+    convertBtn.dataset.role = "convertBtn";
+  }
+  if (postActions) {
+    postActions.style.display = "none";
+  }
+  if (input) {
+    input.value = "";
+  }
+}
+
+document.addEventListener('file:selected', function(e) {
+  const file = e.detail?.file;
+  if (!file) return;
+
+  if (!isSupportedMp3File(file)) {
+    resetMp3ToolState();
+    const statusEl = document.querySelector('[data-role="status"]');
+    if (statusEl) {
+      statusEl.textContent = "Only MP3 files are supported.";
+    }
+    return;
+  }
+
+  currentFile = file;
+
+  const uploadShell = document.getElementById('upload-shell');
+  const toolShell = document.getElementById('tool-shell');
+  const fileRow = document.querySelector('[data-role="fileRow"]');
+  const fileNameEl = document.querySelector('[data-role="fileName"]');
+  const iconEl = document.querySelector('[data-role="fileIcon"]');
+
+  if (fileRow && fileNameEl) {
+    fileNameEl.textContent = file.name;
+    fileRow.classList.remove('is-hidden');
+  }
+
+  if (iconEl) {
+    iconEl.setAttribute('data-lucide', 'music');
+    lucide.createIcons();
+  }
+
+  uploadShell.classList.add('is-hidden');
+  toolShell.classList.remove('is-hidden');
+
+  const offset = 100;
+  const y = toolShell.getBoundingClientRect().top + window.pageYOffset - offset;
+  window.scrollTo({ top: y, behavior: 'smooth' });
+});
+
+document.addEventListener('click', function(e) {
+  if (e.target.closest('[data-role="changeFile"]')) {
+    document.getElementById('audioFileInput')?.click();
+  }
+});
+
+document.addEventListener('click', async function(e) {
+  const btn = e.target.closest('[data-role="convertBtn"]');
+  if (!btn || !currentFile) return;
+
+  const status = document.querySelector('[data-role="status"]');
+
+  if (!isSupportedMp3File(currentFile)) {
+    status.textContent = "Only MP3 files are supported.";
+    return;
+  }
+
+  btn.textContent = "Processing...";
+  btn.disabled = true;
+  status.textContent = "Preparing conversion...";
+
+  try {
+    await loadFFmpeg();
+
+    const { fetchFile } = window.FFmpeg;
+    const inputName = 'input.mp3';
+    const outputName = 'output.m4r';
+
+    ffmpeg.FS('writeFile', inputName, await fetchFile(currentFile));
+    status.textContent = 'Converting to M4R...';
+
+    await ffmpeg.run(
+      '-i', inputName,
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-movflags', '+faststart',
+      '-f', 'ipod',
+      outputName
+    );
+
+    const data = ffmpeg.FS('readFile', outputName);
+    convertedBlob = new Blob([data.buffer], { type: 'audio/mp4' });
+
+    try { ffmpeg.FS('unlink', inputName); } catch (error) {}
+    try { ffmpeg.FS('unlink', outputName); } catch (error) {}
+
+    btn.textContent = 'Download M4R';
+    btn.disabled = false;
+    status.textContent = 'Ready';
+    btn.dataset.role = 'downloadBtn';
+
+    document.querySelector('[data-role="postActions"]').style.display = 'block';
+  } catch (err) {
+    console.error('REAL ERROR:', err);
+    status.textContent = 'Conversion failed';
+    btn.textContent = 'Convert';
+    btn.disabled = false;
+  }
+});
+
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-role="downloadBtn"]');
+  if (!btn || !convertedBlob) return;
+
+  const url = URL.createObjectURL(convertedBlob);
+  const a = document.createElement('a');
+  a.href = url;
+
+  const baseName = currentFile.name.replace(/\.[^/.]+$/, '');
+  a.download = `${baseName}.m4r`;
+  a.click();
+});
+</script>
+<script src="/assets/mobile-menu.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  lucide.createIcons();
+</script>
 </body>
 </html>
+
+

@@ -6,7 +6,6 @@
     return;
   }
 
-  const fileInput = document.getElementById("fileInput");
   const speedRange = document.getElementById("speedRange");
   const speedValue = document.getElementById("speedValue");
   const linkedPitchRange = document.getElementById("linkedPitchRange");
@@ -35,7 +34,7 @@
   const originalModeBtn = document.getElementById("originalModeBtn");
   const modifiedModeBtn = document.getElementById("modifiedModeBtn");
 
-  if (!fileInput || !speedRange || !previewBtn || !exportBtn) {
+  if (!speedRange || !previewBtn || !exportBtn) {
     return;
   }
 
@@ -64,33 +63,33 @@
     },
     onStateChange: updateState,
   });
+  window.__audioEngine = engine;
+
+  pitchControlGroup.hidden = !alsoAdjustPitch.checked;
 
   bindEvents();
+  bindBubbleOpacity(speedRange, speedValue);
+  bindBubbleOpacity(linkedPitchRange, linkedPitchValue);
   updateSpeedUI();
   updatePitchUI();
   applySettings();
 
   function bindEvents() {
-    fileInput.addEventListener("change", () => {
-      const file = fileInput.files && fileInput.files[0];
-      if (file) {
-        clearDownload();
-        void engine.loadFile(file).then(() => {
-          applySettings();
-        });
-      }
-      fileInput.value = "";
+    speedRange.addEventListener("input", () => {
+      updateSpeedUI();
     });
 
-    speedRange.addEventListener("input", () => {
+    speedRange.addEventListener("change", () => {
       pauseBeforeUpdate();
-      updateSpeedUI();
       applySettings();
     });
 
     linkedPitchRange.addEventListener("input", () => {
-      pauseBeforeUpdate();
       updatePitchUI();
+    });
+
+    linkedPitchRange.addEventListener("change", () => {
+      pauseBeforeUpdate();
       applySettings();
     });
 
@@ -113,10 +112,25 @@
     previewBtn.addEventListener("click", () => void engine.togglePlayPause());
     pauseBtn.addEventListener("click", () => engine.pause());
     stopBtn.addEventListener("click", () => engine.stop());
-    jumpStartBtn.addEventListener("click", () => engine.jumpToStart());
-    seekBar.addEventListener("input", () => void engine.seekTo(Number(seekBar.value) || 0));
-    originalModeBtn.addEventListener("click", () => void engine.setMode("original"));
-    modifiedModeBtn.addEventListener("click", () => void engine.setMode("modified"));
+
+    if (jumpStartBtn) {
+      jumpStartBtn.addEventListener("click", () => engine.jumpToStart());
+    }
+
+    if (seekBar) {
+      seekBar.addEventListener("input", () => {
+        engine.seekTo(Number(seekBar.value) || 0);
+      });
+    }
+
+    if (originalModeBtn) {
+      originalModeBtn.addEventListener("click", () => void engine.setMode("original"));
+    }
+
+    if (modifiedModeBtn) {
+      modifiedModeBtn.addEventListener("click", () => void engine.setMode("modified"));
+    }
+
     exportBtn.addEventListener("click", () => void exportAudio());
 
     document.addEventListener("keydown", (event) => {
@@ -128,6 +142,30 @@
     });
   }
 
+  function bindBubbleOpacity(input, bubble) {
+    if (!input || !bubble) {
+      return;
+    }
+
+    bubble.style.opacity = "0.6";
+
+    const showBubble = () => {
+      bubble.style.opacity = "1";
+    };
+
+    const dimBubble = () => {
+      bubble.style.opacity = "0.6";
+    };
+
+    input.addEventListener("pointerdown", showBubble);
+    input.addEventListener("pointerup", dimBubble);
+    input.addEventListener("pointercancel", dimBubble);
+    input.addEventListener("touchstart", showBubble, { passive: true });
+    input.addEventListener("touchend", dimBubble, { passive: true });
+    input.addEventListener("touchcancel", dimBubble, { passive: true });
+    input.addEventListener("blur", dimBubble);
+  }
+
   function pauseBeforeUpdate() {
     if (engine.getPlaybackState().isPlaying) {
       engine.pause();
@@ -135,8 +173,18 @@
     clearDownload();
   }
 
+  function loadSelectedFile(file) {
+    if (!file) {
+      return;
+    }
+    clearDownload();
+    void engine.loadFile(file).then(() => {
+      applySettings();
+    });
+  }
+
   function syncPitchScaleMode() {
-    const currentSemitones = getPitchSemitones();
+    const currentSemitones = readPitchSemitones();
     if (semitoneMode.checked) {
       linkedPitchRange.min = "-12";
       linkedPitchRange.max = "12";
@@ -150,10 +198,7 @@
     linkedPitchRange.value = String(Math.round(Math.pow(2, currentSemitones / 12) * 100));
   }
 
-  function getPitchSemitones() {
-    if (!alsoAdjustPitch.checked) {
-      return 0;
-    }
+  function readPitchSemitones() {
     if (semitoneMode.checked) {
       return Number(linkedPitchRange.value) || 0;
     }
@@ -161,23 +206,45 @@
     return 12 * Math.log2(ratio);
   }
 
+  function getPitchSemitones() {
+    if (!alsoAdjustPitch.checked) {
+      return 0;
+    }
+    return readPitchSemitones();
+  }
+
+  function getSpeed() {
+    return Math.max(0.5, Number(speedRange.value) || 1);
+  }
+
   function updateSpeedUI() {
     speedValue.textContent = `${getSpeed().toFixed(2)}x`;
-    updateAnalysisDisplay();
+    positionBubble(speedRange, speedValue);
   }
 
   function updatePitchUI() {
-    const pitch = getPitchSemitones();
+    const pitch = readPitchSemitones();
+
     if (semitoneMode.checked) {
       linkedPitchValue.textContent = `${pitch >= 0 ? "+" : ""}${Math.round(pitch)} st`;
     } else {
       linkedPitchValue.textContent = `${Math.pow(2, pitch / 12).toFixed(2)}x`;
     }
+
+    positionBubble(linkedPitchRange, linkedPitchValue);
     updateAnalysisDisplay();
   }
 
-  function getSpeed() {
-    return Math.max(0.5, Number(speedRange.value) || 1);
+  function positionBubble(input, bubble) {
+    if (!input || !bubble) {
+      return;
+    }
+
+    const min = Number(input.min);
+    const max = Number(input.max);
+    const value = Number(input.value);
+    const percent = (value - min) / (max - min);
+    bubble.style.left = `calc(${percent * 100}% + (${6 - percent * 12}px))`;
   }
 
   function applySettings() {
@@ -187,7 +254,7 @@
     });
     rateValue.textContent = `Preview Mode: ${engine.getPlaybackState().mode === "original" ? "Original" : "Modified"}`;
     updateAnalysisDisplay();
-    setStatus("Settings updated. Press Preview or Spacebar.");
+    setStatus("Ready to preview.");
   }
 
   async function exportAudio() {
@@ -198,11 +265,18 @@
     }
     downloadUrl = URL.createObjectURL(result.blob);
     downloadLink.href = downloadUrl;
-    downloadLink.download = `${result.fileName.replace(".wav", "")}_${getSpeed().toFixed(2)}x.wav`;
+    downloadLink.download = result.fileName.replace("_processed", `_speed_${formatSpeedFilePart()}`);
     downloadLink.style.display = "inline-flex";
   }
 
+  function formatSpeedFilePart() {
+    return `${getSpeed().toFixed(2).replace(".", "_")}x`;
+  }
+
   function updateState(state) {
+    if (window.updatePlayhead) {
+      window.updatePlayhead(state.currentTime, state.duration);
+    }
     rateValue.textContent = `Preview Mode: ${state.mode === "original" ? "Original" : "Modified"}`;
     previewBtn.textContent = state.isPlaying ? "Pause" : "Play";
     if (seekBar) {
@@ -215,8 +289,7 @@
   }
 
   function updateAnalysisDisplay() {
-    const pitchShift = getPitchSemitones();
-    const displayedKey = transposeKey(analysisState.key, pitchShift);
+    const displayedKey = transposeKey(analysisState.key, getPitchSemitones());
     keyValue.textContent = displayedKey;
     bpmValue.textContent = analysisState.bpm ? `${analysisState.bpm} BPM` : "-";
     confidenceValue.textContent = `${analysisState.confidenceLabel} confidence`;
@@ -226,6 +299,9 @@
   }
 
   function setModeButtonState(button, isActive) {
+    if (!button) {
+      return;
+    }
     button.classList.toggle("btn-primary", isActive);
     button.classList.toggle("btn-secondary", !isActive);
   }
@@ -304,5 +380,11 @@
     "A#": 10,
     BB: 10,
     B: 11,
+  };
+
+  window.AudioSpeedTool = {
+    addFile(file) {
+      loadSelectedFile(file);
+    },
   };
 })();

@@ -4,7 +4,7 @@
   const DROPZONE_SELECTOR = '[data-upload-dropzone], .upload-dropzone, .upload-box';
   const PROCESSED_FLAG = 'uploadComponentBound';
   const DEFAULT_PRIMARY_TEXT = 'Drop audio file here or click to upload';
-  const DEFAULT_FORMAT_TEXT = 'MP3, WAV, M4A, AAC, FLAC, OGG';
+  const DEFAULT_FORMAT_TEXT = 'MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WEBM';
   const DEFAULT_META_TEXT = 'Max file size: 200MB';
   const DEFAULT_PRIVACY_TEXT = 'Files processed locally in your browser';
 
@@ -16,6 +16,25 @@
   const formatFilesSizeMB = (files) => {
     const totalBytes = Array.from(files || []).reduce((sum, file) => sum + Number(file?.size || 0), 0);
     return formatFileSizeMB(totalBytes);
+  };
+
+  const syncSharedFileRow = (input, file) => {
+    const scope = input?.form || document;
+    const toolRoot =
+      scope.querySelector?.('#audio-tool') ||
+      document.getElementById('audio-tool') ||
+      document;
+
+    const fileNameNodes = toolRoot.querySelectorAll?.('[data-role="fileName"]') || [];
+    const fileRowNodes = toolRoot.querySelectorAll?.('[data-role="fileRow"]') || [];
+
+    fileNameNodes.forEach((node) => {
+      node.textContent = file ? file.name : '';
+    });
+
+    fileRowNodes.forEach((row) => {
+      row.classList.toggle('is-hidden', !file);
+    });
   };
 
   const matchesAcceptToken = (file, token) => {
@@ -75,21 +94,26 @@
   const ensureAudioAccept = (input) => {
     const currentAccept = (input.getAttribute('accept') || '').trim();
     if (!currentAccept) {
-      input.setAttribute('accept', 'audio/*');
+      input.setAttribute('accept', '.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mp4,.m4v,.mov,.webm,.mpga,audio/*,video/*');
     }
   };
 
-  const dispatchToInput = (input, file) => {
-    if (!fileMatchesInputAccept(input, file)) {
-      return;
-    }
+const dispatchToInput = (input, incomingFiles) => {
+  const files = Array.isArray(incomingFiles) ? incomingFiles : [incomingFiles];
+  const acceptedFiles = files.filter((file) => fileMatchesInputAccept(input, file));
+  if (!acceptedFiles.length) {
+    return;
+  }
 
-    const transfer = new DataTransfer();
+  const transfer = new DataTransfer();
+  const nextFiles = input.multiple ? acceptedFiles : [acceptedFiles[0]];
+  nextFiles.forEach((file) => {
     transfer.items.add(file);
-    input.files = transfer.files;
+  });
+  input.files = transfer.files;
 
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  };
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+};
 
   const ensureContentStructure = (dropzone) => {
     let content = dropzone.querySelector('.upload-content, .upload-dropzone__content');
@@ -334,17 +358,24 @@
       event.preventDefault();
       dropzone.classList.remove('is-dragover');
 
-      const [file] = Array.from(event.dataTransfer?.files || []);
-      if (!file) {
+      const droppedFiles = Array.from(event.dataTransfer?.files || []);
+      if (!droppedFiles.length) {
         return;
       }
 
-      dispatchToInput(input, file);
+      dispatchToInput(input, droppedFiles);
     });
 
-    input.addEventListener('change', () => {
-      const [file] = Array.from(input.files || []);
-      updateDropzoneState(dropzone, file || null);
+      input.addEventListener('change', () => {
+        const files = Array.from(input.files || []);
+        const [file] = files;
+        updateDropzoneState(dropzone, file || null);
+        syncSharedFileRow(input, file || null);
+        if (file) {
+          document.dispatchEvent(new CustomEvent('file:selected', {
+            detail: { file, files, input }
+          }));
+        }
     });
   };
 
@@ -374,4 +405,3 @@
     observeNewDropzones();
   }
 })();
-

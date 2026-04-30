@@ -1,0 +1,7 @@
+body.audio-converter-page #audio-tool [data-role="downloadBtn"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}

@@ -1,419 +1,486 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Audio &amp; Video Transcription Online (Free &amp; Private)</title>
-<meta name="description" content="Transcribe audio and video to text online for free. Fast, accurate, and private transcription in your browser with no uploads or sign-up required.">
-  <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://freeaudiotrim.com/audio-video-transcription-online.html">
-<link rel="icon" href="/assets/brand/favicon.ico" type="image/x-icon">
-<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+<link rel="preload" href="/assets/brand/logo.svg" as="image" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
-<link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
 <link rel="manifest" href="/assets/brand/site.webmanifest">
-<link rel="stylesheet" href="/assets/upload.css">
+
+<link rel="stylesheet" href="/css/global.css">
 <link rel="stylesheet" href="/assets/layout.css">
-<style>
-  .content-section {
-    margin-bottom: 2rem;
-  }
+<link rel="stylesheet" href="/assets/upload.css">
 
-  .section-intro p:last-child {
-    margin-bottom: 0;
-  }
+<title>Audio & Video Transcription Online | Audio to Text Converter & Subtitle Generator</title>
+<meta name="description" content="Use this audio to text converter and video to text converter for free audio transcription, free video transcription, subtitles, captions, and private browser-based speech to text processing. Export transcripts as TXT, SRT, or VTT with no upload required.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://freeaudiotrim.com/audio-video-transcription-online.html">
 
-  .tool-shell {
-    margin-top: 1rem;
-  }
-
-  .tool-shell.is-hidden {
-    display: none;
-  }
-
-  .tool-shell-note {
-    margin-top: 1rem;
-    font-size: 0.95rem;
-    text-align: center;
-  }
-
-  #audio-tool .at-root > .at-row:first-child {
-    display: none;
-  }
-</style>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "How do I transcribe audio and video to text?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Upload your audio or video file and the tool will automatically convert speech to text directly in your browser. It works as an audio to text converter and video transcription tool without requiring uploads or sign-up."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Is this transcription tool free?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, it is completely free and requires no signup."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does this tool upload my files?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "No, everything runs locally in your browser."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I generate subtitles?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, you can export subtitles in SRT format."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What file size is supported?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "File size depends on your device performance and browser memory. Larger files may take longer to process."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does this work with video files?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, video files are supported and audio is automatically extracted for transcription."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I transcribe MP3 to text?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, you can upload MP3 files and convert them into text instantly."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I transcribe MP4 videos?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, MP4 and other video formats are supported for transcription."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does this tool support multiple languages?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, the AI supports many languages and automatically detects speech."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does background noise affect transcription?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes, heavy noise or overlapping speech may reduce accuracy, but clear recordings produce better results."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Do I need to install anything?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "No, everything runs directly in your browser with no installation required."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Is my data stored anywhere?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "No, your files are processed locally and are never stored or uploaded."
-      }
-    }
-  ]
+  "@type": "WebPage",
+  "name": "Audio & Video Transcription Online | Audio to Text Converter & Subtitle Generator",
+  "url": "https://freeaudiotrim.com/audio-video-transcription-online.html",
+  "description": "Transcribe audio and video to text online with private browser-based speech to text, subtitle generation, caption workflows, and transcript export."
 }
 </script>
+
 <script type="application/ld+json">
 {
- "@context": "https://schema.org",
- "@type": "SoftwareApplication",
- "name": "Audio & Video Transcription Online",
- "applicationCategory": "MultimediaApplication",
- "operatingSystem": "Web Browser",
- "url": "https://freeaudiotrim.com/audio-video-transcription-online.html",
- "description": "Convert audio and video to text online in your browser with private, local AI transcription and instant TXT or SRT export.",
- "offers": {
-   "@type": "Offer",
-   "price": "0",
-   "priceCurrency": "USD"
- }
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Audio & Video Transcription Online",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web Browser",
+  "url": "https://freeaudiotrim.com/audio-video-transcription-online.html",
+  "description": "Convert audio and video to text online in your browser with private, local AI transcription, subtitle and caption generation, translation support, and instant TXT, SRT, or VTT export.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
 }
 </script>
+
+<meta property="og:title" content="Audio & Video Transcription Online | Audio to Text Converter & Subtitle Generator">
+<meta property="og:description" content="Use this audio to text converter and video to text converter for free audio transcription, subtitles, captions, and private browser-based processing.">
+<meta property="og:url" content="https://freeaudiotrim.com/audio-video-transcription-online.html">
+<meta property="og:type" content="website">
+  <meta property="og:image" content="https://freeaudiotrim.com/assets/OG/transcription.webp">
+<meta property="og:site_name" content="FreeAudioTrim">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Audio & Video Transcription Online | Audio to Text Converter & Subtitle Generator">
+<meta name="twitter:description" content="Use this audio to text converter and video to text converter for free audio transcription, subtitles, captions, and private browser-based processing.">
+  <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/transcription.webp">
 </head>
 <body>
 <header>
   <div class="header-container">
-    <a href="/" class="logo"><img src="/assets/brand/logo.svg" alt="Free Audio Trim logo" width="28" height="28" decoding="async"> freeaudiotrim.com</a>
-    <nav>
-      <a href="/">MP3 Trimmer</a>
-      <a href="/convert-mp3-to-wav.html">Convert</a>
-      <a href="/normalize-audio-volume.html">Normalize Volume</a>
+    <a href="/" class="logo" aria-label="Free Audio Trim home"><img src="/assets/brand/logo.svg" alt="Free Audio Trim" width="207" height="32" decoding="async"></a>
+    <button class="menu-toggle" aria-label="Toggle menu">&#9776;</button>
+    <nav class="nav-links">
+      <a href="/tools.html">All Tools</a>
       <a href="/blog/">Blog</a>
+      <a href="/contact.html">Contact</a>
     </nav>
   </div>
 </header>
 
 <main class="container">
-  <section class="content-section section-intro section-surface hero">
-    <h1>Transcribe Audio & Video to Text (Free, Private, No Upload)</h1>
-    <p>Convert audio and video to text instantly using this free AI transcription tool. Upload your MP3, WAV, or MP4 file and generate accurate transcripts and subtitles directly in your browser — no uploads, no signup, and complete privacy.</p>
-    <p>Transcribe audio to text online using advanced AI speech recognition. This tool works as an audio to text converter, video to text generator, and subtitle creator, supporting interviews, podcasts, meetings, lectures, and voice recordings. Convert speech to text instantly and export accurate transcripts or subtitles in seconds.</p>
-    <p>Supports audio and video transcription including MP3, WAV, MP4, and more. Generate transcripts, captions, and subtitles instantly.</p>
+
+  <section class="content-section section-intro hero">
+    <h1>Audio & Video Transcription<span class="hero-highlight">Speech to Text, Subtitles & Captions Online</span></h1>
+    <p>Use this audio to text converter and video to text converter directly in your browser. Upload MP3, WAV, M4A, MP4, MOV, and other supported files to generate transcripts, subtitles, captions, and translated text in seconds with no uploads or sign-up.</p>
   </section>
 
-  <section class="content-section section-surface tool-ui">
-    <div class="upload-shell" id="upload-shell">
-      <div class="upload-box" id="upload-dropzone" role="button" tabindex="0" aria-label="Drop audio or video file here or click to upload">
-        <div class="upload-content">
-          <div class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V7"/><path d="m8.5 10.5 3.5-3.5 3.5 3.5"/><path d="M20 16.5a4.5 4.5 0 0 0-1.5-8.74A6 6 0 0 0 7 8.5 4 4 0 0 0 4.2 16"/><path d="M8 20h8"/></svg></div>
-          <h2 class="upload-dropzone__primary">Drop audio or video file here or click to upload</h2>
-          <p class="upload-dropzone__secondary">MP3, WAV, M4A, MP4, MOV</p>
-          <small class="upload-dropzone__meta">Large files supported depending on your device</small>
-          <small class="upload-dropzone__privacy">Files are processed locally in your browser</small>
+  <section class="content-section tool-section">
+    <div class="tool-ui">
+      <input id="audioFileInput" class="is-hidden" type="file" accept=".mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mp4,.m4v,.mov,.webm,.mpga,audio/*,video/*">
+      <div class="upload-shell" id="upload-shell">
+        <div class="upload-box" id="upload-dropzone" data-upload-dropzone data-upload-input="audioFileInput" role="button" tabindex="0" aria-label="Drop audio or video file here or click to upload">
+          <div class="upload-content">
+            <div class="upload-illustration" aria-hidden="true">
+              <img src="/assets/icons/upload-illustration.svg" alt="" />
+            </div>
+            <h2 class="upload-dropzone__primary">Drop audio or video file here or click to upload</h2>
+            <p class="upload-dropzone__secondary">MP3, WAV, M4A, MP4, MOV</p>
+            <small class="upload-dropzone__meta">Large files supported depending on your device</small>
+            <small class="upload-dropzone__privacy">Files are processed locally in your browser</small>
+          </div>
+        </div>
+      </div>
+      <div id="tool-shell" class="tool-shell is-hidden">
+        <div id="audio-tool" class="at-root"></div>
+        <audio id="audio-player" controls></audio>
+      </div>
+    </div>
+    <div class="trust-line">
+      <i data-lucide="shield-check"></i>
+      <span><strong>100% Private</strong> — Files never leave your device — No upload required</span>
+    </div>
+  </section>
+
+  <section class="content-section section-shell section-surface">
+    <h2>How Transcription Works</h2>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h3>Upload your file</h3>
+        <p>Drop your audio or video file into the tool, whether it is a meeting recording, lecture, interview, podcast, or video clip.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h3>Start transcription</h3>
+        <p>Local AI processes your file directly in your browser and converts spoken content into searchable text, subtitle lines, and caption-ready transcript output.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h3>Review the transcript</h3>
+        <p>Review the generated transcript, copy the text you need, and check wording before exporting.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <h3>Export</h3>
+        <p>Download the result as TXT, SRT, or VTT so you can use it for notes, subtitles, captions, editing, translation, or repurposed content.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Supported Audio & Video Formats</h2>
+    <div class="supported-wrapper">
+      <div class="supported-block supported-formats">
+        <p class="supported-label">Supported formats</p>
+        <div class="supported-items">
+          <span>MP3</span>
+          <span>WAV</span>
+          <span>M4A</span>
+          <span>MP4</span>
+          <span>MOV</span>
+          <span>OGG</span>
+        </div>
+        <p class="supported-note">Use common formats for MP3 to text, MP4 to text, audio file to text, and video file to text workflows directly in your browser.</p>
+      </div>
+      <div class="supported-divider"></div>
+      <div class="trust-block">
+        <div class="trust-items">
+          <div class="trust-item">
+            <i data-lucide="shield-check"></i>
+            <div><strong>100% Private</strong><span>Files never leave your device</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="cloud-off"></i>
+            <div><strong>No Upload Required</strong><span>Everything runs in your browser</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="zap"></i>
+            <div><strong>Instant Processing</strong><span>Transcribe in seconds</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="monitor"></i>
+            <div><strong>Works Everywhere</strong><span>Desktop, tablet, mobile</span></div>
+          </div>
         </div>
       </div>
     </div>
-    <div id="tool-shell" class="tool-shell is-hidden">
-      <div id="audio-tool"></div>
-      <div class="at-status" style="margin-top:10px; font-weight:500;"></div>
-      <p class="tool-shell-note"><strong>Your files never leave your device. No uploads. No account required.</strong></p>
-      <div class="privacy-badge">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        </svg>
-        100% Client-Side Processing
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Why FreeAudioTrim</h2>
+    <div class="why-grid">
+      <div class="why-item">
+        <h3>No Uploads</h3>
+        <p>Your files stay on your device, which helps protect sensitive meetings, interviews, classes, and recordings from unnecessary cloud upload steps and makes this a more secure transcription software workflow for privacy-sensitive users.</p>
+      </div>
+      <div class="why-item">
+        <h3>AI Transcription</h3>
+        <p>Advanced speech to text converts spoken audio and video into usable text quickly, making it easier to review transcripts, build captions, and create subtitles from recorded speech.</p>
+      </div>
+      <div class="why-item">
+        <h3>Flexible Export</h3>
+        <p>Download transcripts as TXT or export transcript files as SRT and VTT so the output fits documentation, subtitle editor, caption generator, and video publishing workflows.</p>
+      </div>
+      <div class="why-item">
+        <h3>Free to Use</h3>
+        <p>No signups, no subscriptions, and no hidden limitations for everyday speech-to-text tasks in your browser.</p>
       </div>
     </div>
-    <audio id="audio-player" controls style="width: 100%; margin-top: 10px; display: none;"></audio>
-  </section>
-  <section class="content-section section-shell section-surface">
-    <h2>How to Transcribe Audio and Video to Text</h2>
-    <ol class="step-list">
-      <li><span class="step-title">Upload your file</span><span class="step-description">Drop your audio or video file into the tool.</span></li>
-      <li><span class="step-title">Start transcription</span><span class="step-description">The AI processes your file locally in your browser.</span></li>
-      <li><span class="step-title">Review the transcript</span><span class="step-description">Read and copy the generated text instantly.</span></li>
-      <li><span class="step-title">Download your text</span><span class="step-description">Export as TXT or subtitles (SRT).</span></li>
-    </ol>
   </section>
 
-  <section class="content-section section-shell section-surface">
-    <h2>Features of This AI Transcription Tool</h2>
-    <ul class="icon-list">
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3"/><path d="M9 8v8"/><path d="M15 5v14"/><path d="M21 10v4"/></svg></span><span><strong>Audio &amp; video transcription:</strong> convert MP3, WAV, MP4 and more into text.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7"/><path d="M13 17h7"/><path d="m11 4 3 3-3 3"/><path d="m13 14-3 3 3 3"/></svg></span><span><strong>100% browser-based:</strong> no uploads and fully private processing.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 17a5 5 0 1 0 0-10"/><path d="m15 7 4 0 0-4"/><path d="M7 7v10l8-5z"/></svg></span><span><strong>Multiple language support:</strong> transcribe speech from different languages with ease.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18V6"/><path d="M20 18V6"/><path d="M4 18c4-4 8-4 12 0"/><path d="M8 6c4 4 8 4 12 0"/></svg></span><span><strong>Fast AI processing:</strong> generate transcripts in seconds directly on your device.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9a4 4 0 0 0 0 8h6a4 4 0 0 1 0 8H7"/></svg></span><span><strong>Flexible export:</strong> save transcripts as TXT or subtitle files in SRT format.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7"/><path d="M13 17h7"/><path d="m11 4 3 3-3 3"/><path d="m13 14-3 3 3 3"/></svg></span><span><strong>Speech to text conversion:</strong> transcribe audio recordings, voice notes, interviews, podcasts, and video files into accurate text instantly.</span></li>
-    </ul>
+  <section class="content-section content-flow">
+    <h2>Why Audio &amp; Video Transcription</h2>
+    <p>Transcription converts spoken audio into written text. It is useful for meetings, interviews, podcasts, lectures, customer calls, and video content whenever you need speech in a format that is easier to search, quote, caption, subtitle, summarize, translate, or reuse.</p>
+    <p>A browser-based transcription tool also works as an online transcription software workflow, subtitle generator, caption generator, and subtitle translator when you need speech to text output that can move into editing, accessibility, and multilingual publishing workflows.</p>
+  </section>
+
+  <section class="content-section ai-section">
+    <h2>Powered by Advanced Browser Technology</h2>
+    <p>This tool uses modern browser AI capabilities to transcribe audio directly on your device. With local processing and no server uploads, you get speed, privacy, and more control over how sensitive recordings are handled while generating transcript, subtitle, caption, and translation-ready output.</p>
   </section>
 
   <section class="content-section section-surface">
-    <h2>Supported Audio &amp; Video Formats</h2>
-    <p>This transcription tool supports a wide range of audio and video formats including MP3, WAV, M4A, AAC, FLAC, MP4, MOV, and more depending on your browser capabilities. You can transcribe common file types such as MP3 to text, WAV to text, and MP4 video to text easily.</p>
-    <p>You can download transcripts as text files or export subtitles in SRT format for video editing, captions, and content creation workflows.</p>
+    <h2>Key Benefits</h2>
+    <div class="benefits-grid">
+      <div class="benefit-item">
+        <h3>Audio & Video</h3>
+        <p>Transcribe MP3, WAV, M4A, MP4, and more into accurate text without having to convert files first in most workflows.</p>
+      </div>
+      <div class="benefit-item">
+        <h3>Subtitle Export</h3>
+        <p>Generate SRT subtitle files and VTT caption files for video editing, subtitles, captions, social clips, and accessibility-focused publishing.</p>
+      </div>
+      <div class="benefit-item">
+        <h3>Multi-Language</h3>
+        <p>Automatically detects and transcribes multiple languages, which is helpful for translation workflows, subtitle translation, audio translator tasks, mixed-language recordings, and cases where you need to translate transcripts to English.</p>
+      </div>
+      <div class="benefit-item">
+        <h3>Works Offline</h3>
+        <p>Once the tool is loaded, it can continue working without relying on constant cloud processing for each transcript task.</p>
+      </div>
+    </div>
   </section>
 
-  <section class="content-section section-surface">
-    <h2>How Accurate Is AI Transcription?</h2>
-    <p>This AI transcription tool uses advanced speech-to-text technology to convert audio and video into text with high accuracy. It can transcribe audio recordings, convert speech to text, and generate subtitles depending on audio clarity. Clean recordings with minimal noise produce the most accurate transcription results, while heavy background noise or overlapping speech may slightly reduce accuracy.</p>
+
+  <section class="content-section use-cases">
+    <h2>Audio & Video Transcription Use Cases</h2>
+    <p>Speech-to-text helps creators, students, teams, journalists, and researchers in many day-to-day workflows. Here are some of the most common ways people use online transcription.</p>
+    <div class="use-case-grid">
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="mic"></i></div>
+        <h3>Meetings & Interviews</h3>
+        <p>Convert recorded meetings and interviews into searchable text for notes, summaries, documentation, and follow-up work.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="music"></i></div>
+        <h3>Podcasts & Content</h3>
+        <p>Turn podcast episodes and video content into written articles, show notes, transcripts, or reusable blog material.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="audio-waveform"></i></div>
+        <h3>Subtitles & Captions</h3>
+        <p>Generate subtitles and captions for videos to improve accessibility, support silent viewing, and expand content reach across platforms with SRT or VTT exports.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="briefcase"></i></div>
+        <h3>Academic Research</h3>
+        <p>Transcribe lectures, seminars, and recorded courses into text for study, search, quoting, and easier review later.</p>
+      </div>
+    </div>
   </section>
 
-  <section class="content-section section-surface">
-    <h2>Private Transcription in Your Browser</h2>
-    <p>Unlike most transcription tools, your files are never uploaded to a server. Everything runs locally in your browser, ensuring complete privacy and faster processing. This makes it ideal for sensitive audio, meetings, and personal recordings.</p>
+      <section class="content-section related-tools">
+
+    <h2>Explore Audio Tools</h2>
+    <h3>Go beyond transcription and handle trimming, extraction, conversion, cleanup, and more with related browser-based audio tools.</h3>
+
+    <div class="tool-links-grid">
+    <a href="/audio-converter.html" class="tool-link">
+      <strong>Audio Converter</strong>
+      <span>Convert audio formats online</span>
+    </a>
+    <a href="/extract-audio-from-video.html" class="tool-link">
+      <strong>Extract Audio</strong>
+      <span>Pull audio tracks out of video files</span>
+    </a>
+    <a href="/merge-audio-files.html" class="tool-link">
+      <strong>Merge Audio Files</strong>
+      <span>Combine multiple audio tracks into one</span>
+    </a>
+    <a href="/remove-silence-from-audio.html" class="tool-link">
+      <strong>Remove Silence</strong>
+      <span>Automatically clean silent gaps</span>
+    </a>
+    <a href="/normalize-audio-volume.html" class="tool-link">
+      <strong>Normalize Audio</strong>
+      <span>Balance volume levels instantly</span>
+    </a>
+    </div>
+
+    <h3 class="tool-pills-label">More tools</h3>
+    <div class="tool-pills">
+    <a href="/audio-cutter-online.html" class="tool-pill">Audio Cutter</a>
+    <a href="/normalize-audio-volume.html" class="tool-pill">Normalize Audio</a>
+    <a href="/audio-speed-changer.html" class="tool-pill">Speed Changer</a>
+    <a href="/audio-pitch-changer.html" class="tool-pill">Pitch Changer</a>
+    <a href="/convert-mp3-to-wav.html" class="tool-pill">MP3 to WAV</a>
+    </div>
+
   </section>
 
-  <section class="content-section section-shell section-surface">
-    <h2>What Can You Use Audio &amp; Video Transcription For?</h2>
-      <p>This browser-based transcription tool helps turn spoken content into text for work, study, publishing, and accessibility. Whether you are processing meetings, recorded interviews, video content, or voice notes, you can create accurate transcripts and subtitles without sending files to a server.</p>
-      <p>Use this tool to convert audio to text for podcasts, transcribe meetings into written notes, generate subtitles for videos, and turn voice recordings into searchable text. It is ideal for content creators, students, marketers, journalists, and businesses working with spoken content.</p>
-      <ul class="tool-links">
-        <li>After transcription, you can <a href="/trim-mp3-online.html">trim audio for shorter clips</a>.</li>
-        <li>Before transcription, you can <a href="/remove-silence-from-audio.html">remove silent sections</a>.</li>
-        <li>You can also <a href="/extract-audio-from-video.html">extract audio from video</a> for faster speech-to-text workflows.</li>
-      </ul>
-    <ul class="icon-list">
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v18"/><path d="m8 5 10 3-10 3"/><path d="m8 14 10 3-10 3"/></svg></span><span>Transcribing meetings, interviews, and lectures.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><span>Generating subtitles for videos.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10h8"/><path d="M8 14h5"/><path d="M5 19h14a2 2 0 0 0 2-2V7l-4-4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg></span><span>Converting voice notes to text.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></span><span>Creating blog content from recordings.</span></li>
-      <li><span class="list-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3"/><path d="M9 8v8"/><path d="M15 5v14"/><path d="M21 10v4"/></svg></span><span>Improving accessibility with captions.</span></li>
-    </ul>
+  <section class="content-section related-articles">
+    <h2>Related Articles</h2>
+    <div class="article-grid">
+      <a href="/blog/how-to-transcribe-audio-to-text.html" class="article-card">
+        <img src="/assets/blog/audio-editing-guide.webp" alt="How to transcribe audio to text">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>How to Transcribe Audio to Text</h3>
+          <p class="article-desc">Learn what transcription is, how to improve accuracy, and how to turn audio files into text online.</p>
+        </div>
+      </a>
+      <a href="/blog/how-to-transcribe-video-to-text.html" class="article-card">
+        <img src="/assets/blog/extract-audio-from-video-guide.webp" alt="How to transcribe video to text">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>How to Transcribe Video to Text</h3>
+          <p class="article-desc">Convert MP4 and other video files into searchable text, notes, or subtitle-ready transcripts.</p>
+        </div>
+      </a>
+      <a href="/blog/how-to-generate-subtitles.html" class="article-card">
+        <img src="/assets/blog/trim-mp3-online-guide.webp" alt="How to generate subtitles">
+        <div class="article-content">
+          <p class="article-date">Guide</p>
+          <h3>How to Generate Subtitles</h3>
+          <p class="article-desc">Understand subtitles, create SRT or VTT files, and add subtitles to video more cleanly.</p>
+        </div>
+      </a>
+    </div>
   </section>
 
-  <section class="content-section section-surface">
-    <h2>Why Use a Browser-Based Transcription Tool?</h2>
-    <p>Running transcription directly in your browser gives you a faster and more private workflow. You can convert speech to text without waiting for uploads, keep sensitive recordings on your own device, and start working with transcripts right away for notes, subtitles, or written content.</p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Tips for Better Transcription Results</h2>
-    <p>For clearer transcripts, use recordings with minimal background noise and strong speech volume. If you are working with long meetings or lectures, trimming silence and extracting audio from video first can improve readability and make your transcription workflow faster from start to finish.</p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Supported File Types for Transcription</h2>
-    <p>This transcription tool works with common audio and video formats including MP3, WAV, M4A, MP4, and MOV. Exact compatibility may vary by browser, but modern versions of Chrome, Edge, Firefox, and Safari typically provide the best experience for local file processing.</p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>When to Convert Speech to Text</h2>
-    <p>Speech-to-text is useful when you need searchable notes, subtitles, captions, repurposed content, or written records from spoken material. It is especially helpful for interviews, team calls, online lessons, recorded presentations, and mobile voice notes that need to become editable text quickly.</p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Private Local Transcription</h2>
-    <p>Your files stay on your device throughout the transcription process. Because everything runs locally in the browser, you can work with sensitive recordings more confidently while avoiding account signups, remote uploads, and unnecessary delays.</p>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>More Audio Tools</h2>
-    <ul>
-      <li><a href="/trim-mp3-online.html">Trim MP3 Online</a></li>
-      <li><a href="/remove-silence-from-audio.html">Remove Silence from Audio</a></li>
-      <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a></li>
-    </ul>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>More Transcription Tools</h2>
-    <ul>
-      <!-- TODO: Replace with real page URL -->
-      <li><a href="javascript:void(0)">MP3 to Text Converter</a></li>
-      <!-- TODO: Replace with real page URL -->
-      <li><a href="javascript:void(0)">Video to Text Converter</a></li>
-      <!-- TODO: Replace with real page URL -->
-      <li><a href="javascript:void(0)">Generate Subtitles from Video</a></li>
-      <!-- TODO: Replace with real page URL -->
-      <li><a href="javascript:void(0)">Convert Speech to Text Online</a></li>
-    </ul>
-  </section>
-
-  <section class="content-section section-surface">
-    <h2>Helpful Audio Editing Guides</h2>
-    <ul>
-      <li><a href="/blog/how-to-trim-mp3-online.html">How to Trim MP3 Online</a></li>
-      <li><a href="/blog/how-to-make-audio-louder.html">How to Make Audio Louder</a></li>
-      <li><a href="/blog/convert-mp3-to-wav-guide.html">Convert MP3 to WAV Guide</a></li>
-      <li><a href="/blog/remove-silence-from-audio-guide.html">Remove Silence from Audio Guide</a></li>
-      <li><a href="/blog/extract-audio-from-video-guide.html">Extract Audio from Video Guide</a></li>
-    </ul>
+<section class="content-section section-surface">
+    <h2>Why Use a Browser-Based Transcription Tool</h2>
+    <p>Running transcription in your browser keeps files on your device — no uploads, no server processing, complete privacy. Convert speech to text for meetings, interviews, podcasts, and lectures while creating subtitles, captions, and export-ready transcript files without sending sensitive recordings to external services.</p>
   </section>
 
   <section class="content-section section-surface">
     <h2>Frequently Asked Questions</h2>
     <details>
       <summary>How do I transcribe audio and video to text?</summary>
-      <p>Upload your audio or video file and the tool will automatically convert speech to text directly in your browser. It works as an audio to text converter and video transcription tool without requiring uploads or sign-up.</p>
+      <p>Upload your audio or video file and the AI will automatically convert speech to text directly in your browser. You can then review the transcript and export it as TXT, SRT, or VTT.</p>
+    </details>
+    <details>
+      <summary>How do I transcribe audio to text?</summary>
+      <p>Upload an MP3, WAV, M4A, or another supported audio file, let the speech to text engine process it locally, then review and export the finished transcript.</p>
+    </details>
+    <details>
+      <summary>How do I transcribe video to text?</summary>
+      <p>Upload an MP4, MOV, or another supported video file, then let the tool convert spoken content into text, subtitles, or caption-ready output directly in your browser.</p>
     </details>
     <details>
       <summary>Is this transcription tool free?</summary>
-      <p>Yes, it is completely free and requires no signup.</p>
+      <p>Yes, it is completely free and requires no signup or installation, which makes it useful for free audio transcription and free video transcription tasks.</p>
     </details>
     <details>
       <summary>Does this tool upload my files?</summary>
-      <p>No, everything runs locally in your browser.</p>
+      <p>No, everything runs locally in your browser. Your files never leave your device.</p>
     </details>
     <details>
-      <summary>Can I generate subtitles?</summary>
-      <p>Yes, you can export subtitles in SRT format.</p>
+      <summary>Can I generate subtitles and captions?</summary>
+      <p>Yes, this tool works as an online subtitle generator and caption generator for supported audio and video files. You can export subtitle and caption files in SRT or VTT format.</p>
     </details>
     <details>
-      <summary>What file size is supported?</summary>
-      <p>File size depends on your device performance and browser memory. Larger files may take longer to process.</p>
+      <summary>What file types are supported?</summary>
+      <p>MP3, WAV, M4A, MP4, MOV, and other common audio and video formats are supported, including common MP3 to text and MP4 to text workflows.</p>
     </details>
     <details>
-      <summary>Does this work with video files?</summary>
-      <p>Yes, video files are supported and audio is automatically extracted for transcription.</p>
+      <summary>How do I improve transcription accuracy?</summary>
+      <p>Use clear source audio, reduce background noise when possible, avoid overlapping speakers, and choose recordings with strong voice clarity. Clean files usually produce the best AI transcription results.</p>
     </details>
     <details>
-      <summary>Can I transcribe MP3 to text?</summary>
-      <p>Yes, you can upload MP3 files and convert them into text instantly.</p>
+      <summary>How accurate is AI transcription?</summary>
+      <p>AI transcription can be very accurate on clear recordings, but results still depend on accent variation, background noise, speaker overlap, and source quality. Reviewing the transcript before publishing is always recommended.</p>
     </details>
     <details>
-      <summary>Can I transcribe MP4 videos?</summary>
-      <p>Yes, MP4 and other video formats are supported for transcription.</p>
+      <summary>Can I transcribe in different languages?</summary>
+      <p>Yes, the AI supports many languages and automatically detects the language of your audio, which helps with multilingual transcription, subtitle translation, and transcript translation workflows.</p>
     </details>
     <details>
-      <summary>Does this tool support multiple languages?</summary>
-      <p>Yes, the AI supports many languages and automatically detects speech.</p>
+      <summary>Can I transcribe large audio or video files?</summary>
+      <p>Large files can be processed as long as your browser and device have enough memory and compute resources. Performance depends on file length, format, and the power of your device.</p>
     </details>
     <details>
-      <summary>Does background noise affect transcription?</summary>
-      <p>Yes, heavy noise or overlapping speech may reduce accuracy, but clear recordings produce better results.</p>
+      <summary>Is AI transcription secure?</summary>
+      <p>For this page, security comes from local browser-based processing and no file uploads. Your recordings stay on your device instead of being sent to a remote transcription server.</p>
+    </details>
+    <details>
+      <summary>What is transcription?</summary>
+      <p>Transcription is the process of turning spoken audio into written text. It is commonly used for meetings, interviews, lectures, podcasts, captions, subtitles, and searchable archives.</p>
+    </details>
+    <details>
+      <summary>What are subtitles?</summary>
+      <p>Subtitles are timed lines of text that follow spoken dialogue or narration in a video. They help with accessibility, silent viewing, translation, and easier content reuse.</p>
+    </details>
+    <details>
+      <summary>How do I generate subtitles?</summary>
+      <p>Upload your audio or video file, let the tool create a transcript, review the timing and wording, and export the result as SRT or VTT for subtitle use.</p>
+    </details>
+    <details>
+      <summary>How do I add subtitles to a video?</summary>
+      <p>Generate the subtitle file first, then import the SRT or VTT file into your video editor, hosting platform, or publishing workflow where subtitles are supported.</p>
+    </details>
+    <details>
+      <summary>Can I export transcripts as SRT or VTT?</summary>
+      <p>Yes, you can export transcript output as SRT or VTT when you need subtitle or caption files for editing, publishing, or accessibility workflows.</p>
+    </details>
+    <details>
+      <summary>Can I translate subtitles into multiple languages?</summary>
+      <p>If your workflow includes translation support, you can use the transcript as the basis for subtitle translation and multilingual caption preparation for supported content.</p>
+    </details>
+    <details>
+      <summary>Can I translate transcripts to English?</summary>
+      <p>Yes, if your workflow supports translation, you can use the transcript as the basis for translating spoken content into English or another supported language before subtitle or caption export.</p>
+    </details>
+    <details>
+      <summary>What is the best subtitle generator for private browser-based work?</summary>
+      <p>A strong subtitle generator should support speech to text, caption editing, subtitle exports such as SRT or VTT, and private local processing. This page is built for that kind of browser-based workflow.</p>
+    </details>
+    <details>
+      <summary>How much does transcription software cost?</summary>
+      <p>Pricing varies widely across the market, but browser-based tools like this one can cover many everyday transcription tasks for free when you do not need a paid enterprise workflow.</p>
     </details>
     <details>
       <summary>Do I need to install anything?</summary>
       <p>No, everything runs directly in your browser with no installation required.</p>
     </details>
-    <details>
-      <summary>Is my data stored anywhere?</summary>
-      <p>No, your files are processed locally and are never stored or uploaded.</p>
-    </details>
   </section>
-  <div id="related-tools"></div>
-  <div class="related-tools">
-    <h3>Try next</h3>
-    <ul>
-      <li><a href="/audio-cutter-online.html">Cut audio online</a></li>
-      <li><a href="/remove-silence-from-audio.html">Remove silence from audio online</a></li>
-      <li><a href="/merge-audio-files.html">Merge audio files online</a></li>
-    </ul>
-  </div>
+
 </main>
 
-<footer>
+<footer class="site-footer">
   <div class="footer-container">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2rem;">
-      <div>
-        <div class="footer-title">AudioTools</div>
-        <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
-      </div>
-      <div>
-        <div class="footer-title">Tools</div>
-        <p><a href="/" class="footer-text">MP3 Trimmer</a></p>
-        <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
-        <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
-      </div>
-      <div>
-        <div class="footer-title">Legal</div>
-        <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
-        <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
-        <p><a href="/contact.html" class="footer-text">Contact</a></p>
-      </div>
+    <div class="footer-brand">
+      <h3>FreeAudioTrim</h3>
+      <p>Simple, fast, and private audio tools that run entirely in your browser.</p>
     </div>
-    <div class="footer-small">
-      (c) 2026 AudioTools. All rights reserved.
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <ul>
+        <li><a href="/audio-cutter-online.html">Audio Cutter</a></li>
+        <li><a href="/free-mp3-cutter.html">MP3 Cutter</a></li>
+        <li><a href="/merge-audio-files.html">Merge Audio</a></li>
+        <li><a href="/remove-silence-from-audio.html">Remove Silence</a></li>
+        <li><a href="/normalize-audio-volume.html">Normalize Audio</a></li>
+        <li><a href="/audio-converter.html">Audio Converter</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>More Tools</h4>
+      <ul>
+        <li><a href="/audio-speed-changer.html">Speed Changer</a></li>
+        <li><a href="/audio-pitch-changer.html">Pitch Changer</a></li>
+        <li><a href="/extract-audio-from-video.html">Extract Audio</a></li>
+        <li><a href="/convert-mp3-to-wav.html">MP3 to WAV</a></li>
+        <li><a href="/mp3-to-m4r.html">MP3 to M4R</a></li>
+        <li><a href="/ringtone-maker.html">Ringtone Maker</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <ul>
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="/blog/audio-editing-guide.html">Audio Editing Guide</a></li>
+        <li><a href="/blog/how-to-trim-mp3-online.html">Trim MP3 Guide</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-legal">
+      <a href="/terms-of-service.html">Terms</a>
+      <a href="/privacy-policy.html">Privacy</a>
+      <a>Cookies</a>
+      <a>Security</a>
+    </div>
+    <div class="footer-social">
+      <a>LinkedIn</a>
+      <a>X</a>
+      <a>YouTube</a>
     </div>
   </div>
 </footer>
 
 <script src="/assets/encoders/lame.min.js"></script>
 <script src="/assets/encoders/mp3-encoder.js"></script>
+<script src="/assets/upload.js" defer></script>
 <script src="/assets/transcribe-tool.js"></script>
 <script>
   (function () {
@@ -431,115 +498,51 @@
   })();
 </script>
 <script>
-  (function () {
-    var uploadShell = document.getElementById("upload-shell");
-    var dropzone = document.getElementById("upload-dropzone");
-    var toolShell = document.getElementById("tool-shell");
+document.addEventListener('file:selected', function(e) {
+  var file = e.detail && e.detail.file;
+  var input = e.detail && e.detail.input;
+  var uploadShell = document.getElementById('upload-shell');
+  var toolShell = document.getElementById('tool-shell');
+  var wasHidden = toolShell.classList.contains('is-hidden');
 
-    if (!uploadShell || !dropzone || !toolShell) {
-      return;
-    }
+  if (!file || (input && input.id !== 'audioFileInput')) return;
 
-    function getToolInput() {
-      return document.querySelector("#audio-tool .at-file");
-    }
+  uploadShell.classList.add('is-hidden');
+  toolShell.classList.remove('is-hidden');
 
-    function showTool() {
-      uploadShell.style.display = "none";
-      toolShell.classList.remove("is-hidden");
-    }
+  if (window.AudioVideoTranscriptionTool) {
+    window.AudioVideoTranscriptionTool.addFile(file);
+  }
 
-    function hideTool() {
-      uploadShell.style.display = "";
-      toolShell.classList.add("is-hidden");
-    }
+  if (wasHidden) {
+    var offset = 100;
+    var y = toolShell.getBoundingClientRect().top + window.pageYOffset - offset;
+    window.scrollTo({ top: y, behavior: "smooth" });
+  }
+});
 
-    // Listen for restart event from transcribe tool
-    window.addEventListener("transcribe-tool-restart", function () {
-      hideTool();
-    });
+document.addEventListener('converter:empty', function() {
+  var uploadShell = document.getElementById('upload-shell');
+  var toolShell = document.getElementById('tool-shell');
+  var input = document.getElementById('audioFileInput');
 
-    function bindToolInputChange(input) {
-      if (!input || input.dataset.uploadProxyBound === "1") {
-        return;
-      }
-      input.dataset.uploadProxyBound = "1";
-      input.addEventListener("change", function () {
-        if (input.files && input.files.length > 0) {
-          showTool();
-        }
-      });
-    }
+  uploadShell.classList.remove('is-hidden');
+  toolShell.classList.add('is-hidden');
 
-    function withToolInput(callback) {
-      var input = getToolInput();
-      if (!input) {
-        return false;
-      }
-      bindToolInputChange(input);
-      callback(input);
-      return true;
-    }
-
-    if (!withToolInput(function () {})) {
-      var retries = 0;
-      var timer = setInterval(function () {
-        retries += 1;
-        if (withToolInput(function () {}) || retries > 40) {
-          clearInterval(timer);
-        }
-      }, 100);
-    }
-
-    function openFilePicker() {
-      withToolInput(function (input) {
-        input.click();
-      });
-    }
-
-    function injectDroppedFile(file) {
-      withToolInput(function (input) {
-        var transfer = new DataTransfer();
-        transfer.items.add(file);
-        input.files = transfer.files;
-        showTool();
-        input.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-    }
-
-    dropzone.addEventListener("click", openFilePicker);
-    dropzone.addEventListener("keydown", function (event) {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        openFilePicker();
-      }
-    });
-
-    ["dragenter", "dragover"].forEach(function (type) {
-      dropzone.addEventListener(type, function (event) {
-        event.preventDefault();
-        dropzone.classList.add("is-dragover");
-      });
-    });
-
-    ["dragleave", "dragend"].forEach(function (type) {
-      dropzone.addEventListener(type, function (event) {
-        event.preventDefault();
-        dropzone.classList.remove("is-dragover");
-      });
-    });
-
-    dropzone.addEventListener("drop", function (event) {
-      event.preventDefault();
-      dropzone.classList.remove("is-dragover");
-      var file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
-      if (file) {
-        injectDroppedFile(file);
-      }
-    });
-  })();
+  if (input) {
+    input.value = '';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+});
 </script>
-
 <script src="/assets/related-tools.js"></script>
+<script src="/assets/mobile-menu.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  lucide.createIcons();
+</script>
 </body>
 </html>
+
+
+

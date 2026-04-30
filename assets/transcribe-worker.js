@@ -4,31 +4,182 @@ let transcriber = null;
 let isLoading = false;
 let isBusy = false;
 let translationModel = null;
+let arabicPromptIds = null;
+const TRANSCRIPTION_MODEL_ID = "onnx-community/whisper-large-v3-turbo";
+const ARABIC_TRANSCRIPTION_PROMPT = "هذا تسجيل صوتي باللغة العربية. اكتب الكلام كما يُنطق بوضوح وبنصه الأصلي، مع الحفاظ على المعنى وتسلسل الجمل، من دون ترجمة أو تلخيص. إذا نطق المتحدث كلمات أو عبارات إنجليزية، فاكتبها بالإنجليزية كما قيلت ولا تعرّبها. إذا وُجدت موسيقى أو مؤثر صوتي واضح بلا كلام، فاكتب: (موسيقى). اكتب الأسماء والأماكن والمصطلحات كما تُسمع، واستخدم علامات ترقيم خفيفة عند الحاجة فقط.";
+
+function hasWebGPU() {
+  return !!(typeof navigator !== "undefined" && navigator.gpu);
+}
+
+function getPreferredWhisperLoadConfig() {
+  if (hasWebGPU()) {
+    return {
+      device: "webgpu",
+      dtype: {
+        encoder_model: "fp16",
+        decoder_model_merged: "q4f16"
+      },
+      use_external_data_format: true
+    };
+  }
+
+  return {
+    device: "wasm",
+    dtype: "q8",
+    use_external_data_format: true
+  };
+}
+
+function clampPercent(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function createModelProgressTracker() {
+  const fileProgress = new Map();
+  let lastPercent = -1;
+  let sawNetworkProgress = false;
+
+  return {
+    sawNetworkProgress() {
+      return sawNetworkProgress;
+    },
+    update(info) {
+      if (!info || typeof info !== "object") {
+        return;
+      }
+
+      if (typeof info.progress === "number" && info.status === "progress_total") {
+        sawNetworkProgress = true;
+        const percent = clampPercent(info.progress);
+        if (percent !== lastPercent) {
+          lastPercent = percent;
+          postMessage({ type: "model_download_progress", progress: percent });
+        }
+        return;
+      }
+
+      if (info.status === "progress" || info.status === "done") {
+        const fileKey = info.file || info.name || "model";
+        const currentEntry = fileProgress.get(fileKey) || {};
+        let nextProgress = typeof info.progress === "number" ? info.progress : currentEntry.progress;
+        let nextLoaded = typeof info.loaded === "number" ? info.loaded : currentEntry.loaded;
+        let nextTotal = typeof info.total === "number" ? info.total : currentEntry.total;
+
+        if (nextProgress == null && Number.isFinite(nextLoaded) && Number.isFinite(nextTotal) && nextTotal > 0) {
+          nextProgress = (nextLoaded / nextTotal) * 100;
+        }
+
+        if (info.status === "done") {
+          nextProgress = 100;
+          if (!Number.isFinite(nextLoaded)) {
+            nextLoaded = 1;
+          }
+          if (!Number.isFinite(nextTotal) || nextTotal <= 0) {
+            nextTotal = nextLoaded;
+          } else {
+            nextLoaded = nextTotal;
+          }
+        }
+
+        if (nextProgress == null && !Number.isFinite(nextLoaded) && !Number.isFinite(nextTotal)) {
+          return;
+        }
+
+        sawNetworkProgress = true;
+        fileProgress.set(fileKey, {
+          progress: clampPercent(nextProgress == null ? 0 : nextProgress),
+          loaded: Number.isFinite(nextLoaded) ? nextLoaded : null,
+          total: Number.isFinite(nextTotal) ? nextTotal : null
+        });
+
+        const values = Array.from(fileProgress.values());
+        if (!values.length) {
+          return;
+        }
+
+        const weightedEntries = values.filter((entry) => Number.isFinite(entry.loaded) && Number.isFinite(entry.total) && entry.total > 0);
+        let percent;
+
+        if (weightedEntries.length) {
+          const loadedSum = weightedEntries.reduce((sum, entry) => sum + entry.loaded, 0);
+          const totalSum = weightedEntries.reduce((sum, entry) => sum + entry.total, 0);
+          percent = clampPercent((loadedSum / totalSum) * 100);
+        } else {
+          const averageProgress = values.reduce((sum, entry) => sum + entry.progress, 0) / values.length;
+          percent = clampPercent(averageProgress);
+        }
+
+        if (percent !== lastPercent) {
+          lastPercent = percent;
+          postMessage({ type: "model_download_progress", progress: percent });
+        }
+      }
+    }
+  };
+}
 
 async function loadModel() {
-  if (transcriber) return transcriber;
+  if (transcriber) {
+    return {
+      model: transcriber,
+      loadState: "memory"
+    };
+  }
 
   if (isLoading) {
     while (isLoading) {
       await new Promise(r => setTimeout(r, 100));
     }
-    return transcriber;
+    return {
+      model: transcriber,
+      loadState: transcriber ? "memory" : "idle"
+    };
   }
 
   isLoading = true;
+  let tracker = null;
 
   try {
-    transcriber = await pipeline(
-      "automatic-speech-recognition",
-      "onnx-community/whisper-large-v3-turbo",
-      {
-        device: "auto",
-        dtype: "q4",
-        use_external_data_format: true
+    const config = getPreferredWhisperLoadConfig();
+    tracker = createModelProgressTracker();
+    const loadOptions = {
+      ...config,
+      progress_callback: (info) => {
+        tracker.update(info);
       }
-    );
+    };
 
-    postMessage({ type: "ready" });
+    postMessage({ type: "model_loading" });
+
+    try {
+      transcriber = await pipeline(
+        "automatic-speech-recognition",
+        TRANSCRIPTION_MODEL_ID,
+        loadOptions
+      );
+    } catch (primaryError) {
+      if (!hasWebGPU()) {
+        throw primaryError;
+      }
+
+      transcriber = await pipeline(
+        "automatic-speech-recognition",
+        TRANSCRIPTION_MODEL_ID,
+        {
+          device: "webgpu",
+          dtype: "q4f16",
+          use_external_data_format: true,
+          progress_callback: (info) => {
+            tracker.update(info);
+          }
+        }
+      );
+    }
   } catch (err) {
     transcriber = null;
     postMessage({ type: "error", message: "Model load failed" });
@@ -37,7 +188,10 @@ async function loadModel() {
     isLoading = false;
   }
 
-  return transcriber;
+  return {
+    model: transcriber,
+    loadState: tracker && tracker.sawNetworkProgress() ? "downloaded" : "cached"
+  };
 }
 
 async function loadTranslationModel() {
@@ -49,6 +203,63 @@ async function loadTranslationModel() {
   }
 
   return translationModel;
+}
+
+async function disposePipelineInstance(instance) {
+  if (!instance || typeof instance.dispose !== "function") {
+    return;
+  }
+
+  await instance.dispose();
+}
+
+async function unloadModels(includeTranslation = true) {
+  await disposePipelineInstance(transcriber);
+  transcriber = null;
+  arabicPromptIds = null;
+
+  if (includeTranslation) {
+    await disposePipelineInstance(translationModel);
+    translationModel = null;
+  }
+}
+
+async function buildPromptIds(source, promptText) {
+  if (!source) {
+    return null;
+  }
+
+  if (typeof source.get_prompt_ids === "function") {
+    return await source.get_prompt_ids(promptText);
+  }
+
+  return null;
+}
+
+async function getArabicPromptIds(model) {
+  if (arabicPromptIds) {
+    return arabicPromptIds;
+  }
+
+  const promptSources = [
+    model && model.processor,
+    model && model.tokenizer,
+    model && model.processor && model.processor.tokenizer
+  ].filter(Boolean);
+
+  for (const source of promptSources) {
+    try {
+      const promptIds = await buildPromptIds(source, ARABIC_TRANSCRIPTION_PROMPT);
+      if (promptIds) {
+        arabicPromptIds = promptIds;
+        return arabicPromptIds;
+      }
+    } catch (err) {
+      // Fall through to the next prompt source.
+    }
+  }
+
+  return null;
 }
 
 function normalizeText(text) {
@@ -148,7 +359,176 @@ function polishEnglish(text) {
   return value;
 }
 
-async function handleTranscription(audioBuffer, selectedLanguage) {
+function getPercentile(values, percentile) {
+  if (!values || !values.length) {
+    return 0;
+  }
+
+  const sorted = values.slice().sort((a, b) => a - b);
+  const index = Math.max(0, Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * percentile)));
+  return sorted[index] || 0;
+}
+
+function buildArabicSpeechAwareChunks(audio, sampleRate) {
+  const minWholeClipSeconds = 12;
+  if (!audio || !audio.length || audio.length <= sampleRate * minWholeClipSeconds) {
+    return [{
+      audio: audio,
+      startSample: 0,
+      endSample: audio.length
+    }];
+  }
+
+  const frameMs = 30;
+  const frameSize = Math.max(160, Math.floor(sampleRate * (frameMs / 1000)));
+  const minSpeechFrames = Math.max(4, Math.round(180 / frameMs));
+  const mergePauseFrames = Math.max(4, Math.round(240 / frameMs));
+  const packPauseFrames = Math.max(10, Math.round(480 / frameMs));
+  const paddingFrames = Math.max(4, Math.round(180 / frameMs));
+  const maxChunkFrames = Math.max(1, Math.round((16 * 1000) / frameMs));
+  const rms = [];
+  let totalEnergy = 0;
+  let totalCount = 0;
+
+  for (let i = 0; i < audio.length; i += frameSize) {
+    let sum = 0;
+    let count = 0;
+
+    for (let j = 0; j < frameSize && i + j < audio.length; j += 1) {
+      const sample = audio[i + j];
+      sum += sample * sample;
+      count += 1;
+    }
+
+    totalEnergy += sum;
+    totalCount += count;
+    rms.push(Math.sqrt(sum / Math.max(1, count)));
+  }
+
+  const globalRms = Math.sqrt(totalEnergy / Math.max(1, totalCount));
+  const noiseFloor = getPercentile(rms, 0.2);
+  const threshold = Math.max(0.006, Math.min(0.03, Math.max(globalRms * 0.45, noiseFloor * 2.2)));
+  const speechRegions = [];
+  let idx = 0;
+
+  while (idx < rms.length) {
+    if (rms[idx] >= threshold) {
+      const startFrame = idx;
+      while (idx < rms.length && rms[idx] >= threshold) {
+        idx += 1;
+      }
+      const endFrame = idx;
+      if (endFrame - startFrame >= minSpeechFrames) {
+        speechRegions.push({ startFrame, endFrame });
+      }
+    } else {
+      idx += 1;
+    }
+  }
+
+  if (!speechRegions.length) {
+    return [{
+      audio: audio,
+      startSample: 0,
+      endSample: audio.length
+    }];
+  }
+
+  const mergedRegions = [];
+  speechRegions.forEach((region) => {
+    if (!mergedRegions.length) {
+      mergedRegions.push({ startFrame: region.startFrame, endFrame: region.endFrame });
+      return;
+    }
+
+    const previous = mergedRegions[mergedRegions.length - 1];
+    if (region.startFrame - previous.endFrame <= mergePauseFrames) {
+      previous.endFrame = region.endFrame;
+    } else {
+      mergedRegions.push({ startFrame: region.startFrame, endFrame: region.endFrame });
+    }
+  });
+
+  const expandedRegions = mergedRegions.map((region) => ({
+    startFrame: Math.max(0, region.startFrame - paddingFrames),
+    endFrame: Math.min(rms.length, region.endFrame + paddingFrames)
+  }));
+
+  const packedChunks = [];
+  expandedRegions.forEach((region) => {
+    if (!packedChunks.length) {
+      packedChunks.push({ startFrame: region.startFrame, endFrame: region.endFrame });
+      return;
+    }
+
+    const current = packedChunks[packedChunks.length - 1];
+    const gapFrames = region.startFrame - current.endFrame;
+    const nextDuration = region.endFrame - current.startFrame;
+
+    if (gapFrames <= packPauseFrames && nextDuration <= maxChunkFrames) {
+      current.endFrame = region.endFrame;
+    } else {
+      packedChunks.push({ startFrame: region.startFrame, endFrame: region.endFrame });
+    }
+  });
+
+  const chunks = packedChunks.map((chunk) => {
+    const startSample = Math.max(0, chunk.startFrame * frameSize);
+    const endSample = Math.min(audio.length, chunk.endFrame * frameSize);
+    return {
+      audio: audio.slice(startSample, endSample),
+      startSample,
+      endSample
+    };
+  }).filter((chunk) => chunk.audio && chunk.audio.length);
+
+  return chunks.length ? chunks : [{
+    audio: audio,
+    startSample: 0,
+    endSample: audio.length
+  }];
+}
+
+function appendTimedChunks(target, sourceChunks, offsetSeconds) {
+  if (!Array.isArray(sourceChunks) || !sourceChunks.length) {
+    return;
+  }
+
+  let lastEnd = target.length ? target[target.length - 1].timestamp[1] : -Infinity;
+
+  sourceChunks.forEach((chunkResult) => {
+    let start = Number(chunkResult && chunkResult.timestamp && chunkResult.timestamp[0]);
+    const end = Number(chunkResult && chunkResult.timestamp && chunkResult.timestamp[1]);
+    const text = normalizeText(chunkResult && chunkResult.text);
+
+    if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      return;
+    }
+
+    start += offsetSeconds;
+    const absoluteEnd = end + offsetSeconds;
+
+    if (absoluteEnd <= lastEnd + 0.02) {
+      return;
+    }
+
+    if (start < lastEnd && absoluteEnd > lastEnd) {
+      start = lastEnd;
+    }
+
+    if (absoluteEnd <= start) {
+      return;
+    }
+
+    target.push({
+      text,
+      timestamp: [start, absoluteEnd]
+    });
+    lastEnd = absoluteEnd;
+  });
+}
+
+async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset = 0) {
   if (!audioBuffer) {
     throw new Error("Missing audio data");
   }
@@ -159,71 +539,89 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
     throw new Error("Missing audio data");
   }
 
-  postMessage({ type: "loading" });
+  const modelLoad = await loadModel();
+  const model = modelLoad.model;
 
-  const model = await loadModel();
+  postMessage({ type: "model_ready", loadState: modelLoad.loadState });
 
   postMessage({ type: "progress", value: 10, current: 10, total: 100 });
 
   const sampleRate = 16000;
-  const maxSinglePass = sampleRate * 30; // 30 sec
-  const chunkSize = sampleRate * 25; // ✅ ALWAYS defined
+  const isLongForm = audio.length > sampleRate * 30;
+  const isArabic = selectedLanguage === "ar";
+  const safeTimelineOffset = Number.isFinite(timelineOffset) ? Math.max(0, timelineOffset) : 0;
+  const options = {
+    sampling_rate: sampleRate,
+    chunk_length_s: isArabic ? 20 : 25,
+    stride_length_s: isArabic ? 6 : 5,
+    return_timestamps: true,
+    task: "transcribe",
+    condition_on_prev_tokens: isArabic ? false : isLongForm,
+    compression_ratio_threshold: isArabic ? 1.3 : 1.35,
+    logprob_threshold: -1,
+    no_speech_threshold: 0.6,
+    temperature: isArabic ? [0.0, 0.1, 0.2] : [0.0, 0.2, 0.4]
+  };
 
-  let chunks = [];
-
-  if (audio.length <= maxSinglePass) {
-  // 🚀 SINGLE PASS (NO CHUNKING)
-  chunks = [audio];
-  } else {
-  // normal chunking
-  for (let i = 0; i < audio.length; i += chunkSize) {
-    chunks.push(audio.slice(i, i + chunkSize));
+  if (selectedLanguage && selectedLanguage !== "auto") {
+    options.language = selectedLanguage;
   }
+
+  if (isArabic) {
+    options.num_beams = 2;
+    const promptIds = await getArabicPromptIds(model);
+    if (promptIds) {
+      options.prompt_ids = promptIds;
+    }
   }
 
   let fullText = "";
   let fullChunks = [];
+  const chunkPlan = isArabic ? buildArabicSpeechAwareChunks(audio, sampleRate) : [{
+    audio: audio,
+    startSample: 0,
+    endSample: audio.length
+  }];
 
-  for (let i = 0; i < chunks.length; i += 1) {
-    const chunk = chunks[i];
-    const offset = (i * chunkSize) / sampleRate;
-    const progress = Math.max(10, Math.round((i / chunks.length) * 100));
+  if (isArabic && chunkPlan.length > 1) {
+    postMessage({
+      type: "status",
+      message: "Analyzing speech pauses...",
+      progress: 14
+    });
+  }
+
+  for (let i = 0; i < chunkPlan.length; i += 1) {
+    const chunk = chunkPlan[i];
+    const chunkOffsetSeconds = safeTimelineOffset + (chunk.startSample / sampleRate);
+    const progressBase = 12;
+    const progressSpan = 83;
+    const progress = progressBase + Math.round(((i + 1) / chunkPlan.length) * progressSpan);
 
     postMessage({ type: "progress", value: progress, current: progress, total: 100 });
 
-    let options = {
-      chunk_length_s: 25,
-      stride_length_s: 2,
-      return_timestamps: "segment",
-      task: "transcribe",
-      condition_on_previous_text: false,
-      temperature: 0
-    };
+    const result = await model(chunk.audio, options);
 
-    if (selectedLanguage !== "auto") {
-      options.language = selectedLanguage;
-    }
-
-    console.log("FINAL OPTIONS:", options);
-
-    const result = await model(chunk, options);
-
-    if (result && result.text) {
-      fullText += (fullText ? " " : "") + normalizeText(result.text);
-    }
-
-    if (result && Array.isArray(result.chunks)) {
-
-      result.chunks.forEach(chunkResult => {
+    if (result && Array.isArray(result.chunks) && result.chunks.length) {
+      appendTimedChunks(fullChunks, result.chunks, chunkOffsetSeconds);
+    } else if (result && result.text) {
+      const fallbackText = normalizeText(result.text);
+      if (fallbackText) {
         fullChunks.push({
-          text: normalizeText(chunkResult.text),
-          timestamp: [
-            (chunkResult.timestamp?.[0] || 0) + offset,
-            (chunkResult.timestamp?.[1] || 0) + offset
-          ]
+          text: fallbackText,
+          timestamp: [chunkOffsetSeconds, chunkOffsetSeconds + (chunk.audio.length / sampleRate)]
         });
-      });
+      }
     }
+  }
+
+  fullText = normalizeText(fullChunks.map((chunk) => chunk.text).join(" "));
+
+  if (!fullChunks.length && fullText) {
+    fullChunks = [{
+      text: fullText,
+      timestamp: [safeTimelineOffset, safeTimelineOffset + (audio.length / sampleRate)]
+    }];
   }
 
   postMessage({ type: "progress", value: 100, current: 100, total: 100 });
@@ -236,6 +634,9 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
 
 async function handleTranslation(data) {
   data.mode = "full";
+  if (!data.sourceLang || !data.targetLang) {
+    throw new Error("Translation requires both source and target languages.");
+  }
   const model = await loadTranslationModel();
   let preparedText = improveSpeechStructure(data.text);
   preparedText = normalizeText(preparedText);
@@ -279,6 +680,10 @@ async function handleSubtitleTranslation(data) {
   data.mode = "subtitle";
   const texts = Array.isArray(data.texts) ? data.texts : [];
 
+  if (!data.sourceLang || !data.targetLang) {
+    throw new Error("Translation requires both source and target languages.");
+  }
+
   if (false && data.useWhisperTranslate) {
     // Use Whisper translation
     const audioBuffer = data.audio;
@@ -299,8 +704,10 @@ async function handleSubtitleTranslation(data) {
       return;
     }
 
-    postMessage({ type: "loading" });
-    const model = await loadModel();
+    const modelLoad = await loadModel();
+    const model = modelLoad.model;
+
+    postMessage({ type: "model_ready", loadState: modelLoad.loadState });
     const sampleRate = 16000;
     const chunkSize = sampleRate * 25;
     const chunks = [];
@@ -376,6 +783,41 @@ self.onmessage = async (e) => {
   const data = e.data || {};
   const requestType = data.type;
 
+  if (requestType === "warmup") {
+    if (transcriber || isLoading || isBusy) {
+      return;
+    }
+
+      try {
+        const modelLoad = await loadModel();
+        postMessage({ type: "warmup_ready", loadState: modelLoad.loadState });
+      } catch (err) {
+        postMessage({
+        type: "warmup_error",
+        message: err && err.message ? err.message : "Warmup failed"
+      });
+    }
+    return;
+  }
+
+  if (requestType === "unload") {
+    if (isBusy) {
+      postMessage({ type: "unload_skipped" });
+      return;
+    }
+
+    try {
+      await unloadModels(data.includeTranslation !== false);
+      postMessage({ type: "unloaded" });
+    } catch (err) {
+      postMessage({
+        type: "unload_error",
+        message: err && err.message ? err.message : "Unload failed"
+      });
+    }
+    return;
+  }
+
   if (isBusy) {
     postMessage({
       type: requestType === "transcribe" ? "error" : "translation_error",
@@ -387,10 +829,10 @@ self.onmessage = async (e) => {
   isBusy = true;
 
   try {
-    if (requestType === "transcribe") {
-      await handleTranscription(data.audio, data.selectedLanguage);
-      return;
-    }
+      if (requestType === "transcribe") {
+        await handleTranscription(data.audio, data.selectedLanguage, data.timelineOffset);
+        return;
+      }
 
     if (requestType === "translate") {
       await handleTranslation(data);
