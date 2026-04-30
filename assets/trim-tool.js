@@ -16,6 +16,21 @@
     return Math.min(max, Math.max(min, value));
   }
 
+  function prefersLowPowerWaveform() {
+    var coarsePointer = typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches;
+    var touchPoints = typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
+    return !!(coarsePointer || touchPoints);
+  }
+
+  function createCanvasBuffer(width, height) {
+    var canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, width);
+    canvas.height = Math.max(1, height);
+    return canvas;
+  }
+
   function readFileAsArrayBuffer(file) {
     return new Promise(function (resolve, reject) {
       var reader = new FileReader();
@@ -361,7 +376,14 @@
     this.handleRadius = 8;
     this.uiFadeIn = 0;
     this.uiFadeOut = 0;
+    this.duration = 1;
     this.resizeObserver = null;
+    this.waveformCache = null;
+    this.waveformCacheWidth = 0;
+    this.waveformCacheHeight = 0;
+    this.renderQueued = false;
+    this.renderFrame = null;
+    this.waveformDirty = true;
     this._onResize = this.resize.bind(this);
     window.addEventListener("resize", this._onResize);
 
@@ -377,7 +399,9 @@
     var channelData = audioBuffer.getChannelData(0);
     var second = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : null;
     var totalSamples = channelData.length;
-    var bins = Math.max(300, width * 2);
+    var bins = prefersLowPowerWaveform()
+      ? Math.max(180, Math.min(420, Math.floor(width * 0.9)))
+      : Math.max(300, Math.min(1200, width * 2));
     var samplesPerBin = Math.max(1, Math.floor(totalSamples / bins));
     var peaks = new Float32Array(bins);
 
@@ -397,28 +421,30 @@
       peaks[i] = max;
     }
     this.peaks = peaks;
-    this.render();
+    this.waveformDirty = true;
+    this.scheduleRender();
   };
 
   WaveformRenderer.prototype.setSelection = function (startRatio, endRatio) {
     this.selection.start = clamp(startRatio, 0, 1);
     this.selection.end = clamp(endRatio, 0, 1);
-    this.render();
+    this.scheduleRender();
   };
 
   WaveformRenderer.prototype.setPlayhead = function (ratio) {
     this.playheadRatio = ratio == null ? null : clamp(ratio, 0, 1);
-    this.render();
+    this.scheduleRender();
   };
 
   WaveformRenderer.prototype.resize = function () {
-    var dpr = Math.max(1, window.devicePixelRatio || 1);
+    var dpr = Math.max(1, Math.min(prefersLowPowerWaveform() ? 1.5 : 2, window.devicePixelRatio || 1));
     var width = Math.floor(this.canvas.clientWidth || 600);
     var height = Math.floor(this.canvas.clientHeight || 180);
     this.canvas.width = Math.max(1, Math.floor(width * dpr));
     this.canvas.height = Math.max(1, Math.floor(height * dpr));
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.render();
+    this.waveformDirty = true;
+    this.scheduleRender();
   };
 
   WaveformRenderer.prototype.xToRatio = function (x) {
@@ -428,6 +454,59 @@
 
   WaveformRenderer.prototype.ratioToX = function (ratio) {
     return clamp(ratio, 0, 1) * (this.canvas.clientWidth || 1);
+  };
+
+  WaveformRenderer.prototype.scheduleRender = function () {
+    var self = this;
+    if (this.renderQueued) {
+      return;
+    }
+    this.renderQueued = true;
+    this.renderFrame = requestAnimationFrame(function () {
+      self.renderQueued = false;
+      self.renderFrame = null;
+      self.render();
+    });
+  };
+
+  WaveformRenderer.prototype._renderWaveformCache = function (width, height) {
+    if (!this.waveformDirty &&
+      this.waveformCache &&
+      this.waveformCacheWidth === this.canvas.width &&
+      this.waveformCacheHeight === this.canvas.height) {
+      return;
+    }
+
+    var cacheCanvas = createCanvasBuffer(this.canvas.width, this.canvas.height);
+    var cacheCtx = cacheCanvas.getContext("2d");
+    var dpr = this.canvas.width / Math.max(1, width);
+    cacheCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cacheCtx.clearRect(0, 0, width, height);
+
+    var mid = height / 2;
+    if (this.peaks && this.peaks.length > 0) {
+      var bins = this.peaks.length;
+      var pxPerBin = width / bins;
+      var gradient = cacheCtx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, "#c7d2fe");
+      gradient.addColorStop(1, "#4338ca");
+      cacheCtx.fillStyle = gradient;
+
+      for (var i = 0; i < bins; i += 1) {
+        var amp = this.peaks[i];
+        var h = Math.max(1, amp * (height * 0.45));
+        var x = i * pxPerBin;
+        cacheCtx.fillRect(x, mid - h, Math.max(1, pxPerBin), h * 2);
+      }
+    } else {
+      cacheCtx.fillStyle = "#e4e4e7";
+      cacheCtx.fillRect(0, mid - 1, width, 2);
+    }
+
+    this.waveformCache = cacheCanvas;
+    this.waveformCacheWidth = this.canvas.width;
+    this.waveformCacheHeight = this.canvas.height;
+    this.waveformDirty = false;
   };
 
   WaveformRenderer.prototype.render = function () {
@@ -440,36 +519,17 @@
     var startX = this.ratioToX(this.selection.start);
     var endX = this.ratioToX(this.selection.end);
 
-    if (this.peaks && this.peaks.length > 0) {
-      var bins = this.peaks.length;
-      var pxPerBin = width / bins;
-
-      ctx.lineWidth = 1;
-      ctx.lineCap = "round";
-      ctx.globalAlpha = 1.0;
-
-      var gradient = ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-      gradient.addColorStop(0, "#c7d2fe"); // lighter
-      gradient.addColorStop(1, "#4338ca"); // base
-      ctx.fillStyle = gradient;
-      for (var i = 0; i < bins; i += 1) {
-        var amp = this.peaks[i];
-        var h = Math.max(1, amp * (height * 0.45));
-        var x = i * pxPerBin;
-        ctx.fillRect(x, mid - h, Math.max(1, pxPerBin), h * 2);
-      }
-      ctx.globalAlpha = 1.0;
-    } else {
-      ctx.fillStyle = "#e4e4e7";
-      ctx.fillRect(0, mid - 1, width, 2);
+    this._renderWaveformCache(width, height);
+    if (this.waveformCache) {
+      ctx.drawImage(this.waveformCache, 0, 0, this.canvas.width, this.canvas.height, 0, 0, width, height);
     }
 
     ctx.fillStyle = "rgba(99,102,241,0.18)";
     ctx.fillRect(startX, 0, Math.max(0, endX - startX), height);
     ctx.strokeStyle = "rgba(99,102,241,0.6)";
     ctx.lineWidth = 1;
-    ctx.shadowColor = "rgba(99,102,241,0.4)";
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
     ctx.strokeRect(
       startX + 0.5,
       0.5,
@@ -515,10 +575,10 @@
     ctx.fill();
     ctx.strokeStyle = "#3f8cd4";
     ctx.lineWidth = 2;
-    ctx.shadowColor = "rgba(0,0,0,0.15)";
-    ctx.shadowBlur = 6;
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
     ctx.stroke();
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 0;
 
     if (this.playheadRatio != null) {
       var playheadX = this.ratioToX(this.playheadRatio);
@@ -532,12 +592,16 @@
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }
+    if (this.renderFrame != null) {
+      cancelAnimationFrame(this.renderFrame);
+      this.renderFrame = null;
+    }
   };
 
   WaveformRenderer.prototype.setFadeDurations = function(fadeIn, fadeOut) {
     this.uiFadeIn = fadeIn;
     this.uiFadeOut = fadeOut;
-    this.render();
+    this.scheduleRender();
   };
   WaveformRenderer.prototype.setDuration = function(duration) {
   this.duration = duration || 1;
@@ -552,6 +616,8 @@
     this.minGap = 0.002;
     this.dragging = null;
     this.pointerId = null;
+    this.pendingEmit = false;
+    this.emitFrame = null;
     this._boundDown = this.handlePointerDown.bind(this);
     this._boundMove = this.handlePointerMove.bind(this);
     this._boundUp = this.handlePointerUp.bind(this);
@@ -612,10 +678,15 @@
     }
     var rect = this.canvas.getBoundingClientRect();
     var ratio = this.renderer.xToRatio(event.clientX - rect.left);
+    var prevStart = this.startRatio;
+    var prevEnd = this.endRatio;
     if (this.dragging === "start") {
       this.startRatio = clamp(ratio, 0, this.endRatio - this.minGap);
     } else {
       this.endRatio = clamp(ratio, this.startRatio + this.minGap, 1);
+    }
+    if (prevStart === this.startRatio && prevEnd === this.endRatio) {
+      return;
     }
     this.renderer.setSelection(this.startRatio, this.endRatio);
     this._emit();
@@ -627,9 +698,30 @@
     }
     this.dragging = null;
     this.pointerId = null;
+    this._flushEmit();
   };
 
   TrimController.prototype._emit = function () {
+    var self = this;
+    if (this.pendingEmit) {
+      return;
+    }
+    this.pendingEmit = true;
+    this.emitFrame = requestAnimationFrame(function () {
+      self.pendingEmit = false;
+      self.emitFrame = null;
+      if (typeof self.onChange === "function") {
+        self.onChange(self.startRatio, self.endRatio);
+      }
+    });
+  };
+
+  TrimController.prototype._flushEmit = function () {
+    if (this.emitFrame != null) {
+      cancelAnimationFrame(this.emitFrame);
+      this.emitFrame = null;
+    }
+    this.pendingEmit = false;
     if (typeof this.onChange === "function") {
       this.onChange(this.startRatio, this.endRatio);
     }
@@ -640,6 +732,10 @@
     window.removeEventListener("pointermove", this._boundMove);
     window.removeEventListener("pointerup", this._boundUp);
     window.removeEventListener("pointercancel", this._boundUp);
+    if (this.emitFrame != null) {
+      cancelAnimationFrame(this.emitFrame);
+      this.emitFrame = null;
+    }
   };
 
   function UIController(root) {
