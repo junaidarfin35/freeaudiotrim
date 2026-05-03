@@ -1,4 +1,4 @@
-import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.6.1";
+import { env, pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.6.1";
 
 let transcriber = null;
 let activeTranscriptionModelKey = null;
@@ -27,6 +27,40 @@ const TRANSCRIPTION_MODELS = {
   }
 };
 const ARABIC_TRANSCRIPTION_PROMPT = "هذا تسجيل صوتي باللغة العربية. اكتب الكلام كما يُنطق بوضوح وبنصه الأصلي، مع الحفاظ على المعنى وتسلسل الجمل، من دون ترجمة أو تلخيص. إذا نطق المتحدث كلمات أو عبارات إنجليزية، فاكتبها بالإنجليزية كما قيلت ولا تعرّبها. إذا وُجدت موسيقى أو مؤثر صوتي واضح بلا كلام، فاكتب: (موسيقى). اكتب الأسماء والأماكن والمصطلحات كما تُسمع، واستخدم علامات ترقيم خفيفة عند الحاجة فقط.";
+
+function isSafariLikeBrowser() {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const userAgent = String(navigator.userAgent || "");
+  const vendor = String(navigator.vendor || "");
+
+  return /Safari/i.test(userAgent)
+    && /Apple/i.test(vendor)
+    && !/CriOS|FxiOS|EdgiOS|Chrome|Chromium|Android/i.test(userAgent);
+}
+
+function configureTransformersEnvironment() {
+  const safariLike = isSafariLikeBrowser();
+  const hardwareConcurrency = typeof navigator !== "undefined"
+    ? Number(navigator.hardwareConcurrency)
+    : NaN;
+  const threadCount = safariLike
+    ? 1
+    : Math.max(1, Math.min(4, Number.isFinite(hardwareConcurrency) && hardwareConcurrency > 0 ? hardwareConcurrency : 2));
+
+  env.allowLocalModels = false;
+  env.useBrowserCache = !safariLike;
+  env.useWasmCache = !safariLike;
+
+  if (env.backends && env.backends.onnx && env.backends.onnx.wasm) {
+    env.backends.onnx.wasm.numThreads = threadCount;
+    env.backends.onnx.wasm.proxy = false;
+  }
+}
+
+configureTransformersEnvironment();
 
 function getTranscriptionModelConfig(modelKey) {
   return TRANSCRIPTION_MODELS[modelKey] || TRANSCRIPTION_MODELS[DEFAULT_TRANSCRIPTION_MODEL_KEY];

@@ -5,7 +5,7 @@
   var vttContent = "";
   var MAX_DURATION_SECONDS = 180;
   var FRIENDLY_WARNING_SECONDS = 150;
-  var TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-03-2";
+  var TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-03-3";
   var worker = null;
   var workerGeneration = 0;
   var processingLocked = false;
@@ -290,7 +290,7 @@
     yue: "hk"
   };
   var MODEL_LOCK_KEY = "fat:transcribe:model-lock:v1";
-  var MODEL_LOCK_STALE_MS = 20000;
+  var MODEL_LOCK_STALE_MS = 10000;
   var MODEL_LOCK_HEARTBEAT_MS = 5000;
   var IDLE_UNLOAD_VISIBLE_MS = 90000;
   var IDLE_UNLOAD_HIDDEN_MS = 15000;
@@ -450,7 +450,7 @@
       return "Waiting";
     }
     if (state.status === "error") {
-      return "Available";
+      return "Retry";
     }
     return "Available";
   }
@@ -486,6 +486,15 @@
 
   function hasWebGPUAcceleration() {
     return !!(typeof navigator !== "undefined" && navigator.gpu);
+  }
+
+  function isSafariLikeBrowser() {
+    var userAgent = typeof navigator !== "undefined" ? String(navigator.userAgent || "") : "";
+    var vendor = typeof navigator !== "undefined" ? String(navigator.vendor || "") : "";
+
+    return /Safari/i.test(userAgent)
+      && /Apple/i.test(vendor)
+      && !/CriOS|FxiOS|EdgiOS|Chrome|Chromium|Android/i.test(userAgent);
   }
 
   function getDeviceSupportLabel() {
@@ -1093,6 +1102,11 @@
 
   function claimModelLock() {
     var existing = readModelLock();
+
+    if (existing && !hasFreshModelLock(existing)) {
+      removeModelLock();
+      existing = null;
+    }
 
     if (isModelLockOwnedByOtherTab(existing)) {
       return false;
@@ -2859,6 +2873,67 @@ function generateVTT(segments) {
       return;
     }
 
+    targetWorker.onerror = function () {
+      if (generation !== workerGeneration) {
+        return;
+      }
+
+      modelUnloadPending = false;
+      pendingModelRequestKey = "";
+      activePreparedModelKey = "";
+      processingLocked = false;
+      stopFakeProgress();
+      stopProgressMessages();
+      stopLockHeartbeat();
+      releaseModelLock();
+
+      if (selectedTranscriptionModelKey) {
+        setModelUiState(
+          selectedTranscriptionModelKey,
+          "error",
+          isSafariLikeBrowser()
+            ? "Safari could not finish preparing this local model. Try reloading once or use a desktop browser."
+            : "The local transcription worker stopped unexpectedly. Please try again."
+        );
+      }
+
+      modelWarmState = "error";
+
+      var statusEl = getPrimaryTranscribeStatusEl();
+      if (statusEl) {
+        setStatus(
+          statusEl,
+          isSafariLikeBrowser()
+            ? "Safari ran into a memory or browser-limit issue while preparing the model."
+            : "The local transcription worker stopped unexpectedly.",
+          "error"
+        );
+      }
+
+      setProgress(0);
+      setProgressMessage("");
+      syncTranscribeReadyState();
+      refreshTranscribeLayout();
+    };
+
+    targetWorker.onmessageerror = function () {
+      if (generation !== workerGeneration) {
+        return;
+      }
+
+      modelUnloadPending = false;
+      pendingModelRequestKey = "";
+      activePreparedModelKey = "";
+      modelWarmState = "error";
+      stopLockHeartbeat();
+      releaseModelLock();
+      if (selectedTranscriptionModelKey) {
+        setModelUiState(selectedTranscriptionModelKey, "error", "Worker communication failed.");
+      }
+      syncTranscribeReadyState();
+      refreshTranscribeLayout();
+    };
+
     targetWorker.onmessage = function (e) {
       if (generation !== workerGeneration) {
         return;
@@ -2906,11 +2981,18 @@ function generateVTT(segments) {
         if (modelKey === selectedTranscriptionModelKey) {
           modelWarmState = "loading";
           var downloadStatusEl = getPrimaryTranscribeStatusEl();
+          var isFinalizingModel = downloadPercent >= 100;
           if (downloadStatusEl) {
-            setStatus(downloadStatusEl, "Downloading " + model.label + "... " + downloadPercent + "%", "processing");
+            setStatus(
+              downloadStatusEl,
+              isFinalizingModel
+                ? "Finalizing " + model.label + " in your browser..."
+                : "Downloading " + model.label + "... " + downloadPercent + "%",
+              "processing"
+            );
           }
-          setProgress(downloadPercent);
-          setProgressMessage(FIRST_RUN_MODEL_COPY);
+          setProgress(isFinalizingModel ? 95 : downloadPercent);
+          setProgressMessage(isFinalizingModel ? "Model files downloaded. Finishing browser setup..." : FIRST_RUN_MODEL_COPY);
         }
         refreshTranscribeLayout();
         return;

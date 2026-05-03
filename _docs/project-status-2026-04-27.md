@@ -21,6 +21,9 @@ Bring the site into one consistent UI system, using the newer `index.html` look 
 - FFmpeg-based converter pages now use a same-origin local runtime bundle, removing local worker/security failures during startup.
 - `audio-speed-changer.html` and `audio-pitch-changer.html` now show a visible `Download` action after export completes.
 - `audio-speed-changer.html` now hides the advanced pitch slider until `Also adjust pitch` is enabled.
+- Transcription now uses 3 named local Whisper tiers with device gating, same-origin worker refresh, and cleaner upload-first model warmup.
+- `Baby Raptor` and `Triceratop` were moved onto timestamped ONNX community Whisper variants for browser-safe multilingual subtitle work.
+- Active browser transcription now follows a simpler multilingual `task: transcribe` path with safe `29 / 5` chunking and timeline-preserving speech-region splitting.
 
 ## Current Site Status
 
@@ -751,6 +754,134 @@ Verification:
   - linked pitch slider hidden
 - checked state:
   - linked pitch slider becomes visible
+
+### 23. Transcription Model Tiering + Browser Gating
+Status: `Completed`
+
+Files:
+- `audio-video-transcription-online.html`
+- `assets/transcribe-tool.js`
+- `assets/transcribe-worker.js`
+- `css/global.css`
+- `assets/transcription-models/baby-raptor.png`
+- `assets/transcription-models/triceratop.png`
+- `assets/transcription-models/t-rex.png`
+
+What changed:
+
+- Added 3 named local transcription modes:
+  - `Baby Raptor`
+  - `Triceratop`
+  - `T-Rex`
+- Kept the upload-first shell and revealed model cards only after file selection.
+- Added browser/device capability probing so weaker devices only see comfortable modes enabled.
+- Kept disabled modes visible with short reason text.
+- Defaulted selection to `Triceratop`, with fallback to `Baby Raptor` when needed.
+- Started model preload as soon as the selected mode becomes active after upload.
+- Added `Change file` handling inside the open transcription shell.
+
+Impact:
+
+- Clearer model choice for users.
+- Better mobile/device safety for local Whisper runs.
+- Faster perceived setup because model download can start before the user clicks `Transcribe`.
+
+Verification:
+
+- capability-gated cards render after upload
+- disabled modes remain visible with explanation
+- model switch triggers fresh selected-model warmup
+- `Transcribe` stays disabled until file + language + selected model are ready
+
+### 24. Timestamped Whisper Migration for Smaller Models
+Status: `Completed`
+
+Files:
+- `assets/transcribe-tool.js`
+- `assets/transcribe-worker.js`
+
+What changed:
+
+- Switched `Baby Raptor` to `onnx-community/whisper-base_timestamped`.
+- Switched `Triceratop` to `onnx-community/whisper-small_timestamped`.
+- Kept `T-Rex` on `onnx-community/whisper-large-v3-turbo_timestamped`.
+- Updated browser-side load configs to better match the supported Transformers.js timestamped Whisper path.
+- Fixed `T-Rex` loading by aligning the model/runtime file expectations with the actual hosted ONNX layout.
+
+Impact:
+
+- Smaller models now use the correct browser-friendly timestamped repos for subtitle/timestamp workflows.
+- `T-Rex` no longer fails on missing ONNX sidecar file requests.
+- Better foundation for multilingual subtitle timing across all 3 tiers.
+
+Verification:
+
+- model syntax checks passed
+- `T-Rex` preload succeeded without missing-file console errors
+- smaller timestamped models loaded through the browser worker path
+
+### 25. Multilingual Transcription Pipeline Simplification
+Status: `Completed`
+
+Files:
+- `assets/transcribe-worker.js`
+- `assets/transcribe-tool.js`
+
+What changed:
+
+- Removed the active custom Arabic-first decode path from the main live transcription flow.
+- Standardized the active transcription pipeline around:
+  - `task: transcribe`
+  - explicit user-selected language when provided
+  - safe `chunk_length_s: 29`
+  - safe `stride_length_s: 5`
+  - `return_timestamps: true`
+- Generalized speech-region chunking so the worker can split long files by likely speech regions for all languages, not just one language path.
+- Preserved original timeline offsets when chunk-level timestamps are remapped back into final transcript/subtitle segments.
+- Bumped the worker asset version so browsers pull the updated worker immediately.
+
+Why this direction was chosen:
+
+- Matches current practical Transformers.js browser guidance more closely.
+- Avoids the reported timestamp instability around `30` second chunks.
+- Reduces the chance that language-specific prompt/decode tweaks damage multilingual transcription quality.
+- Protects subtitle timing by never compressing the master timeline.
+
+Impact:
+
+- Safer multilingual browser transcription path.
+- Better timestamp stability for long-form local transcription.
+- Cleaner foundation for later tuning without piling more language-specific logic on top of Whisper.
+
+Verification:
+
+- `assets/transcribe-worker.js` syntax check passed
+- `assets/transcribe-tool.js` syntax check passed
+- browser reload confirmed updated worker URL was served
+- in-app browser console was clean after reload aside from local live-reload logging
+
+### 26. GitHub Deployment for Transcription Pipeline Pass
+Status: `Completed`
+
+Files:
+- `assets/transcribe-tool.js`
+- `assets/transcribe-worker.js`
+
+What changed:
+
+- Staged the final multilingual transcription pipeline updates.
+- Committed the transcription changes as:
+  - `4811064` `Refine multilingual transcription pipeline`
+- Pushed the changes to:
+  - `origin/main`
+
+Impact:
+
+- The current transcription pipeline fixes are now on GitHub, not only local workspace state.
+
+Verification:
+
+- push to `https://github.com/junaidarfin35/freeaudiotrim` succeeded
 
 ## Shared Mobile Filename Regression
 
