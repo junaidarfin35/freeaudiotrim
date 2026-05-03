@@ -616,7 +616,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="/assets/ffmpeg/ffmpeg-compat.js"></script>
 <script>
   (function () {
     "use strict";
@@ -703,10 +703,10 @@ document.addEventListener('DOMContentLoaded', function() {
         outputName
       );
 
-      var data = encoder.FS("readFile", outputName);
+      var data = await encoder.FS("readFile", outputName);
       var m4rBlob = new Blob([data.buffer], { type: "audio/mp4" });
-      try { encoder.FS("unlink", inputName); } catch (err) {}
-      try { encoder.FS("unlink", outputName); } catch (err) {}
+      try { await encoder.FS("unlink", inputName); } catch (err) {}
+      try { await encoder.FS("unlink", outputName); } catch (err) {}
       downloadBlob(m4rBlob, baseName + ".m4r");
       controller.setStatus("M4R ready. Download started.");
     }

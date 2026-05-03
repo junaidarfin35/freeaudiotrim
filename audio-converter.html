@@ -563,7 +563,7 @@
   </div>
 </footer>
 
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="/assets/ffmpeg/ffmpeg-compat.js"></script>
 <script src="/assets/encoders/lame.min.js"></script>
 <script src="/assets/encoders/mp3-encoder.js"></script>
 <script src="/assets/upload.js" defer></script>
@@ -751,7 +751,7 @@ document.addEventListener('click', async function(e) {
         await ffmpeg.run("-i", inputName, outputName);
       }
 
-      const data = ffmpeg.FS("readFile", outputName);
+      const data = await ffmpeg.FS("readFile", outputName);
 
       convertedBlobLocal = new Blob([data.buffer], {
         type: `audio/${format}`

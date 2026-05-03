@@ -510,7 +510,7 @@
   </div>
 </footer>
 
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+<script src="/assets/ffmpeg/ffmpeg-compat.js"></script>
 <script src="/assets/upload.js" defer></script>
 <script src="/assets/related-tools.js"></script>
 
@@ -683,7 +683,7 @@ document.addEventListener('click', async function(e) {
       outputName
     );
 
-    const data = ffmpeg.FS('readFile', outputName);
+    const data = await ffmpeg.FS('readFile', outputName);
     convertedBlob = new Blob([data.buffer], { type: 'audio/mp4' });
 
     try { ffmpeg.FS('unlink', inputName); } catch (error) {}

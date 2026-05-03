@@ -1,33 +1,111 @@
-import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0";
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.6.1";
 
 let transcriber = null;
+let activeTranscriptionModelKey = null;
 let isLoading = false;
 let isBusy = false;
 let translationModel = null;
-let arabicPromptIds = null;
-const TRANSCRIPTION_MODEL_ID = "onnx-community/whisper-large-v3-turbo";
+const arabicPromptIdsByModel = new Map();
+const DEFAULT_TRANSCRIPTION_MODEL_KEY = "triceratop";
+const TRANSCRIPTION_MODELS = {
+  "baby-raptor": {
+    key: "baby-raptor",
+    label: "Baby Raptor",
+    modelId: "onnx-community/whisper-base_timestamped"
+  },
+  triceratop: {
+    key: "triceratop",
+    label: "Triceratop",
+    modelId: "onnx-community/whisper-small_timestamped"
+  },
+  "t-rex": {
+    key: "t-rex",
+    label: "T-Rex",
+    modelId: "onnx-community/whisper-large-v3-turbo_timestamped"
+  }
+};
 const ARABIC_TRANSCRIPTION_PROMPT = "هذا تسجيل صوتي باللغة العربية. اكتب الكلام كما يُنطق بوضوح وبنصه الأصلي، مع الحفاظ على المعنى وتسلسل الجمل، من دون ترجمة أو تلخيص. إذا نطق المتحدث كلمات أو عبارات إنجليزية، فاكتبها بالإنجليزية كما قيلت ولا تعرّبها. إذا وُجدت موسيقى أو مؤثر صوتي واضح بلا كلام، فاكتب: (موسيقى). اكتب الأسماء والأماكن والمصطلحات كما تُسمع، واستخدم علامات ترقيم خفيفة عند الحاجة فقط.";
+
+function getTranscriptionModelConfig(modelKey) {
+  return TRANSCRIPTION_MODELS[modelKey] || TRANSCRIPTION_MODELS[DEFAULT_TRANSCRIPTION_MODEL_KEY];
+}
 
 function hasWebGPU() {
   return !!(typeof navigator !== "undefined" && navigator.gpu);
 }
 
-function getPreferredWhisperLoadConfig() {
+function shouldUseExtendedArabicPrompt(modelKey) {
+  return getTranscriptionModelConfig(modelKey).key === "t-rex";
+}
+
+function isSmallerTimestampedWhisper(modelKey) {
+  const resolvedModel = getTranscriptionModelConfig(modelKey);
+  return resolvedModel.key === "baby-raptor" || resolvedModel.key === "triceratop";
+}
+
+function getArabicDecodeProfile(modelKey) {
+  const resolvedModel = getTranscriptionModelConfig(modelKey);
+
+  if (resolvedModel.key === "t-rex") {
+    return {
+      chunk_length_s: 20,
+      stride_length_s: 6,
+      condition_on_prev_tokens: false,
+      compression_ratio_threshold: 1.3,
+      no_speech_threshold: 0.6,
+      temperature: [0.0, 0.1, 0.2],
+      num_beams: 2,
+      useExtendedPrompt: true
+    };
+  }
+
+  return null;
+}
+
+function getPreferredWhisperLoadConfig(modelKey) {
+  const resolvedModel = getTranscriptionModelConfig(modelKey);
   if (hasWebGPU()) {
+    if (resolvedModel.key === "t-rex") {
+      return {
+        device: "webgpu",
+        dtype: {
+          encoder_model: "q4f16",
+          decoder_model_merged: "q4f16"
+        },
+        use_external_data_format: false
+      };
+    }
+
+    if (isSmallerTimestampedWhisper(resolvedModel.key)) {
+      return {
+        device: "webgpu",
+        dtype: {
+          encoder_model: "fp32",
+          decoder_model_merged: "q4"
+        },
+        use_external_data_format: false
+      };
+    }
+
     return {
       device: "webgpu",
-      dtype: {
-        encoder_model: "fp16",
-        decoder_model_merged: "q4f16"
-      },
-      use_external_data_format: true
+      dtype: "fp16",
+      use_external_data_format: false
+    };
+  }
+
+  if (isSmallerTimestampedWhisper(resolvedModel.key)) {
+    return {
+      device: "wasm",
+      dtype: "q8",
+      use_external_data_format: false
     };
   }
 
   return {
     device: "wasm",
-    dtype: "q8",
-    use_external_data_format: true
+    dtype: "int8",
+    use_external_data_format: false
   };
 }
 
@@ -39,7 +117,25 @@ function clampPercent(value) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function createModelProgressTracker() {
+function getMonitorProgressPercent(progressState) {
+  if (Array.isArray(progressState) || ArrayBuffer.isView(progressState)) {
+    const current = Number(progressState[0]);
+    const total = Number(progressState[1]);
+    if (Number.isFinite(current) && Number.isFinite(total) && total > 0) {
+      return clampPercent((current / total) * 100);
+    }
+  } else if (progressState && typeof progressState === "object") {
+    const current = Number(progressState.current ?? progressState.loaded ?? progressState.value ?? progressState[0]);
+    const total = Number(progressState.total ?? progressState.max ?? progressState[1]);
+    if (Number.isFinite(current) && Number.isFinite(total) && total > 0) {
+      return clampPercent((current / total) * 100);
+    }
+  }
+
+  return null;
+}
+
+function createModelProgressTracker(modelKey) {
   const fileProgress = new Map();
   let lastPercent = -1;
   let sawNetworkProgress = false;
@@ -58,7 +154,7 @@ function createModelProgressTracker() {
         const percent = clampPercent(info.progress);
         if (percent !== lastPercent) {
           lastPercent = percent;
-          postMessage({ type: "model_download_progress", progress: percent });
+          postMessage({ type: "model_download_progress", modelKey, progress: percent });
         }
         return;
       }
@@ -116,17 +212,20 @@ function createModelProgressTracker() {
 
         if (percent !== lastPercent) {
           lastPercent = percent;
-          postMessage({ type: "model_download_progress", progress: percent });
+          postMessage({ type: "model_download_progress", modelKey, progress: percent });
         }
       }
     }
   };
 }
 
-async function loadModel() {
-  if (transcriber) {
+async function loadTranscriptionModel(modelKey) {
+  const modelConfig = getTranscriptionModelConfig(modelKey);
+
+  if (transcriber && activeTranscriptionModelKey === modelConfig.key) {
     return {
       model: transcriber,
+      modelKey: modelConfig.key,
       loadState: "memory"
     };
   }
@@ -135,18 +234,27 @@ async function loadModel() {
     while (isLoading) {
       await new Promise(r => setTimeout(r, 100));
     }
-    return {
-      model: transcriber,
-      loadState: transcriber ? "memory" : "idle"
-    };
+    if (transcriber && activeTranscriptionModelKey === modelConfig.key) {
+      return {
+        model: transcriber,
+        modelKey: modelConfig.key,
+        loadState: "memory"
+      };
+    }
   }
 
   isLoading = true;
   let tracker = null;
 
   try {
-    const config = getPreferredWhisperLoadConfig();
-    tracker = createModelProgressTracker();
+    if (transcriber && activeTranscriptionModelKey !== modelConfig.key) {
+      await disposePipelineInstance(transcriber);
+      transcriber = null;
+      activeTranscriptionModelKey = null;
+    }
+
+    const config = getPreferredWhisperLoadConfig(modelConfig.key);
+    tracker = createModelProgressTracker(modelConfig.key);
     const loadOptions = {
       ...config,
       progress_callback: (info) => {
@@ -154,26 +262,26 @@ async function loadModel() {
       }
     };
 
-    postMessage({ type: "model_loading" });
+    postMessage({ type: "model_loading", modelKey: modelConfig.key });
 
     try {
       transcriber = await pipeline(
         "automatic-speech-recognition",
-        TRANSCRIPTION_MODEL_ID,
+        modelConfig.modelId,
         loadOptions
       );
     } catch (primaryError) {
-      if (!hasWebGPU()) {
+      if (!hasWebGPU() || modelConfig.key === "t-rex") {
         throw primaryError;
       }
 
       transcriber = await pipeline(
         "automatic-speech-recognition",
-        TRANSCRIPTION_MODEL_ID,
+        modelConfig.modelId,
         {
-          device: "webgpu",
-          dtype: "q4f16",
-          use_external_data_format: true,
+          device: "wasm",
+          dtype: "int8",
+          use_external_data_format: modelConfig.key === "t-rex",
           progress_callback: (info) => {
             tracker.update(info);
           }
@@ -182,14 +290,21 @@ async function loadModel() {
     }
   } catch (err) {
     transcriber = null;
-    postMessage({ type: "error", message: "Model load failed" });
+    activeTranscriptionModelKey = null;
+    postMessage({
+      type: "model_error",
+      modelKey: modelConfig.key,
+      message: err && err.message ? err.message : "Model load failed"
+    });
     throw err;
   } finally {
     isLoading = false;
   }
 
+  activeTranscriptionModelKey = modelConfig.key;
   return {
     model: transcriber,
+    modelKey: modelConfig.key,
     loadState: tracker && tracker.sawNetworkProgress() ? "downloaded" : "cached"
   };
 }
@@ -216,7 +331,7 @@ async function disposePipelineInstance(instance) {
 async function unloadModels(includeTranslation = true) {
   await disposePipelineInstance(transcriber);
   transcriber = null;
-  arabicPromptIds = null;
+  activeTranscriptionModelKey = null;
 
   if (includeTranslation) {
     await disposePipelineInstance(translationModel);
@@ -236,9 +351,10 @@ async function buildPromptIds(source, promptText) {
   return null;
 }
 
-async function getArabicPromptIds(model) {
-  if (arabicPromptIds) {
-    return arabicPromptIds;
+async function getArabicPromptIds(model, modelKey) {
+  const cacheKey = modelKey || activeTranscriptionModelKey || DEFAULT_TRANSCRIPTION_MODEL_KEY;
+  if (arabicPromptIdsByModel.has(cacheKey)) {
+    return arabicPromptIdsByModel.get(cacheKey);
   }
 
   const promptSources = [
@@ -251,8 +367,8 @@ async function getArabicPromptIds(model) {
     try {
       const promptIds = await buildPromptIds(source, ARABIC_TRANSCRIPTION_PROMPT);
       if (promptIds) {
-        arabicPromptIds = promptIds;
-        return arabicPromptIds;
+        arabicPromptIdsByModel.set(cacheKey, promptIds);
+        return promptIds;
       }
     } catch (err) {
       // Fall through to the next prompt source.
@@ -528,7 +644,7 @@ function appendTimedChunks(target, sourceChunks, offsetSeconds) {
   });
 }
 
-async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset = 0) {
+async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset = 0, modelKey = DEFAULT_TRANSCRIPTION_MODEL_KEY) {
   if (!audioBuffer) {
     throw new Error("Missing audio data");
   }
@@ -539,10 +655,14 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
     throw new Error("Missing audio data");
   }
 
-  const modelLoad = await loadModel();
+  const modelLoad = await loadTranscriptionModel(modelKey);
   const model = modelLoad.model;
 
-  postMessage({ type: "model_ready", loadState: modelLoad.loadState });
+  postMessage({
+    type: "model_ready",
+    modelKey: modelLoad.modelKey,
+    loadState: modelLoad.loadState
+  });
 
   postMessage({ type: "progress", value: 10, current: 10, total: 100 });
 
@@ -550,17 +670,19 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
   const isLongForm = audio.length > sampleRate * 30;
   const isArabic = selectedLanguage === "ar";
   const safeTimelineOffset = Number.isFinite(timelineOffset) ? Math.max(0, timelineOffset) : 0;
+  const arabicProfile = isArabic ? getArabicDecodeProfile(modelLoad.modelKey) : null;
+  const defaultChunkLength = modelLoad.modelKey === "baby-raptor" ? 29 : 25;
   const options = {
     sampling_rate: sampleRate,
-    chunk_length_s: isArabic ? 20 : 25,
-    stride_length_s: isArabic ? 6 : 5,
+    chunk_length_s: arabicProfile ? arabicProfile.chunk_length_s : defaultChunkLength,
+    stride_length_s: arabicProfile ? arabicProfile.stride_length_s : 5,
     return_timestamps: true,
     task: "transcribe",
-    condition_on_prev_tokens: isArabic ? false : isLongForm,
-    compression_ratio_threshold: isArabic ? 1.3 : 1.35,
+    condition_on_prev_tokens: arabicProfile ? arabicProfile.condition_on_prev_tokens : isLongForm,
+    compression_ratio_threshold: arabicProfile ? arabicProfile.compression_ratio_threshold : 1.35,
     logprob_threshold: -1,
-    no_speech_threshold: 0.6,
-    temperature: isArabic ? [0.0, 0.1, 0.2] : [0.0, 0.2, 0.4]
+    no_speech_threshold: arabicProfile ? arabicProfile.no_speech_threshold : 0.6,
+    temperature: arabicProfile ? arabicProfile.temperature : [0.0, 0.2, 0.4]
   };
 
   if (selectedLanguage && selectedLanguage !== "auto") {
@@ -568,22 +690,28 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
   }
 
   if (isArabic) {
-    options.num_beams = 2;
-    const promptIds = await getArabicPromptIds(model);
-    if (promptIds) {
-      options.prompt_ids = promptIds;
+    if (arabicProfile && arabicProfile.num_beams > 1) {
+      options.num_beams = arabicProfile.num_beams;
+    }
+
+    if (arabicProfile && arabicProfile.useExtendedPrompt && shouldUseExtendedArabicPrompt(modelLoad.modelKey)) {
+      const promptIds = await getArabicPromptIds(model, modelLoad.modelKey);
+      if (promptIds) {
+        options.prompt_ids = promptIds;
+      }
     }
   }
 
   let fullText = "";
   let fullChunks = [];
-  const chunkPlan = isArabic ? buildArabicSpeechAwareChunks(audio, sampleRate) : [{
+  const useSpeechAwareChunks = isArabic && modelLoad.modelKey === "t-rex";
+  const chunkPlan = useSpeechAwareChunks ? buildArabicSpeechAwareChunks(audio, sampleRate) : [{
     audio: audio,
     startSample: 0,
     endSample: audio.length
   }];
 
-  if (isArabic && chunkPlan.length > 1) {
+  if (useSpeechAwareChunks && chunkPlan.length > 1) {
     postMessage({
       type: "status",
       message: "Analyzing speech pauses...",
@@ -595,12 +723,52 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
     const chunk = chunkPlan[i];
     const chunkOffsetSeconds = safeTimelineOffset + (chunk.startSample / sampleRate);
     const progressBase = 12;
-    const progressSpan = 83;
-    const progress = progressBase + Math.round(((i + 1) / chunkPlan.length) * progressSpan);
+    const progressSpan = 84;
+    const chunkStartProgress = progressBase + Math.round((i / chunkPlan.length) * progressSpan);
+    const chunkEndProgress = progressBase + Math.round(((i + 1) / chunkPlan.length) * progressSpan);
+    let lastChunkProgress = chunkStartProgress;
 
-    postMessage({ type: "progress", value: progress, current: progress, total: 100 });
+    postMessage({
+      type: "status",
+      message: chunkPlan.length > 1
+        ? "Transcribing part " + (i + 1) + " of " + chunkPlan.length + "..."
+        : "Transcribing in browser...",
+      progress: chunkStartProgress
+    });
 
-    const result = await model(chunk.audio, options);
+    const result = await model(chunk.audio, {
+      ...options,
+      monitor_progress: (state) => {
+        const internalPercent = getMonitorProgressPercent(state);
+        if (internalPercent == null) {
+          return;
+        }
+
+        const liveProgress = chunkStartProgress + Math.round(((chunkEndProgress - chunkStartProgress) * internalPercent) / 100);
+        if (liveProgress > lastChunkProgress) {
+          lastChunkProgress = liveProgress;
+          postMessage({
+            type: "progress",
+            value: liveProgress,
+            current: liveProgress,
+            total: 100,
+            message: chunkPlan.length > 1
+              ? "Transcribing part " + (i + 1) + " of " + chunkPlan.length + "..."
+              : "Transcribing in browser..."
+          });
+        }
+      }
+    });
+
+    postMessage({
+      type: "progress",
+      value: chunkEndProgress,
+      current: chunkEndProgress,
+      total: 100,
+      message: chunkPlan.length > 1
+        ? "Finishing part " + (i + 1) + " of " + chunkPlan.length + "..."
+        : "Finalizing transcript..."
+    });
 
     if (result && Array.isArray(result.chunks) && result.chunks.length) {
       appendTimedChunks(fullChunks, result.chunks, chunkOffsetSeconds);
@@ -624,6 +792,11 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
     }];
   }
 
+  postMessage({
+    type: "status",
+    message: "Finalizing transcript...",
+    progress: 99
+  });
   postMessage({ type: "progress", value: 100, current: 100, total: 100 });
   postMessage({
     type: "result",
@@ -704,10 +877,15 @@ async function handleSubtitleTranslation(data) {
       return;
     }
 
-    const modelLoad = await loadModel();
+    const translationModelKey = data.modelKey || DEFAULT_TRANSCRIPTION_MODEL_KEY;
+    const modelLoad = await loadTranscriptionModel(translationModelKey);
     const model = modelLoad.model;
 
-    postMessage({ type: "model_ready", loadState: modelLoad.loadState });
+    postMessage({
+      type: "model_ready",
+      modelKey: modelLoad.modelKey,
+      loadState: modelLoad.loadState
+    });
     const sampleRate = 16000;
     const chunkSize = sampleRate * 25;
     const chunks = [];
@@ -782,19 +960,30 @@ async function handleSubtitleTranslation(data) {
 self.onmessage = async (e) => {
   const data = e.data || {};
   const requestType = data.type;
+  const modelConfig = getTranscriptionModelConfig(data.modelKey || DEFAULT_TRANSCRIPTION_MODEL_KEY);
 
-  if (requestType === "warmup") {
-    if (transcriber || isLoading || isBusy) {
+  if (requestType === "preload_model") {
+    if (isBusy) {
+      postMessage({
+        type: "model_error",
+        modelKey: modelConfig.key,
+        message: "Worker is busy"
+      });
       return;
     }
 
-      try {
-        const modelLoad = await loadModel();
-        postMessage({ type: "warmup_ready", loadState: modelLoad.loadState });
-      } catch (err) {
-        postMessage({
-        type: "warmup_error",
-        message: err && err.message ? err.message : "Warmup failed"
+    try {
+      const modelLoad = await loadTranscriptionModel(modelConfig.key);
+      postMessage({
+        type: "model_ready",
+        modelKey: modelLoad.modelKey,
+        loadState: modelLoad.loadState
+      });
+    } catch (err) {
+      postMessage({
+        type: "model_error",
+        modelKey: modelConfig.key,
+        message: err && err.message ? err.message : "Model load failed"
       });
     }
     return;
@@ -807,8 +996,9 @@ self.onmessage = async (e) => {
     }
 
     try {
+      const unloadedModelKey = activeTranscriptionModelKey;
       await unloadModels(data.includeTranslation !== false);
-      postMessage({ type: "unloaded" });
+      postMessage({ type: "unloaded", modelKey: unloadedModelKey });
     } catch (err) {
       postMessage({
         type: "unload_error",
@@ -829,10 +1019,10 @@ self.onmessage = async (e) => {
   isBusy = true;
 
   try {
-      if (requestType === "transcribe") {
-        await handleTranscription(data.audio, data.selectedLanguage, data.timelineOffset);
-        return;
-      }
+    if (requestType === "transcribe") {
+      await handleTranscription(data.audio, data.selectedLanguage, data.timelineOffset, modelConfig.key);
+      return;
+    }
 
     if (requestType === "translate") {
       await handleTranslation(data);

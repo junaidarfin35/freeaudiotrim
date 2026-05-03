@@ -64,6 +64,7 @@
     onStateChange: updateState,
   });
   window.__audioEngine = engine;
+  prepareDownloadButton();
 
   pitchControlGroup.hidden = !alsoAdjustPitch.checked;
 
@@ -267,6 +268,7 @@
     downloadLink.href = downloadUrl;
     downloadLink.download = result.fileName.replace("_processed", `_speed_${formatSpeedFilePart()}`);
     downloadLink.style.display = "inline-flex";
+    downloadLink.textContent = "Download";
   }
 
   function formatSpeedFilePart() {
@@ -323,6 +325,17 @@
     }
     downloadLink.style.display = "none";
     downloadLink.removeAttribute("href");
+  }
+
+  function prepareDownloadButton() {
+    if (!downloadLink || !exportBtn || downloadLink.dataset.enhanced === "true") {
+      return;
+    }
+    downloadLink.dataset.enhanced = "true";
+    downloadLink.textContent = "Download";
+    downloadLink.className = "at-btn at-btn-primary";
+    downloadLink.style.display = "none";
+    exportBtn.insertAdjacentElement("afterend", downloadLink);
   }
 
   function isTypingTarget(target) {

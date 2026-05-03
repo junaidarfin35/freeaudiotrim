@@ -1,0 +1,257 @@
+{
+  "globalRules": {
+    "primaryCount": "4",
+    "mustInclude": "audio-video-transcription-online.html",
+    "noSelfLink": true,
+    "structure": "fixed"
+  },
+  "toolGroups": {
+    "core": ["cutter", "merge", "normalize", "silence"],
+    "conversion": ["converter", "mp3-to-wav", "extract"],
+    "editing": ["speed", "pitch", "ringtone"],
+    "ai": ["transcription"]
+  },
+  "pages": {
+    "index.html": {
+      "primary": [
+        "merge-audio-files.html",
+        "remove-silence-from-audio.html",
+        "audio-video-transcription-online.html",
+        "normalize-audio-volume.html",
+        "audio-converter.html"
+      ],
+      "pills": [
+        "free-mp3-cutter.html",
+        "convert-mp3-to-wav.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html",
+        "extract-audio-from-video.html",
+        "ringtone-maker.html"
+      ]
+    },
+
+    "audio-cutter-online.html": {
+      "primary": [
+        "merge-audio-files.html",
+        "remove-silence-from-audio.html",
+        "audio-video-transcription-online.html",
+        "normalize-audio-volume.html",
+        "audio-converter.html"
+      ],
+      "pills": [
+        "audio-converter.html",
+        "convert-mp3-to-wav.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html",
+        "extract-audio-from-video.html",
+        "ringtone-maker.html"
+      ]
+    },
+
+    "free-mp3-cutter.html": {
+      "primary": [
+        "merge-audio-files.html",
+        "remove-silence-from-audio.html",
+        "audio-video-transcription-online.html",
+        "normalize-audio-volume.html",
+        "audio-converter.html"
+      ],
+      "pills": [
+        "audio-converter.html",
+        "convert-mp3-to-wav.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html",
+        "extract-audio-from-video.html",
+        "ringtone-maker.html"
+      ]
+    },
+
+    "merge-audio-files.html": {
+      "primary": [
+        "audio-cutter-online.html",
+        "normalize-audio-volume.html",
+        "audio-video-transcription-online.html",
+        "remove-silence-from-audio.html",
+        "audio-converter.html"
+      ],
+      "pills": [
+        "audio-converter.html",
+        "extract-audio-from-video.html",
+        "convert-mp3-to-wav.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html"
+      ]
+    },
+
+    "remove-silence-from-audio.html": {
+      "primary": [
+        "audio-cutter-online.html",
+        "merge-audio-files.html",
+        "audio-video-transcription-online.html",
+        "normalize-audio-volume.html",
+        "audio-converter.html"
+      ],
+      "pills": [
+        "audio-converter.html",
+        "extract-audio-from-video.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html",
+        "convert-mp3-to-wav.html"
+      ]
+    },
+
+    "normalize-audio-volume.html": {
+      "primary": [
+        "audio-cutter-online.html",
+        "merge-audio-files.html",
+        "audio-video-transcription-online.html",
+        "remove-silence-from-audio.html",
+        "audio-converter.html"
+      ],
+      "pills": [
+        "audio-converter.html",
+        "extract-audio-from-video.html",
+        "convert-mp3-to-wav.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html"
+      ]
+    },
+
+    "audio-converter.html": {
+      "primary": [
+        "extract-audio-from-video.html",
+        "convert-mp3-to-wav.html",
+        "audio-video-transcription-online.html",
+        "merge-audio-files.html",
+        "normalize-audio-volume.html"
+      ],
+      "pills": [
+        "audio-cutter-online.html",
+        "normalize-audio-volume.html",
+        "remove-silence-from-audio.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html"
+      ]
+    },
+
+    "extract-audio-from-video.html": {
+      "primary": [
+        "audio-converter.html",
+        "convert-mp3-to-wav.html",
+        "audio-video-transcription-online.html",
+        "merge-audio-files.html",
+        "normalize-audio-volume.html"
+      ],
+      "pills": [
+        "audio-cutter-online.html",
+        "normalize-audio-volume.html",
+        "remove-silence-from-audio.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html"
+      ]
+    },
+
+    "convert-mp3-to-wav.html": {
+      "primary": [
+        "audio-converter.html",
+        "extract-audio-from-video.html",
+        "audio-video-transcription-online.html",
+        "merge-audio-files.html",
+        "normalize-audio-volume.html"
+      ],
+      "pills": [
+        "audio-cutter-online.html",
+        "normalize-audio-volume.html",
+        "remove-silence-from-audio.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html"
+      ]
+    },
+
+    "mp3-to-m4r.html": {
+      "primary": [
+        "ringtone-maker.html",
+        "audio-converter.html",
+        "convert-mp3-to-wav.html",
+        "extract-audio-from-video.html",
+        "audio-video-transcription-online.html"
+      ],
+      "pills": [
+        "audio-cutter-online.html",
+        "merge-audio-files.html",
+        "normalize-audio-volume.html",
+        "remove-silence-from-audio.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html"
+      ]
+    },
+
+    "audio-speed-changer.html": {
+      "primary": [
+        "audio-pitch-changer.html",
+        "audio-cutter-online.html",
+        "audio-video-transcription-online.html",
+        "ringtone-maker.html",
+        "merge-audio-files.html"
+      ],
+      "pills": [
+        "merge-audio-files.html",
+        "normalize-audio-volume.html",
+        "remove-silence-from-audio.html",
+        "audio-converter.html",
+        "extract-audio-from-video.html"
+      ]
+    },
+
+    "audio-pitch-changer.html": {
+      "primary": [
+        "audio-speed-changer.html",
+        "audio-cutter-online.html",
+        "audio-video-transcription-online.html",
+        "ringtone-maker.html",
+        "merge-audio-files.html"
+      ],
+      "pills": [
+        "merge-audio-files.html",
+        "normalize-audio-volume.html",
+        "remove-silence-from-audio.html",
+        "audio-converter.html",
+        "extract-audio-from-video.html"
+      ]
+    },
+
+    "ringtone-maker.html": {
+      "primary": [
+        "audio-cutter-online.html",
+        "audio-speed-changer.html",
+        "audio-video-transcription-online.html",
+        "audio-pitch-changer.html",
+        "merge-audio-files.html"
+      ],
+      "pills": [
+        "merge-audio-files.html",
+        "normalize-audio-volume.html",
+        "remove-silence-from-audio.html",
+        "audio-converter.html",
+        "extract-audio-from-video.html"
+      ]
+    },
+
+    "audio-video-transcription-online.html": {
+      "primary": [
+        "audio-converter.html",
+        "extract-audio-from-video.html",
+        "merge-audio-files.html",
+        "remove-silence-from-audio.html",
+        "normalize-audio-volume.html"
+      ],
+      "pills": [
+        "audio-cutter-online.html",
+        "normalize-audio-volume.html",
+        "audio-speed-changer.html",
+        "audio-pitch-changer.html",
+        "convert-mp3-to-wav.html"
+      ]
+    }
+  }
+}

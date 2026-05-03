@@ -5,19 +5,49 @@
   var vttContent = "";
   var MAX_DURATION_SECONDS = 180;
   var FRIENDLY_WARNING_SECONDS = 150;
-  var worker = new Worker("/assets/transcribe-worker.js?v=2026-04-28-8", {
-     type: "module"
-   });
+  var TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-03-1";
+  var worker = null;
+  var workerGeneration = 0;
   var processingLocked = false;
   var activeTranscriptionContext = null;
   var activeTranslationContext = null;
   var modelWarmState = "idle";
   var modelUnloadPending = false;
+  var activePreparedModelKey = "";
+  var pendingModelRequestKey = "";
   var progressInterval = null;
   var progressMessageInterval = null;
   var idleUnloadTimer = null;
   var lockHeartbeatTimer = null;
   var lockRetryTimer = null;
+  var TRANSCRIPTION_MODELS = [
+    {
+      key: "baby-raptor",
+      label: "Baby Raptor",
+      helper: "Fastest multilingual mode for weaker phones.",
+      icon: "/assets/transcription-models/baby-raptor.png",
+      modelId: "onnx-community/whisper-base_timestamped"
+    },
+    {
+      key: "triceratop",
+      label: "Triceratop",
+      helper: "Balanced multilingual mode for most devices.",
+      icon: "/assets/transcription-models/triceratop.png",
+      modelId: "onnx-community/whisper-small_timestamped"
+    },
+    {
+      key: "t-rex",
+      label: "T-Rex",
+      helper: "Best multilingual accuracy for stronger desktops.",
+      icon: "/assets/transcription-models/t-rex.png",
+      modelId: "onnx-community/whisper-large-v3-turbo_timestamped"
+    }
+  ];
+  var DEFAULT_TRANSCRIPTION_MODEL_KEY = "triceratop";
+  var FALLBACK_TRANSCRIPTION_MODEL_KEY = "baby-raptor";
+  var transcriptionCapabilityProfile = null;
+  var selectedTranscriptionModelKey = DEFAULT_TRANSCRIPTION_MODEL_KEY;
+  var transcriptionModelStates = Object.create(null);
   var progressMessages = [
     "Downloading model...",
     "Preparing browser AI...",
@@ -269,28 +299,230 @@
     ? new BroadcastChannel("fat-transcribe-model")
     : null;
 
+  function createTranscribeWorker() {
+    workerGeneration += 1;
+    worker = new Worker(TRANSCRIBE_WORKER_URL, {
+      type: "module"
+    });
+    return workerGeneration;
+  }
+
+  function getTranscriptionModeByKey(modelKey) {
+    return TRANSCRIPTION_MODELS.find(function (item) {
+      return item.key === modelKey;
+    }) || TRANSCRIPTION_MODELS[0];
+  }
+
+  function ensureTranscriptionModelState(modelKey) {
+    if (!transcriptionModelStates[modelKey]) {
+      transcriptionModelStates[modelKey] = {
+        enabled: true,
+        reason: "",
+        status: "idle",
+        progress: 0,
+        errorMessage: ""
+      };
+    }
+    return transcriptionModelStates[modelKey];
+  }
+
+  function initializeTranscriptionModelStates() {
+    TRANSCRIPTION_MODELS.forEach(function (model) {
+      ensureTranscriptionModelState(model.key);
+    });
+  }
+
+  function getSelectedTranscriptionMode() {
+    return getTranscriptionModeByKey(selectedTranscriptionModelKey);
+  }
+
+  function getSelectedModelState() {
+    return ensureTranscriptionModelState(selectedTranscriptionModelKey);
+  }
+
+  function hasSelectedTranscriptionLanguage(language) {
+    return !!language;
+  }
+
+  function createCapabilityDecision(enabled, reason) {
+    return {
+      enabled: !!enabled,
+      reason: enabled ? "" : reason
+    };
+  }
+
+  function probeTranscriptionCapabilities() {
+    var hasWorkers = typeof Worker !== "undefined";
+    var hasWasm = typeof WebAssembly !== "undefined";
+    var hasAudioSupport = !!(window.AudioContext || window.webkitAudioContext);
+    var isCoarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    var deviceMemory = typeof navigator !== "undefined" ? Number(navigator.deviceMemory) : NaN;
+    var hardwareConcurrency = typeof navigator !== "undefined" ? Number(navigator.hardwareConcurrency) : NaN;
+    var hasKnownMemory = Number.isFinite(deviceMemory) && deviceMemory > 0;
+    var hasKnownCpu = Number.isFinite(hardwareConcurrency) && hardwareConcurrency > 0;
+    var lowMemory = hasKnownMemory && deviceMemory < 4;
+    var lowCpu = hasKnownCpu && hardwareConcurrency < 4;
+    var baselineOk = hasWorkers && hasWasm && hasAudioSupport;
+    var browserReason = "This browser cannot run local transcription models";
+    var balancedReason = "Needs a bit more memory or CPU for comfortable local use";
+    var desktopReason = "Reserved for stronger desktops with WebGPU";
+    var modes = Object.create(null);
+
+    if (!baselineOk) {
+      TRANSCRIPTION_MODELS.forEach(function (model) {
+        modes[model.key] = createCapabilityDecision(false, browserReason);
+      });
+      return {
+        baselineOk: false,
+        isCoarsePointer: isCoarsePointer,
+        deviceMemory: hasKnownMemory ? deviceMemory : null,
+        hardwareConcurrency: hasKnownCpu ? hardwareConcurrency : null,
+        modes: modes
+      };
+    }
+
+    modes["baby-raptor"] = createCapabilityDecision(true, "");
+
+    if (isCoarsePointer) {
+      var mobileSmallReady = hasKnownMemory && deviceMemory >= 4 && hasKnownCpu && hardwareConcurrency >= 6;
+      modes.triceratop = createCapabilityDecision(mobileSmallReady, balancedReason);
+    } else {
+      modes.triceratop = createCapabilityDecision(!(lowMemory || lowCpu), balancedReason);
+    }
+
+    var hasWebGPU = hasWebGPUAcceleration();
+    var hasTyrannosaurMemory = hasKnownMemory && deviceMemory >= 8;
+    var hasTyrannosaurCpu = hasKnownCpu && hardwareConcurrency >= 8;
+    modes["t-rex"] = createCapabilityDecision(
+      baselineOk && hasWebGPU && !isCoarsePointer && hasTyrannosaurMemory && hasTyrannosaurCpu,
+      desktopReason
+    );
+
+    return {
+      baselineOk: true,
+      isCoarsePointer: isCoarsePointer,
+      deviceMemory: hasKnownMemory ? deviceMemory : null,
+      hardwareConcurrency: hasKnownCpu ? hardwareConcurrency : null,
+      modes: modes
+    };
+  }
+
+  function applyTranscriptionCapabilityProfile(profile) {
+    transcriptionCapabilityProfile = profile || probeTranscriptionCapabilities();
+
+    TRANSCRIPTION_MODELS.forEach(function (model) {
+      var state = ensureTranscriptionModelState(model.key);
+      var decision = transcriptionCapabilityProfile.modes[model.key] || createCapabilityDecision(false, "This browser cannot run local transcription models");
+      state.enabled = !!decision.enabled;
+      state.reason = decision.reason || "";
+      if (!state.enabled) {
+        state.status = "disabled";
+        state.progress = 0;
+        state.errorMessage = "";
+      } else if (state.status === "disabled") {
+        state.status = "idle";
+      }
+    });
+
+    if (!ensureTranscriptionModelState(DEFAULT_TRANSCRIPTION_MODEL_KEY).enabled) {
+      selectedTranscriptionModelKey = ensureTranscriptionModelState(FALLBACK_TRANSCRIPTION_MODEL_KEY).enabled
+        ? FALLBACK_TRANSCRIPTION_MODEL_KEY
+        : DEFAULT_TRANSCRIPTION_MODEL_KEY;
+    } else {
+      selectedTranscriptionModelKey = DEFAULT_TRANSCRIPTION_MODEL_KEY;
+    }
+
+    modelWarmState = getSelectedModelState().status;
+  }
+
+  function getModelAvailabilityLabel(modelKey) {
+    var state = ensureTranscriptionModelState(modelKey);
+    if (!state.enabled) {
+      return "Disabled";
+    }
+    if (state.status === "ready") {
+      return "Ready";
+    }
+    if (state.status === "loading") {
+      return "Downloading";
+    }
+    if (state.status === "blocked") {
+      return "Waiting";
+    }
+    if (state.status === "error") {
+      return "Available";
+    }
+    return "Available";
+  }
+
+  function getSelectedModelLoadingText() {
+    var model = getSelectedTranscriptionMode();
+    return "Preparing " + model.label + "...";
+  }
+
+  function getSelectedModelLockedText() {
+    return "Another transcription tab is holding the AI model. Wait a moment or close the other tab.";
+  }
+
+  function buildTranscriptionModelCardsMarkup() {
+    return TRANSCRIPTION_MODELS.map(function (model) {
+      return [
+        '<button class="at-model-card" type="button" data-role="modelCard" data-model-key="', model.key, '">',
+        '  <span class="at-model-card__media">',
+        '    <img src="', model.icon, '" alt="" loading="lazy" width="64" height="64">',
+        "  </span>",
+        '  <span class="at-model-card__copy">',
+        '    <span class="at-model-card__title-row">',
+        '      <span class="at-model-card__title">', escapeHtml(model.label), "</span>",
+        '      <span class="at-model-card__badge" data-role="modelBadge" data-model-key="', model.key, '">Available</span>',
+        "    </span>",
+        '    <span class="at-model-card__helper">', escapeHtml(model.helper), "</span>",
+        '    <span class="at-model-card__reason" data-role="modelReason" data-model-key="', model.key, '"></span>',
+        "  </span>",
+        "</button>"
+      ].join("");
+    }).join("");
+  }
+
   function hasWebGPUAcceleration() {
     return !!(typeof navigator !== "undefined" && navigator.gpu);
   }
 
   function getDeviceSupportLabel() {
+    if (!transcriptionCapabilityProfile || !transcriptionCapabilityProfile.baselineOk) {
+      return "Local transcription unavailable on this browser";
+    }
+
     return hasWebGPUAcceleration()
-      ? "Faster on this device"
-      : "Running in compatibility mode";
+      ? "High-performance local AI available"
+      : "Local AI available in compatibility mode";
   }
 
   function getProcessingInfoCopy() {
-    return hasWebGPUAcceleration()
-      ? "Faster on this device. Transcription runs entirely in your browser, so your media never leaves your device."
-      : "Running in compatibility mode. Transcription runs entirely in your browser, so your media never leaves your device.";
+    return getDeviceSupportLabel() + ". Transcription runs entirely in your browser, so your media never leaves your device.";
   }
 
   function getAudioReadyStatus(language) {
-    var deviceMessage = getDeviceSupportLabel();
-    if (!language) {
-      return "Audio ready for transcription. " + deviceMessage + ". Choose the spoken language before transcribing for best accuracy.";
+    var selectedModel = getSelectedTranscriptionMode();
+    var selectedState = getSelectedModelState();
+
+    if (!selectedState.enabled) {
+      return selectedModel.label + " is disabled on this device. " + selectedState.reason;
     }
-    return "Audio ready for transcription. " + deviceMessage;
+
+    if (modelWarmState === "loading") {
+      return "Audio ready for transcription. " + getSelectedModelLoadingText();
+    }
+
+    if (!hasSelectedTranscriptionLanguage(language)) {
+      return "Audio ready for transcription. Choose the spoken language while " + selectedModel.label + " gets ready.";
+    }
+
+    if (modelWarmState === "ready") {
+      return selectedModel.label + " is ready. Press Transcribe when you're ready.";
+    }
+
+    return "Audio ready for transcription. " + getDeviceSupportLabel();
   }
 
   function getSelectedTranscriptionLanguage() {
@@ -299,15 +531,16 @@
   }
 
   function getWarmModelReadyStatus(loadState, language) {
+    var model = getSelectedTranscriptionMode();
     var baseMessage = loadState === "downloaded"
-      ? "AI model downloaded and ready."
-      : "Cached AI model ready.";
+      ? model.label + " downloaded and ready."
+      : model.label + " ready from cache.";
 
     if (!window.transcriptionAudio) {
       return baseMessage;
     }
 
-    if (!language) {
+    if (!hasSelectedTranscriptionLanguage(language)) {
       return baseMessage + " Choose the spoken language before transcribing for best accuracy.";
     }
 
@@ -315,9 +548,10 @@
   }
 
   function getModelStartStatus(loadState) {
+    var model = getSelectedTranscriptionMode();
     return loadState === "downloaded"
-      ? "Model downloaded. Starting transcription..."
-      : "Cached AI model ready. Starting transcription...";
+      ? model.label + " downloaded. Starting transcription..."
+      : model.label + " ready from cache. Starting transcription...";
   }
 
   function getPrimaryTranscribeRoot() {
@@ -341,19 +575,35 @@
   }
 
   function canStartTranscription(language) {
-    return !!language;
+    return !!window.transcriptionAudio
+      && hasSelectedTranscriptionLanguage(language)
+      && !processingLocked
+      && modelWarmState === "ready";
   }
 
   function syncTranscribeReadyState() {
     var startBtn = document.querySelector('[data-role="startTranscribe"]');
     var selectedLanguage = getSelectedTranscriptionLanguage();
-    var canStart = !!window.transcriptionAudio
-      && canStartTranscription(selectedLanguage)
-      && !processingLocked
-      && modelWarmState !== "blocked";
+    var selectedState = getSelectedModelState();
+    var canStart = canStartTranscription(selectedLanguage);
 
     if (startBtn) {
       setTranscribeButtonState(startBtn, canStart);
+      if (!window.transcriptionAudio) {
+        startBtn.textContent = "Transcribe";
+      } else if (!selectedState.enabled) {
+        startBtn.textContent = "Transcribe unavailable";
+      } else if (modelWarmState === "blocked") {
+        startBtn.textContent = "Waiting for model access";
+      } else if (modelWarmState === "loading") {
+        startBtn.textContent = getSelectedModelLoadingText();
+      } else if (modelWarmState === "error") {
+        startBtn.textContent = "Retry model download";
+      } else if (!hasSelectedTranscriptionLanguage(selectedLanguage)) {
+        startBtn.textContent = "Select language first";
+      } else {
+        startBtn.textContent = "Transcribe";
+      }
     }
   }
 
@@ -896,6 +1146,47 @@
     }
   }
 
+  function setModelUiState(modelKey, nextState, errorMessage) {
+    var state = ensureTranscriptionModelState(modelKey);
+    if (!state.enabled) {
+      state.status = "disabled";
+      state.progress = 0;
+      state.errorMessage = "";
+      return;
+    }
+
+    state.status = nextState;
+    if (nextState !== "loading") {
+      state.progress = nextState === "ready" ? 100 : 0;
+    }
+    state.errorMessage = nextState === "error" ? (errorMessage || "") : "";
+  }
+
+  function resetOtherModelStates(activeModelKey) {
+    TRANSCRIPTION_MODELS.forEach(function (model) {
+      if (model.key === activeModelKey) {
+        return;
+      }
+      var state = ensureTranscriptionModelState(model.key);
+      if (state.enabled) {
+        state.status = "idle";
+        state.progress = 0;
+        state.errorMessage = "";
+      }
+    });
+  }
+
+  function rebuildTranscribeWorker() {
+    if (worker) {
+      try {
+        worker.terminate();
+      } catch (error) {
+      }
+    }
+    var generation = createTranscribeWorker();
+    attachWorkerListeners(worker, generation);
+  }
+
   function scheduleWarmupRetry() {
     if (lockRetryTimer) {
       window.clearTimeout(lockRetryTimer);
@@ -951,8 +1242,17 @@
 
     modelWarmState = "idle";
     modelUnloadPending = true;
+    pendingModelRequestKey = "";
+    activePreparedModelKey = "";
+    resetOtherModelStates("");
+    if (selectedTranscriptionModelKey) {
+      setModelUiState(selectedTranscriptionModelKey, "idle");
+    }
     syncTranscribeReadyState();
     refreshTranscribeLayout();
+    if (!worker) {
+      return;
+    }
     worker.postMessage({
       type: "unload",
       includeTranslation: includeTranslation !== false,
@@ -970,6 +1270,7 @@
     }
 
     modelWarmState = "blocked";
+    setModelUiState(selectedTranscriptionModelKey, "blocked");
     notifyOtherTabs({
       type: "release_request",
       requesterId: TAB_ID
@@ -977,37 +1278,64 @@
     scheduleWarmupRetry();
 
     if (statusEl) {
-      setStatus(statusEl, "Another transcription tab is holding the AI model. Wait a moment or close the other tab.", "warning");
+      setStatus(statusEl, getSelectedModelLockedText(), "warning");
     }
     if (startBtn) {
       setTranscribeButtonState(startBtn, false);
     }
+    refreshTranscribeLayout();
 
     return false;
   }
 
   function requestModelWarmup() {
-    if (modelWarmState === "loading" || modelWarmState === "ready") {
+    var selectedModel = getSelectedTranscriptionMode();
+    var selectedState = getSelectedModelState();
+    var shouldReusePreparedModel = activePreparedModelKey === selectedModel.key;
+
+    if (!window.transcriptionAudio || !selectedState.enabled) {
+      modelWarmState = selectedState.enabled ? "idle" : "disabled";
+      syncTranscribeReadyState();
+      refreshTranscribeLayout();
+      return;
+    }
+
+    if ((modelWarmState === "loading" || modelWarmState === "ready") && shouldReusePreparedModel) {
       return;
     }
 
     if (!claimModelLock()) {
       modelWarmState = "blocked";
+      setModelUiState(selectedModel.key, "blocked");
       syncTranscribeReadyState();
       notifyOtherTabs({
         type: "release_request",
         requesterId: TAB_ID
       });
       scheduleWarmupRetry();
+      refreshTranscribeLayout();
       return;
     }
 
     clearIdleUnloadTimer();
     startLockHeartbeat();
+    if (!worker) {
+      rebuildTranscribeWorker();
+    } else if ((activePreparedModelKey && activePreparedModelKey !== selectedModel.key) || (pendingModelRequestKey && pendingModelRequestKey !== selectedModel.key)) {
+      rebuildTranscribeWorker();
+    }
+
+    pendingModelRequestKey = selectedModel.key;
+    activePreparedModelKey = "";
+    resetOtherModelStates(selectedModel.key);
+    setModelUiState(selectedModel.key, "loading");
     modelWarmState = "loading";
     syncTranscribeReadyState();
     refreshTranscribeLayout();
-    worker.postMessage({ type: "warmup" });
+    worker.postMessage({
+      type: "preload_model",
+      modelKey: selectedModel.key
+    });
   }
 
   function bindTranscribeLifecycleEvents() {
@@ -1074,11 +1402,13 @@
       stopLockHeartbeat();
       releaseModelLock();
       try {
-        worker.postMessage({
-          type: "unload",
-          includeTranslation: true,
-          reason: "pagehide"
-        });
+        if (worker) {
+          worker.postMessage({
+            type: "unload",
+            includeTranslation: true,
+            reason: "pagehide"
+          });
+        }
       } catch (error) {
       }
     });
@@ -1094,6 +1424,7 @@
       '      <div class="at-file-name" data-role="fileName">No file selected</div>',
       "    </div>",
       '    <div data-role="fileActions">',
+      '      <button class="at-btn at-btn-soft is-hidden" type="button" data-role="changeFileBtn">Change file</button>',
       '      <button class="at-btn at-btn-soft is-hidden" type="button" data-role="restartBtn">Start over</button>',
       "    </div>",
       "  </div>",
@@ -1104,6 +1435,9 @@
       "  </div>",
       '  <div class="at-row is-hidden" data-role="processingInfo">',
       '    <div class="at-help" data-role="processingHint">Transcription runs entirely in your browser, so your media never leaves your device.</div>',
+      "  </div>",
+      '  <div class="at-row transcribe-controls is-hidden" data-role="modelRow">',
+      '    <div class="at-model-grid" data-role="modelGrid">' + buildTranscriptionModelCardsMarkup() + "</div>",
       "  </div>",
       '  <div class="at-row transcribe-controls is-hidden" data-role="languageRow">',
       '    <div class="at-language-field">',
@@ -1240,17 +1574,27 @@
     return Math.max(0, Math.min(100, parseFloat(bar.style.width) || 0));
   }
 
-  function startFakeProgress(start, end) {
+  function startFakeProgress(start, end, label) {
     var value = Math.max(start == null ? 0 : start, getProgressValue());
     var limit = end == null ? 92 : end;
+    var message = label || "Transcribing in browser...";
 
     stopFakeProgress();
     progressInterval = setInterval(function () {
-      value += 0.8 + Math.random() * 1.2;
+      if (value < 40) {
+        value += 1.1 + Math.random() * 0.9;
+      } else if (value < 75) {
+        value += 0.55 + Math.random() * 0.55;
+      } else {
+        value += 0.18 + Math.random() * 0.28;
+      }
       if (value >= limit) {
         value = limit;
       }
       setProgress(Math.max(getProgressValue(), value));
+      if (activeTranscriptionContext && activeTranscriptionContext.statusEl) {
+        setStatus(activeTranscriptionContext.statusEl, normalizeIncomingText(message) + " " + Math.round(Math.max(getProgressValue(), value)) + "%", "processing");
+      }
     }, 500);
   }
 
@@ -1302,6 +1646,67 @@
 
     if (processingHintEl) {
       processingHintEl.textContent = getProcessingInfoCopy();
+    }
+  }
+
+  function syncTranscriptionModelCards(root) {
+    if (!root) {
+      return;
+    }
+
+    var cards = root.querySelectorAll('[data-role="modelCard"]');
+    cards.forEach(function (card) {
+      var modelKey = card.getAttribute("data-model-key") || "";
+      var state = ensureTranscriptionModelState(modelKey);
+      var isSelected = modelKey === selectedTranscriptionModelKey;
+      var badge = root.querySelector('[data-role="modelBadge"][data-model-key="' + modelKey + '"]');
+      var reason = root.querySelector('[data-role="modelReason"][data-model-key="' + modelKey + '"]');
+
+      card.dataset.selected = isSelected ? "true" : "false";
+      card.dataset.state = state.status;
+      card.disabled = !state.enabled || processingLocked;
+      card.setAttribute("aria-pressed", isSelected ? "true" : "false");
+
+      if (badge) {
+        badge.textContent = getModelAvailabilityLabel(modelKey);
+        badge.dataset.state = state.status;
+      }
+
+      if (reason) {
+        if (!state.enabled) {
+          reason.textContent = state.reason;
+        } else if (state.status === "error") {
+          reason.textContent = state.errorMessage || "Could not prepare this mode. Try again.";
+        } else {
+          reason.textContent = "";
+        }
+      }
+    });
+  }
+
+  function refreshTranscriptionModelUi(root) {
+    syncTranscriptionModelCards(root || getPrimaryTranscribeRoot());
+    syncTranscribeReadyState();
+  }
+
+  function selectTranscriptionModel(modelKey, options) {
+    var nextModel = getTranscriptionModeByKey(modelKey);
+    var nextState = ensureTranscriptionModelState(nextModel.key);
+    var forceReload = !!(options && options.forceReload);
+
+    if (!nextState.enabled || processingLocked) {
+      refreshTranscriptionModelUi(getPrimaryTranscribeRoot());
+      return;
+    }
+
+    var changed = selectedTranscriptionModelKey !== nextModel.key;
+    selectedTranscriptionModelKey = nextModel.key;
+    modelWarmState = nextState.status;
+
+    refreshTranscriptionModelUi(getPrimaryTranscribeRoot());
+
+    if (window.transcriptionAudio && (changed || forceReload || nextState.status === "error" || modelWarmState !== "ready")) {
+      requestModelWarmup();
     }
   }
 
@@ -1368,6 +1773,7 @@
 
     setElementVisible(root.querySelector('[data-role="progressRow"]'), isPreparing || isProcessing || isModelLoading);
     setElementVisible(root.querySelector('[data-role="processingInfo"]'), isProcessing || isModelLoading);
+    setElementVisible(root.querySelector('[data-role="modelRow"]'), showSetup);
     setElementVisible(root.querySelector('[data-role="languageRow"]'), showSetup);
     setElementVisible(root.querySelector('[data-role="enhanceRow"]'), showSetup);
     setElementVisible(root.querySelector('[data-role="transcribeRow"]'), showSetup);
@@ -1375,12 +1781,14 @@
     setElementVisible(root.querySelector('[data-role="transcriptRow"]'), showResults);
     setElementVisible(root.querySelector('[data-role="translateEntryRow"]'), showResults);
     setElementVisible(root.querySelector('[data-role="exportRow"]'), showResults);
+    setElementVisible(root.querySelector('[data-role="changeFileBtn"]'), hasAudioReady || showResults);
     setElementVisible(root.querySelector('[data-role="restartBtn"]'), hasAudioReady || isPreparing || isProcessing || showResults);
     setElementVisible(translationPanel, showResults && !!root.__translationSetupOpen && !isProcessing);
     updateTranslateEntryButton(translateEntryBtn, root, hasResults, hasTranslation, isProcessing);
     if (chatgptEntryBtn) {
       chatgptEntryBtn.disabled = !showResults || isProcessing;
     }
+    syncTranscriptionModelCards(root);
   }
 
   function setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, enabled) {
@@ -2446,210 +2854,267 @@ function generateVTT(segments) {
     activeTranslationContext = null;
   }
 
-  worker.onmessage = function (e) {
-    var type = e.data.type;
-    var text = normalizeIncomingText(e.data.text);
-    var segments = normalizeIncomingSegments(e.data.segments);
-    var message = normalizeIncomingText(e.data.message);
-    var progress = e.data.progress;
+  function attachWorkerListeners(targetWorker, generation) {
+    if (!targetWorker) {
+      return;
+    }
 
-    if (type === "loading") {
-      if (activeTranslationContext) {
-        setStatus(activeTranslationContext.statusEl, "Preparing translation model...", "processing");
-        setProgressMessage("Preparing translation model...");
+    targetWorker.onmessage = function (e) {
+      if (generation !== workerGeneration) {
+        return;
       }
-      return;
-    }
 
-    if (type === "model_loading") {
-      var loadingStatusEl = getPrimaryTranscribeStatusEl();
-      if (loadingStatusEl) {
-        setStatus(loadingStatusEl, "Preparing AI model...", "processing");
-      }
-      setProgress(0);
-      setProgressMessage(CHECKING_CACHED_MODEL_COPY);
-      refreshTranscribeLayout();
-      return;
-    }
+      var type = e.data.type;
+      var text = normalizeIncomingText(e.data.text);
+      var segments = normalizeIncomingSegments(e.data.segments);
+      var message = normalizeIncomingText(e.data.message);
+      var progress = e.data.progress;
+      var modelKey = e.data.modelKey || selectedTranscriptionModelKey;
+      var model = getTranscriptionModeByKey(modelKey);
+      var modelState = ensureTranscriptionModelState(modelKey);
 
-    if (type === "model_download_progress") {
-      var downloadPercent = Math.max(0, Math.min(100, Math.round(e.data.progress || 0)));
-      var downloadStatusEl = getPrimaryTranscribeStatusEl();
-      if (downloadStatusEl) {
-        setStatus(downloadStatusEl, "Downloading AI model... " + downloadPercent + "%", "processing");
-      }
-      setProgress(downloadPercent);
-      setProgressMessage(FIRST_RUN_MODEL_COPY);
-      refreshTranscribeLayout();
-      return;
-    }
-
-    if (type === "model_ready") {
-      if (activeTranscriptionContext) {
-        setStatus(activeTranscriptionContext.statusEl, getModelStartStatus(e.data.loadState), "processing");
-        setProgress(0);
-        setProgressMessage("Transcribing in browser...");
-      }
-      modelUnloadPending = false;
-      startLockHeartbeat();
-      modelWarmState = "ready";
-      return;
-    }
-
-    if (type === "warmup_ready") {
-      modelUnloadPending = false;
-      startLockHeartbeat();
-      modelWarmState = "ready";
-      var warmupStatusEl = getPrimaryTranscribeStatusEl();
-      if (warmupStatusEl) {
-        setStatus(warmupStatusEl, getWarmModelReadyStatus(e.data.loadState, getSelectedTranscriptionLanguage()), "ready");
-      }
-      setProgress(0);
-      setProgressMessage("");
-      syncTranscribeReadyState();
-      scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
-      refreshTranscribeLayout();
-      return;
-    }
-
-    if (type === "warmup_error") {
-      stopLockHeartbeat();
-      releaseModelLock();
-      modelWarmState = "idle";
-      syncTranscribeReadyState();
-      refreshTranscribeLayout();
-      return;
-    }
-
-    if (type === "unloaded") {
-      modelUnloadPending = false;
-      modelWarmState = "idle";
-      stopLockHeartbeat();
-      releaseModelLock();
-      syncTranscribeReadyState();
-      refreshTranscribeLayout();
-      notifyOtherTabs({
-        type: "lock_released",
-        ownerId: TAB_ID
-      });
-      return;
-    }
-
-    if (type === "unload_error" || type === "unload_skipped") {
-      modelUnloadPending = false;
-      syncTranscribeReadyState();
-      refreshTranscribeLayout();
-      return;
-    }
-
-    if (type === "status") {
-      if (activeTranscriptionContext) {
-        setStatus(activeTranscriptionContext.statusEl, message || "Transcribing in browser...", "processing");
-      } else if (activeTranslationContext && e.data.phase === "translation_loading") {
-        setStatus(activeTranslationContext.statusEl, message || "Preparing translation model...", "processing");
-      }
-      setProgressMessage(message || "");
-      if (typeof progress === "number") {
-        setProgress(progress);
-      }
-      return;
-    }
-
-    if (e.data.type === "progress") {
-      var percent = typeof e.data.value === "number"
-        ? Math.round(e.data.value)
-        : Math.round((e.data.current / e.data.total) * 100);
-      if (activeTranscriptionContext) {
-        setStatus(activeTranscriptionContext.statusEl, "Transcribing in browser... " + percent + "%", "processing");
-        setProgressMessage("Transcribing in browser...");
-      }
-      setProgress(Math.max(0, Math.min(100, percent)));
-      return;
-    }
-
-    if (type === "result") {
-      stopFakeProgress();
-      stopProgressMessages(false);
-      var activeLanguage = activeTranscriptionContext && activeTranscriptionContext.language;
-      const finalSegments = buildSubtitles(segments || [], activeLanguage);
-      window.currentSegments = finalSegments;
-      handleTranscriptionResult(
-        normalizeTranscriptTextForDisplay(text, activeLanguage),
-        finalSegments,
-        e.data.warnings
-      );
-      scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
-    }
-
-    if (type === "error") {
-      var context = activeTranscriptionContext;
-      processingLocked = false;
-      stopFakeProgress();
-      stopProgressMessages();
-      if (context) {
-        setStatus(context.statusEl, message || "Transcription failed", "error");
-        setProgressMessage("");
-        setProgress(0);
-        setTranscribeButtonState(context.startBtn, false);
-        setEnhanceToggleState(document.getElementById("enhance-audio"), true);
-        if (typeof context.afterRunCleanup === "function") {
-          context.afterRunCleanup({
-            keepResults: false
-          });
+      if (type === "loading") {
+        if (activeTranslationContext) {
+          setStatus(activeTranslationContext.statusEl, "Preparing translation model...", "processing");
+          setProgressMessage("Preparing translation model...");
         }
+        return;
       }
-      activeTranscriptionContext = null;
-      stopLockHeartbeat();
-      releaseModelLock();
-      if (message) {
-        console.error("Transcription worker error:", message);
+
+      if (type === "model_loading") {
+        pendingModelRequestKey = modelKey;
+        activePreparedModelKey = "";
+        resetOtherModelStates(modelKey);
+        setModelUiState(modelKey, "loading");
+        if (modelKey === selectedTranscriptionModelKey) {
+          modelWarmState = "loading";
+          var loadingStatusEl = getPrimaryTranscribeStatusEl();
+          if (loadingStatusEl) {
+            setStatus(loadingStatusEl, "Preparing " + model.label + "...", "processing");
+          }
+          setProgress(0);
+          setProgressMessage(CHECKING_CACHED_MODEL_COPY);
+        }
+        refreshTranscribeLayout();
+        return;
       }
-    }
 
-    if (type === "translation_progress") {
-      if (activeTranslationContext) {
-        setStatus(activeTranslationContext.statusEl, "Translating transcript...", "processing");
-        setProgress(50 + progress * 0.4);
+      if (type === "model_download_progress") {
+        var downloadPercent = Math.max(0, Math.min(100, Math.round(e.data.progress || 0)));
+        modelState.progress = downloadPercent;
+        setModelUiState(modelKey, "loading");
+        if (modelKey === selectedTranscriptionModelKey) {
+          modelWarmState = "loading";
+          var downloadStatusEl = getPrimaryTranscribeStatusEl();
+          if (downloadStatusEl) {
+            setStatus(downloadStatusEl, "Downloading " + model.label + "... " + downloadPercent + "%", "processing");
+          }
+          setProgress(downloadPercent);
+          setProgressMessage(FIRST_RUN_MODEL_COPY);
+        }
+        refreshTranscribeLayout();
+        return;
       }
-    }
 
-    if (type === "translation_result") {
-      stopProgressMessages(false);
-      handleTranslationResult(text, e.data.texts);
-      srtContent = e.data.srt || "";
-      vttContent = e.data.vtt || "";
-      var downloadSRTBtn = document.getElementById("downloadSRT");
-      var downloadVTTBtn = document.getElementById("downloadVTT");
-      if (downloadSRTBtn) downloadSRTBtn.disabled = false;
-      if (downloadVTTBtn) downloadVTTBtn.disabled = false;
-      scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
-    }
+      if (type === "model_ready") {
+        modelUnloadPending = false;
+        pendingModelRequestKey = "";
+        activePreparedModelKey = modelKey;
+        resetOtherModelStates(modelKey);
+        setModelUiState(modelKey, "ready");
+        startLockHeartbeat();
+        if (modelKey === selectedTranscriptionModelKey) {
+          modelWarmState = "ready";
+        }
+        if (activeTranscriptionContext && activeTranscriptionContext.modelKey === modelKey) {
+          setStatus(activeTranscriptionContext.statusEl, getModelStartStatus(e.data.loadState), "processing");
+          setProgress(0);
+          setProgressMessage("Transcribing in browser...");
+        } else if (modelKey === selectedTranscriptionModelKey) {
+          var warmupStatusEl = getPrimaryTranscribeStatusEl();
+          if (warmupStatusEl) {
+            setStatus(warmupStatusEl, getWarmModelReadyStatus(e.data.loadState, getSelectedTranscriptionLanguage()), "ready");
+          }
+          setProgress(0);
+          setProgressMessage("");
+          scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
+        }
+        syncTranscribeReadyState();
+        refreshTranscribeLayout();
+        return;
+      }
 
-    if (type === "translation_error") {
-      if (activeTranslationContext) {
+      if (type === "model_error") {
+        modelUnloadPending = false;
+        pendingModelRequestKey = "";
+        setModelUiState(modelKey, "error", message || "Could not prepare this mode.");
+        if (!activeTranscriptionContext && modelKey === selectedTranscriptionModelKey) {
+          modelWarmState = "error";
+          stopLockHeartbeat();
+          releaseModelLock();
+          var errorStatusEl = getPrimaryTranscribeStatusEl();
+          if (errorStatusEl) {
+            setStatus(errorStatusEl, message || "Failed to prepare the selected transcription mode.", "error");
+          }
+          setProgress(0);
+          setProgressMessage("");
+          syncTranscribeReadyState();
+          refreshTranscribeLayout();
+        }
+        return;
+      }
+
+      if (type === "unloaded") {
+        modelUnloadPending = false;
+        pendingModelRequestKey = "";
+        activePreparedModelKey = "";
+        modelWarmState = getSelectedModelState().enabled ? "idle" : "disabled";
+        resetOtherModelStates("");
+        if (selectedTranscriptionModelKey) {
+          setModelUiState(selectedTranscriptionModelKey, getSelectedModelState().enabled ? "idle" : "disabled");
+        }
+        stopLockHeartbeat();
+        releaseModelLock();
+        syncTranscribeReadyState();
+        refreshTranscribeLayout();
+        notifyOtherTabs({
+          type: "lock_released",
+          ownerId: TAB_ID
+        });
+        return;
+      }
+
+      if (type === "unload_error" || type === "unload_skipped") {
+        modelUnloadPending = false;
+        syncTranscribeReadyState();
+        refreshTranscribeLayout();
+        return;
+      }
+
+      if (type === "status") {
+        if (activeTranscriptionContext) {
+          setStatus(activeTranscriptionContext.statusEl, message || "Transcribing in browser...", "processing");
+          if (message) {
+            if (String(message).indexOf("Finalizing") !== -1) {
+              startFakeProgress(getProgressValue(), 98, message);
+            } else if (!progressInterval) {
+              startFakeProgress(getProgressValue(), 90, message);
+            }
+          }
+        } else if (activeTranslationContext && e.data.phase === "translation_loading") {
+          setStatus(activeTranslationContext.statusEl, message || "Preparing translation model...", "processing");
+        }
+        setProgressMessage(message || "");
+        if (typeof progress === "number") {
+          setProgress(progress);
+        }
+        return;
+      }
+
+      if (e.data.type === "progress") {
+        var percent = typeof e.data.value === "number"
+          ? Math.round(e.data.value)
+          : Math.round((e.data.current / e.data.total) * 100);
+        var progressMessage = message || e.data.message || "Transcribing in browser...";
+        if (activeTranscriptionContext) {
+          setStatus(activeTranscriptionContext.statusEl, "Transcribing in browser... " + percent + "%", "processing");
+          setProgressMessage(progressMessage);
+          if (!progressInterval && percent < 100) {
+            startFakeProgress(percent, percent >= 90 ? 98 : 90, progressMessage);
+          }
+        }
+        setProgress(Math.max(0, Math.min(100, percent)));
+        return;
+      }
+
+      if (type === "result") {
+        stopFakeProgress();
+        stopProgressMessages(false);
+        var activeLanguage = activeTranscriptionContext && activeTranscriptionContext.language;
+        const finalSegments = buildSubtitles(segments || [], activeLanguage);
+        window.currentSegments = finalSegments;
+        handleTranscriptionResult(
+          normalizeTranscriptTextForDisplay(text, activeLanguage),
+          finalSegments,
+          e.data.warnings
+        );
+        scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
+      }
+
+      if (type === "error") {
+        var context = activeTranscriptionContext;
         processingLocked = false;
+        stopFakeProgress();
         stopProgressMessages();
-        setTranslationButtonsState(activeTranslationContext.translateBtn, null, null, null, !!window.currentTranscript);
-        updateTranscriptView(activeTranslationContext.transcriptEl, activeTranslationContext.originalTabBtn, activeTranslationContext.translatedTabBtn, activeTranslationContext.editBtn);
-        updateExportLabels(activeTranslationContext.txtBtn, activeTranslationContext.srtBtn, activeTranslationContext.vttBtn);
-        syncTranslationReadyState();
-        setProgressMessage("");
-        setProgress(0);
-        setStatus(activeTranslationContext.statusEl, message || "Translation could not be completed. Try a shorter or clearer input.", "error");
-        if (typeof activeTranslationContext.afterRunCleanup === "function") {
-          activeTranslationContext.afterRunCleanup({
-            keepResults: true
-          });
+        if (context) {
+          setStatus(context.statusEl, message || "Transcription failed", "error");
+          setProgressMessage("");
+          setProgress(0);
+          setTranscribeButtonState(context.startBtn, false);
+          setEnhanceToggleState(document.getElementById("enhance-audio"), true);
+          if (typeof context.afterRunCleanup === "function") {
+            context.afterRunCleanup({
+              keepResults: false
+            });
+          }
+        }
+        activeTranscriptionContext = null;
+        modelWarmState = "error";
+        setModelUiState(selectedTranscriptionModelKey, "error", message || "Transcription failed");
+        stopLockHeartbeat();
+        releaseModelLock();
+        syncTranscribeReadyState();
+        refreshTranscribeLayout();
+        if (message) {
+          console.error("Transcription worker error:", message);
         }
       }
-      activeTranslationContext = null;
-      if (message) {
-        console.error("Translation worker error:", message);
-      }
-    }
-  };
 
-  async function startTranscription(mode, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, afterRunCleanup) {
+      if (type === "translation_progress") {
+        if (activeTranslationContext) {
+          setStatus(activeTranslationContext.statusEl, "Translating transcript...", "processing");
+          setProgress(50 + progress * 0.4);
+        }
+      }
+
+      if (type === "translation_result") {
+        stopProgressMessages(false);
+        handleTranslationResult(text, e.data.texts);
+        srtContent = e.data.srt || "";
+        vttContent = e.data.vtt || "";
+        var downloadSRTBtn = document.getElementById("downloadSRT");
+        var downloadVTTBtn = document.getElementById("downloadVTT");
+        if (downloadSRTBtn) downloadSRTBtn.disabled = false;
+        if (downloadVTTBtn) downloadVTTBtn.disabled = false;
+        scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
+      }
+
+      if (type === "translation_error") {
+        if (activeTranslationContext) {
+          processingLocked = false;
+          stopProgressMessages();
+          setTranslationButtonsState(activeTranslationContext.translateBtn, null, null, null, !!window.currentTranscript);
+          updateTranscriptView(activeTranslationContext.transcriptEl, activeTranslationContext.originalTabBtn, activeTranslationContext.translatedTabBtn, activeTranslationContext.editBtn);
+          updateExportLabels(activeTranslationContext.txtBtn, activeTranslationContext.srtBtn, activeTranslationContext.vttBtn);
+          syncTranslationReadyState();
+          setProgressMessage("");
+          setProgress(0);
+          setStatus(activeTranslationContext.statusEl, message || "Translation could not be completed. Try a shorter or clearer input.", "error");
+          if (typeof activeTranslationContext.afterRunCleanup === "function") {
+            activeTranslationContext.afterRunCleanup({
+              keepResults: true
+            });
+          }
+        }
+        activeTranslationContext = null;
+        if (message) {
+          console.error("Translation worker error:", message);
+        }
+      }
+    };
+  }
+
+  async function startTranscription(modelKey, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, afterRunCleanup) {
     var audio = window.transcriptionAudio;
 
     // Prevent concurrent processing
@@ -2697,6 +3162,7 @@ function generateVTT(segments) {
       setProgress(0);
         var resampled = resampleTo16kHz(processedData, audio.sampleRate);
         activeTranscriptionContext = {
+          modelKey: modelKey,
           language: language,
           enhance: enhance,
           statusEl: statusEl,
@@ -2719,11 +3185,13 @@ function generateVTT(segments) {
       worker.postMessage(
     {
       type: "transcribe",
+      modelKey: modelKey,
       audio: resampled.buffer,
       selectedLanguage: selectedLanguage
     },
     [resampled.buffer]
   );
+      startFakeProgress(4, 90, "Transcribing in browser...");
       return;
     } catch (error) {
       window.translatedTranscript = "";
@@ -2791,6 +3259,8 @@ function generateVTT(segments) {
     var originalTabBtn = root.querySelector('.tab[data-tab="original"]');
     var translatedTabBtn = root.querySelector('.tab[data-tab="translated"]');
     var editBtn = root.querySelector('[data-role="toggleEdit"]');
+    var modelGrid = root.querySelector('[data-role="modelGrid"]');
+    var changeFileBtn = root.querySelector('[data-role="changeFileBtn"]');
     var restartBtn = root.querySelector('[data-role="restartBtn"]');
     var timestampCheckbox = root.querySelector('#show-timestamps');
     var modeSelect = root.querySelector('#modeSelect');
@@ -3106,6 +3576,9 @@ function generateVTT(segments) {
       updateToolLayout(root);
     }
 
+    initializeTranscriptionModelStates();
+    applyTranscriptionCapabilityProfile(probeTranscriptionCapabilities());
+    rebuildTranscribeWorker();
     setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, false);
     setTranscribeButtonState(startBtn, false);
     setTranslationButtonsState(translateBtn, null, null, null, false);
@@ -3117,6 +3590,7 @@ function generateVTT(segments) {
     updateEditButton(editBtn);
     resetTranscriptState();
     updateToolLayout(root);
+    refreshTranscriptionModelUi(root);
     if (copyBtn) {
       copyBtn.addEventListener("click", function () {
         copyActiveTranscript(statusEl);
@@ -3157,6 +3631,22 @@ function generateVTT(segments) {
         }
       });
     }
+    if (changeFileBtn) {
+      changeFileBtn.addEventListener("click", function () {
+        if (!processingLocked) {
+          input.click();
+        }
+      });
+    }
+    if (modelGrid) {
+      modelGrid.addEventListener("click", function (event) {
+        var card = event.target && event.target.closest('[data-role="modelCard"]');
+        if (!card) {
+          return;
+        }
+        selectTranscriptionModel(card.getAttribute("data-model-key") || "");
+      });
+    }
     if (timestampCheckbox) {
       timestampCheckbox.checked = true;
 
@@ -3177,13 +3667,9 @@ function generateVTT(segments) {
         syncLanguagePickerSelection();
         if (window.transcriptionAudio && !hasTranscriptResults() && !processingLocked) {
           var canStart = canStartTranscription(languageSelect.value);
-          setStatus(statusEl, getAudioReadyStatus(languageSelect.value), canStart ? "ready" : "warning");
-          setTranscribeButtonState(startBtn, !!window.transcriptionAudio && canStart);
-          if (canStart) {
-            requestModelWarmup();
-          } else {
-            requestWorkerUnload("language_unset", false);
-          }
+          var statusState = canStart ? "ready" : (modelWarmState === "ready" ? "warning" : "processing");
+          setStatus(statusEl, getAudioReadyStatus(languageSelect.value), statusState);
+          syncTranscribeReadyState();
         }
       });
     }
@@ -3365,16 +3851,35 @@ function generateVTT(segments) {
           return;
         }
 
-        var mode = "balanced";
         var language = languageSelect ? languageSelect.value : "";
+        var selectedModel = getSelectedTranscriptionMode();
+        var selectedState = getSelectedModelState();
 
-        if (!canStartTranscription(language)) {
-          setStatus(statusEl, "Choose the spoken language before transcribing for best accuracy.", "warning");
-          setTranscribeButtonState(startBtn, false);
+        if (!selectedState.enabled) {
+          setStatus(statusEl, selectedModel.label + " is disabled on this device. " + selectedState.reason, "warning");
+          syncTranscribeReadyState();
           return;
         }
 
-        await startTranscription(mode, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, resetForNextUpload);
+        if (modelWarmState === "error") {
+          requestModelWarmup();
+          setStatus(statusEl, getSelectedModelLoadingText(), "processing");
+          return;
+        }
+
+        if (!hasSelectedTranscriptionLanguage(language)) {
+          setStatus(statusEl, "Choose the spoken language before transcribing for best accuracy.", "warning");
+          syncTranscribeReadyState();
+          return;
+        }
+
+        if (!canStartTranscription(language)) {
+          setStatus(statusEl, getSelectedModelLoadingText(), "processing");
+          requestModelWarmup();
+          return;
+        }
+
+        await startTranscription(selectedModel.key, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, resetForNextUpload);
         updateToolLayout(root);
       });
     }
@@ -3564,22 +4069,19 @@ function generateVTT(segments) {
         };
 
         var selectedLanguage = languageSelect ? languageSelect.value : "";
-        var canStart = canStartTranscription(selectedLanguage);
         var readyMessage = getAudioReadyStatus(selectedLanguage);
-        var readyState = canStart ? "ready" : "warning";
+        var readyState = hasSelectedTranscriptionLanguage(selectedLanguage) && modelWarmState === "ready" ? "ready" : "warning";
 
-        if (canStart && audioBuffer.duration > FRIENDLY_WARNING_SECONDS) {
+        if (hasSelectedTranscriptionLanguage(selectedLanguage) && audioBuffer.duration > FRIENDLY_WARNING_SECONDS) {
           readyMessage = "Longer file detected. We support up to 180 seconds for now, and this one may take a little longer to transcribe.";
           readyState = "warning";
         }
 
         setStatus(statusEl, readyMessage, readyState);
         setProgress(30);
-        setTranscribeButtonState(startBtn, canStart);
         updateToolLayout(root);
-        if (canStart) {
-          requestModelWarmup();
-        }
+        requestModelWarmup();
+        syncTranscribeReadyState();
       } catch (error) {
         resetForNextUpload({
           keepResults: false

@@ -12,7 +12,7 @@ _reports/*.png
 _reports/*.json
 _reports/visual-audit/
 ._tmp_mobile_server.js
-_docs
+
 _reports
 .claude
 automation

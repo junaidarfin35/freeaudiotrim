@@ -62,6 +62,7 @@
     onStateChange: updateState,
   });
   window.__audioEngine = engine;
+  prepareDownloadButton();
 
   bindEvents();
   updatePitchSliderUI();
@@ -252,6 +253,7 @@
     downloadLink.href = downloadUrl;
     downloadLink.download = result.fileName.replace("_processed", `_pitch_${formatPitchFilePart()}`);
     downloadLink.style.display = "inline-flex";
+    downloadLink.textContent = "Download";
   }
 
   function formatPitchFilePart() {
@@ -306,6 +308,17 @@
     }
     downloadLink.style.display = "none";
     downloadLink.removeAttribute("href");
+  }
+
+  function prepareDownloadButton() {
+    if (!downloadLink || !exportBtn || downloadLink.dataset.enhanced === "true") {
+      return;
+    }
+    downloadLink.dataset.enhanced = "true";
+    downloadLink.textContent = "Download";
+    downloadLink.className = "at-btn at-btn-primary";
+    downloadLink.style.display = "none";
+    exportBtn.insertAdjacentElement("afterend", downloadLink);
   }
 
   function isTypingTarget(target) {
