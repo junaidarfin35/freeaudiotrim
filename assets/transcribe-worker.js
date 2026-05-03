@@ -1,10 +1,10 @@
-import { env, pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.6.1";
-
 let transcriber = null;
 let activeTranscriptionModelKey = null;
 let isLoading = false;
 let isBusy = false;
 let translationModel = null;
+let modernTransformersRuntimePromise = null;
+let legacyTransformersRuntimePromise = null;
 const DEFAULT_TRANSCRIPTION_MODEL_KEY = "triceratop";
 const DEFAULT_CHUNK_LENGTH_SECONDS = 29;
 const DEFAULT_STRIDE_LENGTH_SECONDS = 5;
@@ -41,8 +41,38 @@ function isSafariLikeBrowser() {
     && !/CriOS|FxiOS|EdgiOS|Chrome|Chromium|Android/i.test(userAgent);
 }
 
-function configureTransformersEnvironment() {
-  const safariLike = isSafariLikeBrowser();
+function isMobileSafariLikeBrowser() {
+  if (!isSafariLikeBrowser()) {
+    return false;
+  }
+
+  const userAgent = typeof navigator !== "undefined" ? String(navigator.userAgent || "") : "";
+  const coarsePointer = typeof self !== "undefined"
+    && self.matchMedia
+    && self.matchMedia("(pointer: coarse)").matches;
+
+  return /iPhone|iPad|iPod/i.test(userAgent) || !!coarsePointer;
+}
+
+async function getLegacyTransformersRuntime() {
+  if (!legacyTransformersRuntimePromise) {
+    legacyTransformersRuntimePromise = import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.15.1");
+  }
+
+  return legacyTransformersRuntimePromise;
+}
+
+async function getModernTransformersRuntime() {
+  if (!modernTransformersRuntimePromise) {
+    modernTransformersRuntimePromise = import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.6.1");
+  }
+
+  const modernRuntime = await modernTransformersRuntimePromise;
+  configureTransformersEnvironment(modernRuntime.env, isSafariLikeBrowser());
+  return modernRuntime;
+}
+
+function configureTransformersEnvironment(runtimeEnv, safariLike = isSafariLikeBrowser()) {
   const hardwareConcurrency = typeof navigator !== "undefined"
     ? Number(navigator.hardwareConcurrency)
     : NaN;
@@ -50,20 +80,54 @@ function configureTransformersEnvironment() {
     ? 1
     : Math.max(1, Math.min(4, Number.isFinite(hardwareConcurrency) && hardwareConcurrency > 0 ? hardwareConcurrency : 2));
 
-  env.allowLocalModels = false;
-  env.useBrowserCache = !safariLike;
-  env.useWasmCache = !safariLike;
+  runtimeEnv.allowLocalModels = false;
 
-  if (env.backends && env.backends.onnx && env.backends.onnx.wasm) {
-    env.backends.onnx.wasm.numThreads = threadCount;
-    env.backends.onnx.wasm.proxy = false;
+  if ("useBrowserCache" in runtimeEnv) {
+    runtimeEnv.useBrowserCache = !safariLike;
+  }
+  if ("useWasmCache" in runtimeEnv) {
+    runtimeEnv.useWasmCache = !safariLike;
+  }
+
+  if (runtimeEnv.backends && runtimeEnv.backends.onnx && runtimeEnv.backends.onnx.wasm) {
+    runtimeEnv.backends.onnx.wasm.numThreads = threadCount;
+    runtimeEnv.backends.onnx.wasm.proxy = false;
   }
 }
 
-configureTransformersEnvironment();
+async function getTranscriptionRuntime(modelKey) {
+  if (isMobileSafariLikeBrowser() && modelKey === "baby-raptor") {
+    const legacyRuntime = await getLegacyTransformersRuntime();
+    configureTransformersEnvironment(legacyRuntime.env, true);
+    return {
+      pipeline: legacyRuntime.pipeline,
+      legacy: true
+    };
+  }
+
+  const modernRuntime = await getModernTransformersRuntime();
+  return {
+    pipeline: modernRuntime.pipeline,
+    legacy: false
+  };
+}
 
 function getTranscriptionModelConfig(modelKey) {
   return TRANSCRIPTION_MODELS[modelKey] || TRANSCRIPTION_MODELS[DEFAULT_TRANSCRIPTION_MODEL_KEY];
+}
+
+function getRuntimeTranscriptionModelId(modelKey, useLegacyRuntime) {
+  if (useLegacyRuntime) {
+    if (modelKey === "baby-raptor") {
+      return "Xenova/whisper-base";
+    }
+    if (modelKey === "triceratop") {
+      return "Xenova/whisper-small";
+    }
+    return "Xenova/whisper-large-v3-turbo";
+  }
+
+  return getTranscriptionModelConfig(modelKey).modelId;
 }
 
 function hasWebGPU() {
@@ -98,10 +162,11 @@ function getArabicDecodeProfile(modelKey) {
   return null;
 }
 
-function getDefaultTranscriptionOptions() {
+function getDefaultTranscriptionOptions(modelKey) {
+  const useMobileLegacyDefaults = isMobileSafariLikeBrowser() && modelKey === "baby-raptor";
   return {
-    chunk_length_s: DEFAULT_CHUNK_LENGTH_SECONDS,
-    stride_length_s: DEFAULT_STRIDE_LENGTH_SECONDS,
+    chunk_length_s: useMobileLegacyDefaults ? 15 : DEFAULT_CHUNK_LENGTH_SECONDS,
+    stride_length_s: useMobileLegacyDefaults ? 3 : DEFAULT_STRIDE_LENGTH_SECONDS,
     return_timestamps: true,
     task: "transcribe"
   };
@@ -266,6 +331,8 @@ function createModelProgressTracker(modelKey) {
 
 async function loadTranscriptionModel(modelKey) {
   const modelConfig = getTranscriptionModelConfig(modelKey);
+  const runtime = await getTranscriptionRuntime(modelConfig.key);
+  const runtimeModelId = getRuntimeTranscriptionModelId(modelConfig.key, runtime.legacy);
 
   if (transcriber && activeTranscriptionModelKey === modelConfig.key) {
     return {
@@ -300,29 +367,36 @@ async function loadTranscriptionModel(modelKey) {
 
     const config = getPreferredWhisperLoadConfig(modelConfig.key);
     tracker = createModelProgressTracker(modelConfig.key);
-    const loadOptions = {
-      ...config,
-      progress_callback: (info) => {
-        tracker.update(info);
-      }
-    };
+    const loadOptions = runtime.legacy
+      ? {
+          quantized: true,
+          progress_callback: (info) => {
+            tracker.update(info);
+          }
+        }
+      : {
+          ...config,
+          progress_callback: (info) => {
+            tracker.update(info);
+          }
+        };
 
     postMessage({ type: "model_loading", modelKey: modelConfig.key });
 
     try {
-      transcriber = await pipeline(
+      transcriber = await runtime.pipeline(
         "automatic-speech-recognition",
-        modelConfig.modelId,
+        runtimeModelId,
         loadOptions
       );
     } catch (primaryError) {
-      if (!hasWebGPU() || modelConfig.key === "t-rex") {
+      if (runtime.legacy || !hasWebGPU() || modelConfig.key === "t-rex") {
         throw primaryError;
       }
 
-      transcriber = await pipeline(
+      transcriber = await runtime.pipeline(
         "automatic-speech-recognition",
-        modelConfig.modelId,
+        runtimeModelId,
         {
           device: "wasm",
           dtype: "int8",
@@ -356,7 +430,8 @@ async function loadTranscriptionModel(modelKey) {
 
 async function loadTranslationModel() {
   if (!translationModel) {
-    translationModel = await pipeline(
+    const modernRuntime = await getModernTransformersRuntime();
+    translationModel = await modernRuntime.pipeline(
       "translation",
       "Xenova/nllb-200-distilled-600M"
     );
@@ -717,7 +792,7 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
   const safeTimelineOffset = Number.isFinite(timelineOffset) ? Math.max(0, timelineOffset) : 0;
   const options = {
     sampling_rate: sampleRate,
-    ...getDefaultTranscriptionOptions()
+    ...getDefaultTranscriptionOptions(modelLoad.modelKey)
   };
 
   if (selectedLanguage && selectedLanguage !== "auto") {

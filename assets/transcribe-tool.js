@@ -5,7 +5,7 @@
   var vttContent = "";
   var MAX_DURATION_SECONDS = 180;
   var FRIENDLY_WARNING_SECONDS = 150;
-  var TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-03-3";
+  var TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-03-4";
   var worker = null;
   var workerGeneration = 0;
   var processingLocked = false;
@@ -351,6 +351,18 @@
     };
   }
 
+  function isMobileSafariLocalTranscriptionLimited() {
+    if (!isSafariLikeBrowser()) {
+      return false;
+    }
+
+    var userAgent = typeof navigator !== "undefined" ? String(navigator.userAgent || "") : "";
+    var isAppleMobile = /iPhone|iPad|iPod/i.test(userAgent);
+    var isCoarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+
+    return isAppleMobile || isCoarsePointer;
+  }
+
   function probeTranscriptionCapabilities() {
     var hasWorkers = typeof Worker !== "undefined";
     var hasWasm = typeof WebAssembly !== "undefined";
@@ -364,6 +376,7 @@
     var lowCpu = hasKnownCpu && hardwareConcurrency < 4;
     var baselineOk = hasWorkers && hasWasm && hasAudioSupport;
     var browserReason = "This browser cannot run local transcription models";
+    var mobileSafariReason = "Only Baby Raptor is available on iPhone Safari right now";
     var balancedReason = "Needs a bit more memory or CPU for comfortable local use";
     var desktopReason = "Reserved for stronger desktops with WebGPU";
     var modes = Object.create(null);
@@ -375,6 +388,21 @@
       return {
         baselineOk: false,
         isCoarsePointer: isCoarsePointer,
+        safariMobileLimited: false,
+        deviceMemory: hasKnownMemory ? deviceMemory : null,
+        hardwareConcurrency: hasKnownCpu ? hardwareConcurrency : null,
+        modes: modes
+      };
+    }
+
+    if (isMobileSafariLocalTranscriptionLimited()) {
+      modes["baby-raptor"] = createCapabilityDecision(true, "");
+      modes.triceratop = createCapabilityDecision(false, mobileSafariReason);
+      modes["t-rex"] = createCapabilityDecision(false, mobileSafariReason);
+      return {
+        baselineOk: true,
+        isCoarsePointer: isCoarsePointer,
+        safariMobileLimited: true,
         deviceMemory: hasKnownMemory ? deviceMemory : null,
         hardwareConcurrency: hasKnownCpu ? hardwareConcurrency : null,
         modes: modes
@@ -401,6 +429,7 @@
     return {
       baselineOk: true,
       isCoarsePointer: isCoarsePointer,
+      safariMobileLimited: false,
       deviceMemory: hasKnownMemory ? deviceMemory : null,
       hardwareConcurrency: hasKnownCpu ? hardwareConcurrency : null,
       modes: modes
@@ -424,12 +453,16 @@
       }
     });
 
-    if (!ensureTranscriptionModelState(DEFAULT_TRANSCRIPTION_MODEL_KEY).enabled) {
-      selectedTranscriptionModelKey = ensureTranscriptionModelState(FALLBACK_TRANSCRIPTION_MODEL_KEY).enabled
-        ? FALLBACK_TRANSCRIPTION_MODEL_KEY
-        : DEFAULT_TRANSCRIPTION_MODEL_KEY;
-    } else {
+    var firstEnabledModel = TRANSCRIPTION_MODELS.find(function (model) {
+      return ensureTranscriptionModelState(model.key).enabled;
+    });
+
+    if (ensureTranscriptionModelState(DEFAULT_TRANSCRIPTION_MODEL_KEY).enabled) {
       selectedTranscriptionModelKey = DEFAULT_TRANSCRIPTION_MODEL_KEY;
+    } else if (firstEnabledModel) {
+      selectedTranscriptionModelKey = firstEnabledModel.key;
+    } else {
+      selectedTranscriptionModelKey = FALLBACK_TRANSCRIPTION_MODEL_KEY;
     }
 
     modelWarmState = getSelectedModelState().status;
@@ -502,12 +535,20 @@
       return "Local transcription unavailable on this browser";
     }
 
+    if (transcriptionCapabilityProfile.safariMobileLimited) {
+      return "Local AI available in limited iPhone Safari mode";
+    }
+
     return hasWebGPUAcceleration()
       ? "High-performance local AI available"
       : "Local AI available in compatibility mode";
   }
 
   function getProcessingInfoCopy() {
+    if (transcriptionCapabilityProfile && transcriptionCapabilityProfile.safariMobileLimited) {
+      return "iPhone Safari uses a lighter local Whisper path. Baby Raptor is enabled, while larger modes stay off to avoid WebKit crashes during setup.";
+    }
+
     return getDeviceSupportLabel() + ". Transcription runs entirely in your browser, so your media never leaves your device.";
   }
 
@@ -1965,6 +2006,36 @@
     return result;
   }
 
+  async function decodeSelectedTranscriptionAudio(audioContext, audioRecord) {
+    if (!audioContext || !audioRecord || !audioRecord.file) {
+      throw new Error("Missing audio source");
+    }
+
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+
+    var arrayBuffer = await audioRecord.file.arrayBuffer();
+    var audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+    if (audioBuffer.duration > MAX_DURATION_SECONDS) {
+      throw new Error("FILE_TOO_LONG");
+    }
+
+    if (audioBuffer.duration < 1) {
+      throw new Error("BAD_AUDIO");
+    }
+
+    var monoData = convertToMono(audioBuffer);
+
+    audioRecord.sampleRate = audioBuffer.sampleRate;
+    audioRecord.data = monoData;
+    audioRecord.duration = audioBuffer.duration;
+    audioRecord.needsDecode = false;
+
+    return audioRecord;
+  }
+
   function cleanText(text) {
     return String(text || "")
       .replace(/\s+/g, " ")
@@ -3196,11 +3267,11 @@ function generateVTT(segments) {
     };
   }
 
-  async function startTranscription(modelKey, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, afterRunCleanup) {
+  async function startTranscription(modelKey, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, audioContext, afterRunCleanup) {
     var audio = window.transcriptionAudio;
 
     // Prevent concurrent processing
-    if (!audio || !audio.data || processingLocked) {
+    if (!audio || processingLocked) {
       return;
     }
 
@@ -3220,6 +3291,14 @@ function generateVTT(segments) {
     input.disabled = true;
 
     try {
+      setStatus(statusEl, "Preparing audio...", "processing");
+      setProgressMessage("Preparing audio...");
+      setProgress(0);
+
+      if (audio.needsDecode || !audio.data || !audio.sampleRate) {
+        await decodeSelectedTranscriptionAudio(audioContext, audio);
+      }
+
       var processedData = audio.data;
       var enhanceToggle = document.getElementById("enhance-audio");
       var enhance = enhanceToggle ? enhanceToggle.checked : false;
@@ -3239,10 +3318,7 @@ function generateVTT(segments) {
           }
         }
 
-      setStatus(statusEl, "Preparing audio...", "processing");
-      setProgressMessage("Preparing audio...");
-      setProgress(0);
-        var resampled = resampleTo16kHz(processedData, audio.sampleRate);
+      var resampled = resampleTo16kHz(processedData, audio.sampleRate);
         activeTranscriptionContext = {
           modelKey: modelKey,
           language: language,
@@ -3283,7 +3359,11 @@ function generateVTT(segments) {
       updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
       updateExportLabels(txtBtn, srtBtn, vttBtn);
       console.error("Transcription error:", error);
-      if (error && error.message === "MODEL_LOAD_FAILED") {
+      if (error && error.message === "FILE_TOO_LONG") {
+        setStatus(statusEl, "File must be under 180 seconds for now.", "error");
+      } else if (error && error.message === "BAD_AUDIO") {
+        setStatus(statusEl, "Unsupported or corrupted file", "error");
+      } else if (error && error.message === "MODEL_LOAD_FAILED") {
         setStatus(statusEl, "Failed to load AI model. Check your internet connection.", "error");
       } else {
         setStatus(statusEl, "Transcription failed. Try a shorter or clearer file.", "error");
@@ -3961,7 +4041,7 @@ function generateVTT(segments) {
           return;
         }
 
-        await startTranscription(selectedModel.key, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, resetForNextUpload);
+        await startTranscription(selectedModel.key, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, audioContext, resetForNextUpload);
         updateToolLayout(root);
       });
     }
@@ -4113,64 +4193,23 @@ function generateVTT(segments) {
         return;
       }
 
-      setStatus(statusEl, "Preparing audio...", "processing");
-      setProgressMessage("Preparing audio...");
-      setProgress(10);
+      window.transcriptionAudio = {
+        file: file,
+        sampleRate: 0,
+        data: null,
+        duration: 0,
+        needsDecode: true
+      };
 
-      try {
-        if (audioContext.state === "suspended") {
-          await audioContext.resume();
-        }
-        var arrayBuffer = await file.arrayBuffer();
-        var audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+      var selectedLanguage = languageSelect ? languageSelect.value : "";
+      var readyMessage = getAudioReadyStatus(selectedLanguage);
+      var readyState = hasSelectedTranscriptionLanguage(selectedLanguage) && modelWarmState === "ready" ? "ready" : "warning";
 
-        // Validate duration - reject if too long
-        if (audioBuffer.duration > MAX_DURATION_SECONDS) {
-          resetForNextUpload({
-            keepResults: false
-          });
-          setStatus(statusEl, "File must be under 180 seconds for now.", "error");
-          return;
-        }
-
-        // Validate duration - reject if too short
-        if (audioBuffer.duration < 1) {
-          resetForNextUpload({
-            keepResults: false
-          });
-          setStatus(statusEl, "Unsupported or corrupted file", "error");
-          return;
-        }
-
-        var monoData = convertToMono(audioBuffer);
-
-        window.transcriptionAudio = {
-          sampleRate: audioBuffer.sampleRate,
-          data: monoData,
-          duration: audioBuffer.duration
-        };
-
-        var selectedLanguage = languageSelect ? languageSelect.value : "";
-        var readyMessage = getAudioReadyStatus(selectedLanguage);
-        var readyState = hasSelectedTranscriptionLanguage(selectedLanguage) && modelWarmState === "ready" ? "ready" : "warning";
-
-        if (hasSelectedTranscriptionLanguage(selectedLanguage) && audioBuffer.duration > FRIENDLY_WARNING_SECONDS) {
-          readyMessage = "Longer file detected. We support up to 180 seconds for now, and this one may take a little longer to transcribe.";
-          readyState = "warning";
-        }
-
-        setStatus(statusEl, readyMessage, readyState);
-        setProgress(30);
-        updateToolLayout(root);
-        requestModelWarmup();
-        syncTranscribeReadyState();
-      } catch (error) {
-        resetForNextUpload({
-          keepResults: false
-        });
-        console.error("Audio decoding error:", error);
-        setStatus(statusEl, "Unsupported or corrupted file", "error");
-      }
+      setStatus(statusEl, readyMessage, readyState);
+      setProgress(5);
+      updateToolLayout(root);
+      requestModelWarmup();
+      syncTranscribeReadyState();
     }
 
     window.AudioVideoTranscriptionTool = {
