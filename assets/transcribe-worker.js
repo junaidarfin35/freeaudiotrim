@@ -5,8 +5,10 @@ let activeTranscriptionModelKey = null;
 let isLoading = false;
 let isBusy = false;
 let translationModel = null;
-const arabicPromptIdsByModel = new Map();
 const DEFAULT_TRANSCRIPTION_MODEL_KEY = "triceratop";
+const DEFAULT_CHUNK_LENGTH_SECONDS = 29;
+const DEFAULT_STRIDE_LENGTH_SECONDS = 5;
+const MIN_SPEECH_REGION_CLIP_SECONDS = 12;
 const TRANSCRIPTION_MODELS = {
   "baby-raptor": {
     key: "baby-raptor",
@@ -60,6 +62,15 @@ function getArabicDecodeProfile(modelKey) {
   }
 
   return null;
+}
+
+function getDefaultTranscriptionOptions() {
+  return {
+    chunk_length_s: DEFAULT_CHUNK_LENGTH_SECONDS,
+    stride_length_s: DEFAULT_STRIDE_LENGTH_SECONDS,
+    return_timestamps: true,
+    task: "transcribe"
+  };
 }
 
 function getPreferredWhisperLoadConfig(modelKey) {
@@ -486,8 +497,7 @@ function getPercentile(values, percentile) {
 }
 
 function buildArabicSpeechAwareChunks(audio, sampleRate) {
-  const minWholeClipSeconds = 12;
-  if (!audio || !audio.length || audio.length <= sampleRate * minWholeClipSeconds) {
+  if (!audio || !audio.length || audio.length <= sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS) {
     return [{
       audio: audio,
       startSample: 0,
@@ -501,7 +511,10 @@ function buildArabicSpeechAwareChunks(audio, sampleRate) {
   const mergePauseFrames = Math.max(4, Math.round(240 / frameMs));
   const packPauseFrames = Math.max(10, Math.round(480 / frameMs));
   const paddingFrames = Math.max(4, Math.round(180 / frameMs));
-  const maxChunkFrames = Math.max(1, Math.round((16 * 1000) / frameMs));
+  const maxChunkFrames = Math.max(
+    1,
+    Math.round(((DEFAULT_CHUNK_LENGTH_SECONDS - DEFAULT_STRIDE_LENGTH_SECONDS) * 1000) / frameMs)
+  );
   const rms = [];
   let totalEnergy = 0;
   let totalCount = 0;
@@ -667,44 +680,19 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
   postMessage({ type: "progress", value: 10, current: 10, total: 100 });
 
   const sampleRate = 16000;
-  const isLongForm = audio.length > sampleRate * 30;
-  const isArabic = selectedLanguage === "ar";
   const safeTimelineOffset = Number.isFinite(timelineOffset) ? Math.max(0, timelineOffset) : 0;
-  const arabicProfile = isArabic ? getArabicDecodeProfile(modelLoad.modelKey) : null;
-  const defaultChunkLength = modelLoad.modelKey === "baby-raptor" ? 29 : 25;
   const options = {
     sampling_rate: sampleRate,
-    chunk_length_s: arabicProfile ? arabicProfile.chunk_length_s : defaultChunkLength,
-    stride_length_s: arabicProfile ? arabicProfile.stride_length_s : 5,
-    return_timestamps: true,
-    task: "transcribe",
-    condition_on_prev_tokens: arabicProfile ? arabicProfile.condition_on_prev_tokens : isLongForm,
-    compression_ratio_threshold: arabicProfile ? arabicProfile.compression_ratio_threshold : 1.35,
-    logprob_threshold: -1,
-    no_speech_threshold: arabicProfile ? arabicProfile.no_speech_threshold : 0.6,
-    temperature: arabicProfile ? arabicProfile.temperature : [0.0, 0.2, 0.4]
+    ...getDefaultTranscriptionOptions()
   };
 
   if (selectedLanguage && selectedLanguage !== "auto") {
     options.language = selectedLanguage;
   }
 
-  if (isArabic) {
-    if (arabicProfile && arabicProfile.num_beams > 1) {
-      options.num_beams = arabicProfile.num_beams;
-    }
-
-    if (arabicProfile && arabicProfile.useExtendedPrompt && shouldUseExtendedArabicPrompt(modelLoad.modelKey)) {
-      const promptIds = await getArabicPromptIds(model, modelLoad.modelKey);
-      if (promptIds) {
-        options.prompt_ids = promptIds;
-      }
-    }
-  }
-
   let fullText = "";
   let fullChunks = [];
-  const useSpeechAwareChunks = isArabic && modelLoad.modelKey === "t-rex";
+  const useSpeechAwareChunks = audio.length > sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS;
   const chunkPlan = useSpeechAwareChunks ? buildArabicSpeechAwareChunks(audio, sampleRate) : [{
     audio: audio,
     startSample: 0,
@@ -714,7 +702,7 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
   if (useSpeechAwareChunks && chunkPlan.length > 1) {
     postMessage({
       type: "status",
-      message: "Analyzing speech pauses...",
+      message: "Analyzing speech regions...",
       progress: 14
     });
   }
