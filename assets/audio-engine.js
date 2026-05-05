@@ -466,7 +466,7 @@
 
         if (!buffer) {
           ctx.fillStyle = "#71829a";
-          ctx.font = "500 15px DM Sans, sans-serif";
+          ctx.font = "500 15px Inter, sans-serif";
           ctx.textAlign = "center";
           ctx.fillText("Upload a file to preview waveform", width / 2, height / 2);
           return;

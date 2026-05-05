@@ -62,98 +62,112 @@ document.addEventListener("DOMContentLoaded", () => {
       primary: [
         "audio-cutter-online.html",
         "audio-converter.html",
-        "audio-video-transcription-online.html"
+        "audio-video-transcription-online.html",
+        "normalize-audio-volume.html"
       ]
     },
     "audio-cutter-online.html": {
       primary: [
         "free-mp3-cutter.html",
         "ringtone-maker.html",
-        "audio-converter.html"
+        "audio-converter.html",
+        "normalize-audio-volume.html"
       ]
     },
     "free-mp3-cutter.html": {
       primary: [
         "audio-cutter-online.html",
         "ringtone-maker.html",
-        "audio-converter.html"
+        "audio-converter.html",
+        "normalize-audio-volume.html"
       ]
     },
     "ringtone-maker.html": {
       primary: [
         "audio-cutter-online.html",
         "free-mp3-cutter.html",
-        "mp3-to-m4r.html"
+        "mp3-to-m4r.html",
+        "audio-pitch-changer.html"
       ]
     },
     "audio-converter.html": {
       primary: [
         "convert-mp3-to-wav.html",
         "mp3-to-m4r.html",
-        "extract-audio-from-video.html"
+        "extract-audio-from-video.html",
+        "audio-video-transcription-online.html"
       ]
     },
     "convert-mp3-to-wav.html": {
       primary: [
         "audio-converter.html",
         "extract-audio-from-video.html",
-        "mp3-to-m4r.html"
+        "mp3-to-m4r.html",
+        "audio-video-transcription-online.html"
       ]
     },
     "extract-audio-from-video.html": {
       primary: [
         "audio-video-transcription-online.html",
         "audio-converter.html",
-        "convert-mp3-to-wav.html"
+        "convert-mp3-to-wav.html",
+        "merge-audio-files.html"
       ]
     },
     "audio-video-transcription-online.html": {
       primary: [
         "extract-audio-from-video.html",
         "remove-silence-from-audio.html",
-        "audio-cutter-online.html"
+        "audio-cutter-online.html",
+        "normalize-audio-volume.html"
       ]
     },
     "audio-pitch-changer.html": {
       primary: [
         "audio-speed-changer.html",
         "normalize-audio-volume.html",
-        "audio-cutter-online.html"
+        "audio-cutter-online.html",
+        "ringtone-maker.html"
       ]
     },
     "audio-speed-changer.html": {
       primary: [
         "audio-pitch-changer.html",
         "normalize-audio-volume.html",
-        "audio-cutter-online.html"
+        "audio-cutter-online.html",
+        "ringtone-maker.html"
       ]
     },
     "merge-audio-files.html": {
       primary: [
         "remove-silence-from-audio.html",
         "normalize-audio-volume.html",
-        "audio-cutter-online.html"
+        "audio-cutter-online.html",
+        "audio-video-transcription-online.html"
       ]
     },
     "normalize-audio-volume.html": {
       primary: [
         "remove-silence-from-audio.html",
         "audio-speed-changer.html",
-        "merge-audio-files.html"
+        "merge-audio-files.html",
+        "audio-cutter-online.html"
       ]
     },
     "remove-silence-from-audio.html": {
       primary: [
         "normalize-audio-volume.html",
         "merge-audio-files.html",
-        "audio-cutter-online.html"
+        "audio-cutter-online.html",
+        "audio-video-transcription-online.html"
       ]
     },
     "mp3-to-m4r.html": {
       primary: [
         "ringtone-maker.html",
         "audio-converter.html",
-        "convert-mp3-to-wav.html"
+        "convert-mp3-to-wav.html",
+        "extract-audio-from-video.html"
       ]
     }
   };
@@ -211,7 +225,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const fallbackPrimary = allToolPages
     .filter((page) => page !== currentPage)
-    .slice(0, 3);
+    .slice(0, 4);
   const pageConfig = pageConfigs[currentPage] || {
     primary: fallbackPrimary
   };

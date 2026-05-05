@@ -121,6 +121,7 @@ main.container {
 
 .hero h1 {
   font-size: 60px;
+  font-weight: 900;
   margin-bottom: 10px;
   max-width: 900px;
   margin-left: auto;
@@ -131,12 +132,12 @@ main.container {
   display: block;
   color: var(--color-accent-strong);
   font-weight: 600;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .hero p {
   color: var(--muted);
-  max-width: 600px;
+  max-width: 700px;
   margin: 0 auto;
   font-size: 16px;
 }
@@ -665,7 +666,7 @@ footer {
 
 @media (max-width: 768px) {
   .hero h1 {
-    font-size: 26px;
+    font-size: 30px;
   }
 
   main.container {
@@ -1163,7 +1164,7 @@ footer {
 
 .tool-links-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
   margin-top: var(--space-3);
   align-items: stretch; /* important */

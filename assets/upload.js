@@ -3,7 +3,7 @@
 
   const DROPZONE_SELECTOR = '[data-upload-dropzone], .upload-dropzone, .upload-box';
   const PROCESSED_FLAG = 'uploadComponentBound';
-  const DEFAULT_PRIMARY_TEXT = 'Drop audio file here or click to upload';
+  const DEFAULT_PRIMARY_TEXT = 'Drop media file here or click to upload';
   const DEFAULT_FORMAT_TEXT = 'MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WEBM';
   const DEFAULT_META_TEXT = 'Max file size: 200MB';
   const DEFAULT_PRIVACY_TEXT = 'Files processed locally in your browser';
@@ -151,7 +151,7 @@ const dispatchToInput = (input, incomingFiles) => {
       content.appendChild(secondary);
     }
     secondary.className = 'upload-dropzone__secondary';
-    secondary.textContent = DEFAULT_FORMAT_TEXT;
+    //secondary.textContent = DEFAULT_FORMAT_TEXT;
 
     let meta = content.querySelector('.upload-dropzone__meta');
     if (!meta) {
@@ -159,7 +159,7 @@ const dispatchToInput = (input, incomingFiles) => {
       meta.className = 'upload-dropzone__meta';
       content.appendChild(meta);
     }
-    meta.textContent = DEFAULT_META_TEXT;
+    //meta.textContent = DEFAULT_META_TEXT;
 
     let privacy = content.querySelector('.upload-dropzone__privacy');
     if (!privacy) {
@@ -297,7 +297,7 @@ const dispatchToInput = (input, incomingFiles) => {
     dropzone.classList.remove('has-file', 'is-confirmed');
     if (meta) {
       meta.hidden = false;
-      meta.textContent = DEFAULT_META_TEXT;
+      //meta.textContent = DEFAULT_META_TEXT;
     }
     if (privacy) {
       privacy.hidden = false;
