@@ -12,9 +12,8 @@ _reports/*.png
 _reports/*.json
 _reports/visual-audit/
 ._tmp_mobile_server.js
-
 _reports
 .claude
 automation
-_docs/project-status-*.md
+_docs/
 free-claude-code/
