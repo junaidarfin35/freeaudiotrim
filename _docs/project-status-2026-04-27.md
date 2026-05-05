@@ -1,6 +1,6 @@
 # Project Status Update
 
-Date: 2026-05-03
+Date: 2026-05-05
 Workspace: `D:\Junaid\My 2nd Tool\files`
 
 ## Overall Goal
@@ -24,6 +24,9 @@ Bring the site into one consistent UI system, using the newer `index.html` look 
 - Transcription now uses 3 named local Whisper tiers with device gating, same-origin worker refresh, and cleaner upload-first model warmup.
 - `Baby Raptor` and `Triceratop` were moved onto timestamped ONNX community Whisper variants for browser-safe multilingual subtitle work.
 - Active browser transcription now follows a simpler multilingual `task: transcribe` path with safe `29 / 5` chunking and timeline-preserving speech-region splitting.
+- Phone-sized devices now route to a dedicated `Baby Raptor` transcription worker instead of the richer desktop/tablet worker path.
+- Phone mode keeps the current design shell, preserves exports and `Refine with ChatGPT`, and disables stronger models with friendly desktop guidance.
+- The phone worker was aligned more closely with Xenova `whisper-web`, including 16 kHz mobile decode, Xenova-style mono mix, `30 / 5` chunking, and partial live transcript updates.
 
 ## Current Site Status
 
@@ -1248,6 +1251,72 @@ Verification:
 
 - confirmed the remaining upload helper lines are now limited to the few tools where they are still accurate
 - shared upload styling changes live in CSS only, with no HTML inline styles and no JS behavior changes
+
+### 27. Phone-First Transcription Worker Delivery
+Status: `Completed`
+
+Files:
+- `assets/transcribe-tool.js`
+- `assets/transcribe-worker-mobile.js`
+
+What changed:
+
+- Added a separate phone-only transcription worker path so phone devices no longer use the richer desktop/tablet worker stack.
+- Routed phone-sized/coarse-pointer devices to the mobile worker while keeping tablets and desktop on the fuller existing path.
+- Kept the current page design and upload-first shell intact on phones.
+- Limited phone mode to:
+  - `Baby Raptor` enabled
+  - `Triceratop` disabled with desktop guidance
+  - `T-Rex` disabled with desktop guidance
+- Hid built-in translation behavior on phone mode while keeping `Refine with ChatGPT` visible after transcript results.
+- Preserved TXT, SRT, and VTT exports on the phone path.
+- Added a dedicated mobile worker with:
+  - `Xenova/whisper-base`
+  - ASR-only flow
+  - same-origin warmup/load handling
+  - safe unload handling
+  - partial live update messages
+
+Impact:
+
+- Much safer architecture for phones because the mobile path is now simpler and no longer shares the full desktop worker responsibilities.
+- Clearer product behavior on mobile without compromising the page design.
+- Better foundation for real phone-focused tuning without destabilizing desktop/tablet transcription.
+
+Verification:
+
+- `assets/transcribe-tool.js` syntax check passed
+- `assets/transcribe-worker-mobile.js` syntax check passed
+- real iPhone testing confirmed that the mobile path now runs locally instead of failing immediately during setup
+
+### 28. Xenova-Aligned Mobile Audio + Decode Pass
+Status: `Completed`
+
+Files:
+- `assets/transcribe-tool.js`
+- `assets/transcribe-worker-mobile.js`
+
+What changed:
+
+- Compared the mobile worker against Xenova `whisper-web` to identify the practical quality differences.
+- Changed phone audio decode to prefer `AudioContext({ sampleRate: 16000 })` where supported.
+- Skipped the extra custom JS resample step on phone mode when mobile decode already produced `16 kHz`.
+- Switched phone stereo downmix to a Xenova-style mono mix instead of plain averaging.
+- Updated the phone worker from `29 / 5` to `30 / 5` chunking to better match `whisper-web`.
+- Added Xenova-style partial transcript updates using `_decode_asr(...)` so the phone path can surface live decoded text during generation.
+- Added a safe phone-worker response for accidental built-in translation requests so stale UI actions do not poison the transcription session.
+
+Impact:
+
+- Mobile transcription path is now materially closer to the known-working Xenova browser implementation.
+- Reduced one likely source of phone-result drift by aligning the mobile audio preparation path more closely with the reference implementation.
+- Better live progress and partial transcript behavior during phone transcription.
+
+Verification:
+
+- `assets/transcribe-tool.js` syntax check passed
+- `assets/transcribe-worker-mobile.js` syntax check passed
+- code-level comparison completed against uploaded Xenova worker reference
 
 ## Future TODO (Transcription Stability)
 - TODO: Add browser capability check on page load (WebGPU, deviceMemory, hardwareConcurrency, WASM) to guide model choice (Turbo vs Large), show friendly performance badge, and gate heavy modes when WebGPU/memory are insufficient.

@@ -5,7 +5,8 @@
   var vttContent = "";
   var MAX_DURATION_SECONDS = 180;
   var FRIENDLY_WARNING_SECONDS = 150;
-  var TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-03-4";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-05-1";
+  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-05-2";
   var worker = null;
   var workerGeneration = 0;
   var processingLocked = false;
@@ -301,7 +302,7 @@
 
   function createTranscribeWorker() {
     workerGeneration += 1;
-    worker = new Worker(TRANSCRIBE_WORKER_URL, {
+    worker = new Worker(getTranscribeWorkerUrl(), {
       type: "module"
     });
     return workerGeneration;
@@ -351,16 +352,63 @@
     };
   }
 
-  function isMobileSafariLocalTranscriptionLimited() {
-    if (!isSafariLikeBrowser()) {
-      return false;
+  function getViewportShortestSide() {
+    var values = [
+      window.screen && Number(window.screen.width),
+      window.screen && Number(window.screen.height),
+      Number(window.innerWidth),
+      Number(window.innerHeight)
+    ].filter(function (value) {
+      return Number.isFinite(value) && value > 0;
+    });
+
+    return values.length ? Math.min.apply(Math, values) : 0;
+  }
+
+  function isPhoneOptimizedTranscriptionDevice() {
+    var userAgent = typeof navigator !== "undefined" ? String(navigator.userAgent || "") : "";
+    var isCoarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    var shortestSide = getViewportShortestSide();
+    var mobileUserAgent = /iPhone|iPod|Android.+Mobile|Windows Phone|Mobile/i.test(userAgent);
+
+    if (mobileUserAgent) {
+      return true;
     }
 
-    var userAgent = typeof navigator !== "undefined" ? String(navigator.userAgent || "") : "";
-    var isAppleMobile = /iPhone|iPad|iPod/i.test(userAgent);
-    var isCoarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    return isCoarsePointer && shortestSide > 0 && shortestSide <= 480;
+  }
 
-    return isAppleMobile || isCoarsePointer;
+  function isPhoneTranscriptionModeActive() {
+    if (transcriptionCapabilityProfile && transcriptionCapabilityProfile.phoneOptimized) {
+      return true;
+    }
+
+    return isPhoneOptimizedTranscriptionDevice();
+  }
+
+  function getTranscribeWorkerUrl() {
+    return isPhoneTranscriptionModeActive()
+      ? MOBILE_TRANSCRIBE_WORKER_URL
+      : DESKTOP_TRANSCRIBE_WORKER_URL;
+  }
+
+  function isBuiltInTranslationAllowed() {
+    return !(transcriptionCapabilityProfile && transcriptionCapabilityProfile.phoneOptimized);
+  }
+
+  function createTranscriptionAudioContext(AudioContextCtor) {
+    if (!AudioContextCtor) {
+      return null;
+    }
+
+    if (isPhoneOptimizedTranscriptionDevice()) {
+      try {
+        return new AudioContextCtor({ sampleRate: 16000 });
+      } catch (error) {
+      }
+    }
+
+    return new AudioContextCtor();
   }
 
   function probeTranscriptionCapabilities() {
@@ -376,7 +424,7 @@
     var lowCpu = hasKnownCpu && hardwareConcurrency < 4;
     var baselineOk = hasWorkers && hasWasm && hasAudioSupport;
     var browserReason = "This browser cannot run local transcription models";
-    var mobileSafariReason = "Only Baby Raptor is available on iPhone Safari right now";
+    var phoneDesktopReason = "For more powerful models, switch to a desktop or laptop for the full transcription experience.";
     var balancedReason = "Needs a bit more memory or CPU for comfortable local use";
     var desktopReason = "Reserved for stronger desktops with WebGPU";
     var modes = Object.create(null);
@@ -388,21 +436,21 @@
       return {
         baselineOk: false,
         isCoarsePointer: isCoarsePointer,
-        safariMobileLimited: false,
+        phoneOptimized: false,
         deviceMemory: hasKnownMemory ? deviceMemory : null,
         hardwareConcurrency: hasKnownCpu ? hardwareConcurrency : null,
         modes: modes
       };
     }
 
-    if (isMobileSafariLocalTranscriptionLimited()) {
+    if (isPhoneOptimizedTranscriptionDevice()) {
       modes["baby-raptor"] = createCapabilityDecision(true, "");
-      modes.triceratop = createCapabilityDecision(false, mobileSafariReason);
-      modes["t-rex"] = createCapabilityDecision(false, mobileSafariReason);
+      modes.triceratop = createCapabilityDecision(false, phoneDesktopReason);
+      modes["t-rex"] = createCapabilityDecision(false, phoneDesktopReason);
       return {
         baselineOk: true,
         isCoarsePointer: isCoarsePointer,
-        safariMobileLimited: true,
+        phoneOptimized: true,
         deviceMemory: hasKnownMemory ? deviceMemory : null,
         hardwareConcurrency: hasKnownCpu ? hardwareConcurrency : null,
         modes: modes
@@ -429,7 +477,7 @@
     return {
       baselineOk: true,
       isCoarsePointer: isCoarsePointer,
-      safariMobileLimited: false,
+      phoneOptimized: false,
       deviceMemory: hasKnownMemory ? deviceMemory : null,
       hardwareConcurrency: hasKnownCpu ? hardwareConcurrency : null,
       modes: modes
@@ -535,8 +583,8 @@
       return "Local transcription unavailable on this browser";
     }
 
-    if (transcriptionCapabilityProfile.safariMobileLimited) {
-      return "Local AI available in limited iPhone Safari mode";
+    if (transcriptionCapabilityProfile.phoneOptimized) {
+      return "Phone-optimized local AI available";
     }
 
     return hasWebGPUAcceleration()
@@ -545,8 +593,8 @@
   }
 
   function getProcessingInfoCopy() {
-    if (transcriptionCapabilityProfile && transcriptionCapabilityProfile.safariMobileLimited) {
-      return "iPhone Safari uses a lighter local Whisper path. Baby Raptor is enabled, while larger modes stay off to avoid WebKit crashes during setup.";
+    if (transcriptionCapabilityProfile && transcriptionCapabilityProfile.phoneOptimized) {
+      return "Phone mode keeps Baby Raptor ready for local transcription. For more powerful models, switch to a desktop or laptop for the full transcription experience.";
     }
 
     return getDeviceSupportLabel() + ". Transcription runs entirely in your browser, so your media never leaves your device.";
@@ -665,6 +713,7 @@
     var hasSegments = !!(window.currentSegments && window.currentSegments.length);
     var hasResults = hasTranscriptResults() || hasTranslatedSegments();
     var sourceCode = translateSourceLanguage ? translateSourceLanguage.value : "";
+    var builtInTranslationAllowed = isBuiltInTranslationAllowed();
 
     updateTranslationTargetOptions(translateLanguage, sourceCode);
 
@@ -676,7 +725,7 @@
       && sourceCode !== targetCode;
 
     if (translateBtn) {
-      translateBtn.disabled = !ready;
+      translateBtn.disabled = !ready || !builtInTranslationAllowed;
     }
     if (chatgptBtn) {
       chatgptBtn.disabled = !hasResults || processingLocked;
@@ -1821,6 +1870,9 @@
     var translationPanel = root.querySelector('[data-role="translationPanel"]');
     var translateEntryBtn = root.querySelector('[data-role="toggleTranslateSetup"]');
     var chatgptEntryBtn = root.querySelector('[data-role="chatgptTranslateBtn"]');
+    var builtInTranslationAllowed = isBuiltInTranslationAllowed();
+    var showTranslateEntry = showResults && builtInTranslationAllowed;
+    var showChatgptEntry = showResults;
 
     if (!showResults) {
       root.__translationSetupOpen = false;
@@ -1834,11 +1886,13 @@
     setElementVisible(root.querySelector('[data-role="transcribeRow"]'), showSetup);
     setElementVisible(root.querySelector('[data-role="viewControlsRow"]'), showResults);
     setElementVisible(root.querySelector('[data-role="transcriptRow"]'), showResults);
-    setElementVisible(root.querySelector('[data-role="translateEntryRow"]'), showResults);
+    setElementVisible(root.querySelector('[data-role="translateEntryRow"]'), showTranslateEntry || showChatgptEntry);
+    setElementVisible(translateEntryBtn, showTranslateEntry);
+    setElementVisible(chatgptEntryBtn, showChatgptEntry);
     setElementVisible(root.querySelector('[data-role="exportRow"]'), showResults);
     setElementVisible(root.querySelector('[data-role="changeFileBtn"]'), hasAudioReady || showResults);
     setElementVisible(root.querySelector('[data-role="restartBtn"]'), hasAudioReady || isPreparing || isProcessing || showResults);
-    setElementVisible(translationPanel, showResults && !!root.__translationSetupOpen && !isProcessing);
+    setElementVisible(translationPanel, showResults && builtInTranslationAllowed && !!root.__translationSetupOpen && !isProcessing);
     updateTranslateEntryButton(translateEntryBtn, root, hasResults, hasTranslation, isProcessing);
     if (chatgptEntryBtn) {
       chatgptEntryBtn.disabled = !showResults || isProcessing;
@@ -1942,13 +1996,23 @@
     return window.currentTranscriptDuration || 0;
   }
 
-  function convertToMono(buffer) {
+  function convertToMono(buffer, options) {
     if (buffer.numberOfChannels === 1) {
       return buffer.getChannelData(0);
     }
 
+    var usePhoneMix = !!(options && options.phoneOptimized);
     var length = buffer.length;
     var result = new Float32Array(length);
+
+    if (usePhoneMix && buffer.numberOfChannels >= 2) {
+      var left = buffer.getChannelData(0);
+      var right = buffer.getChannelData(1);
+      for (var index = 0; index < length; index += 1) {
+        result[index] = Math.SQRT2 * (left[index] + right[index]) * 0.5;
+      }
+      return result;
+    }
 
     for (var channel = 0; channel < buffer.numberOfChannels; channel += 1) {
       var data = buffer.getChannelData(channel);
@@ -2026,7 +2090,9 @@
       throw new Error("BAD_AUDIO");
     }
 
-    var monoData = convertToMono(audioBuffer);
+    var monoData = convertToMono(audioBuffer, {
+      phoneOptimized: !!audioRecord.phoneOptimized
+    });
 
     audioRecord.sampleRate = audioBuffer.sampleRate;
     audioRecord.data = monoData;
@@ -2610,29 +2676,33 @@ function generateVTT(segments) {
     }
 
     var root = transcriptEl.closest("#audio-tool");
+    var builtInTranslationAllowed = isBuiltInTranslationAllowed();
     // Preserve audio player reference before updating transcript UI
     var audioPlayer = document.getElementById("audio-player");
 
     var hasTranslation = hasTranslatedSegments();
     if (translatedTabBtn) {
-      translatedTabBtn.style.display = hasTranslation ? "" : "none";
+      translatedTabBtn.style.display = builtInTranslationAllowed && hasTranslation ? "" : "none";
+    }
+    if (!builtInTranslationAllowed && window.currentTab === "translated") {
+      window.currentTab = "original";
     }
     if (originalTabBtn) {
       originalTabBtn.classList.toggle("active", (window.currentTab || "original") === "original");
     }
     if (translatedTabBtn) {
-      translatedTabBtn.classList.toggle("active", (window.currentTab || "original") === "translated");
+      translatedTabBtn.classList.toggle("active", builtInTranslationAllowed && (window.currentTab || "original") === "translated");
     }
     updateEditButton(editBtn);
 
-    if (window.currentTab === "translated" && hasTranslation) {
+    if (builtInTranslationAllowed && window.currentTab === "translated" && hasTranslation) {
       renderSegments(
         transcriptEl,
         window.translatedTitle || "",
         getActiveSegments(),
         true
       );
-    } else if (window.currentTab === "translated" && !hasTranslation) {
+    } else if (builtInTranslationAllowed && window.currentTab === "translated" && !hasTranslation) {
       transcriptEl.removeAttribute("lang");
       transcriptEl.textContent = "Translate your transcript to view it here.";
     } else if (window.currentTranscript) {
@@ -3180,6 +3250,17 @@ function generateVTT(segments) {
         return;
       }
 
+      if (type === "update") {
+        if (activeTranscriptionContext) {
+          var partialText = normalizeTranscriptTextForDisplay(text, activeTranscriptionContext.language);
+          if (partialText && activeTranscriptionContext.transcriptEl) {
+            activeTranscriptionContext.transcriptEl.textContent = partialText;
+          }
+          setStatus(activeTranscriptionContext.statusEl, "Transcribing in browser...", "processing");
+        }
+        return;
+      }
+
       if (type === "result") {
         stopFakeProgress();
         stopProgressMessages(false);
@@ -3318,7 +3399,9 @@ function generateVTT(segments) {
           }
         }
 
-      var resampled = resampleTo16kHz(processedData, audio.sampleRate);
+      var resampled = audio.phoneOptimized && audio.sampleRate === 16000
+        ? processedData
+        : resampleTo16kHz(processedData, audio.sampleRate);
         activeTranscriptionContext = {
           modelKey: modelKey,
           language: language,
@@ -3997,6 +4080,12 @@ function generateVTT(segments) {
       tabButtons.forEach(function (tabBtn) {
         tabBtn.addEventListener("click", function () {
           var nextTab = tabBtn.dataset.tab || "original";
+          if (nextTab === "translated" && !isBuiltInTranslationAllowed()) {
+            window.currentTab = "original";
+            updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
+            updateExportLabels(txtBtn, srtBtn, vttBtn);
+            return;
+          }
           if (nextTab === "translated" && !window.translatedTranscript) {
             transcriptEl.textContent = "Translate your transcript to view it here.";
             return;
@@ -4045,7 +4134,7 @@ function generateVTT(segments) {
         updateToolLayout(root);
       });
     }
-    if (translateBtn) {
+    if (translateBtn && isBuiltInTranslationAllowed()) {
       translateBtn.addEventListener("click", async function () {
         if (processingLocked) {
           return;
@@ -4131,6 +4220,8 @@ function generateVTT(segments) {
           polish: polishToggle ? polishToggle.checked : false
         });
       });
+    } else if (translateBtn) {
+      translateBtn.disabled = true;
     }
 
     var chatgptTranslateBtn = root.querySelector('#chatgptTranslateBtn');
@@ -4198,7 +4289,8 @@ function generateVTT(segments) {
         sampleRate: 0,
         data: null,
         duration: 0,
-        needsDecode: true
+        needsDecode: true,
+        phoneOptimized: isPhoneTranscriptionModeActive()
       };
 
       var selectedLanguage = languageSelect ? languageSelect.value : "";
@@ -4232,7 +4324,7 @@ function generateVTT(segments) {
     var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     var audioContext = root.__transcribeAudioContext;
     if (!audioContext && AudioContextCtor) {
-      audioContext = new AudioContextCtor();
+      audioContext = createTranscriptionAudioContext(AudioContextCtor);
       root.__transcribeAudioContext = audioContext;
     }
     updateRuntimeMessaging(root);
