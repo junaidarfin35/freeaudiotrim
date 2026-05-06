@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const section = document.querySelector(".related-tools");
   if (!section) return;
+  const PRIMARY_CARD_LIMIT = 4;
 
   const toolMeta = {
     "audio-cutter-online.html": {
@@ -177,14 +178,36 @@ document.addEventListener("DOMContentLoaded", () => {
     return name && name.endsWith(".html") ? name : "index.html";
   })();
 
-  const buildFallbackPills = (primary) =>
-    allToolPages.filter(
+  const uniquePages = (pages) => {
+    const seen = new Set();
+    return (pages || []).filter((page) => {
+      if (!page || !toolMeta[page] || seen.has(page)) return false;
+      seen.add(page);
+      return true;
+    });
+  };
+
+  const buildPrimary = (preferredPages) => {
+    const preferred = uniquePages(preferredPages).filter(
+      (page) => page !== currentPage
+    );
+    const fallback = allToolPages.filter(
+      (page) => page !== currentPage && !preferred.includes(page)
+    );
+    return preferred.concat(fallback).slice(0, PRIMARY_CARD_LIMIT);
+  };
+
+  const buildFallbackPills = (primary, fallbackPages) => {
+    const source = fallbackPages && fallbackPages.length
+      ? fallbackPages
+      : allToolPages.filter((page) => page !== currentPage && !primary.includes(page));
+    return uniquePages(source).filter(
       (page) => page !== currentPage && !primary.includes(page)
     );
+  };
 
   const render = (config) => {
-    const primary = (config.primary || [])
-      .filter((page) => page !== currentPage && toolMeta[page]);
+    const primary = buildPrimary(config.primary || []);
     const pills = ((config.pills && config.pills.length
       ? config.pills
       : buildFallbackPills(primary)) || [])
@@ -225,7 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const fallbackPrimary = allToolPages
     .filter((page) => page !== currentPage)
-    .slice(0, 4);
+    .slice(0, PRIMARY_CARD_LIMIT);
   const pageConfig = pageConfigs[currentPage] || {
     primary: fallbackPrimary
   };
