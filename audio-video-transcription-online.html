@@ -161,7 +161,7 @@
       "name": "What file types are supported?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WebM, M4V, and MPGA are supported, including common audio to text and video to text workflows."
+        "text": "MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WebM, M4V, MPGA, MPEG, and MPG are supported, including common audio to text and video to text workflows."
       }
     },
     {
@@ -250,7 +250,7 @@
 
   <section class="content-section tool-section">
     <div class="tool-ui">
-      <input id="audioFileInput" class="is-hidden" type="file" accept=".mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mp4,.m4v,.mov,.webm,.mpga">
+      <input id="audioFileInput" class="is-hidden" type="file" accept=".mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mp4,.m4v,.mov,.webm,.mpga,.mpeg,.mpg">
       <div class="upload-shell" id="upload-shell">
         <div class="upload-box" id="upload-dropzone" data-upload-dropzone data-upload-input="audioFileInput" role="button" tabindex="0" aria-label="Drop audio or video file here or click to upload">
           <div class="upload-content">
@@ -318,6 +318,8 @@
           <span>WebM</span>
           <span>M4V</span>
           <span>MPGA</span>
+          <span>MPEG</span>
+          <span>MPG</span>
         </div>
         <p class="supported-note">File support and performance can vary depending on your browser, device memory, file length, and file format. For very long videos, extracting audio first may make the workflow smoother.</p>
       </div>
@@ -559,7 +561,7 @@
     </details>
     <details>
       <summary>What file types are supported?</summary>
-      <p>MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WebM, M4V, and MPGA are supported, including common audio to text and video to text workflows.</p>
+      <p>MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WebM, M4V, MPGA, MPEG, and MPG are supported, including common audio to text and video to text workflows.</p>
     </details>
     <details>
       <summary>How do I improve transcription accuracy?</summary>
@@ -743,5 +745,4 @@ document.addEventListener('converter:empty', function() {
 </script>
 </body>
 </html>
-
 

@@ -17,7 +17,7 @@ const TRANSCRIPTION_MODELS = {
   },
   triceratop: {
     key: "triceratop",
-    label: "Triceratop",
+    label: "Triceratops",
     modelId: "onnx-community/whisper-small_timestamped"
   },
   "t-rex": {

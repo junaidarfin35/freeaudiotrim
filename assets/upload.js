@@ -94,7 +94,7 @@
   const ensureAudioAccept = (input) => {
     const currentAccept = (input.getAttribute('accept') || '').trim();
     if (!currentAccept) {
-      input.setAttribute('accept', '.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mp4,.m4v,.mov,.webm,.mpga');
+      input.setAttribute('accept', '.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mp4,.m4v,.mov,.webm,.mpga,.mpeg,.mpg');
     }
   };
 

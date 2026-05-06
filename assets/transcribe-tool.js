@@ -31,7 +31,7 @@
     },
     {
       key: "triceratop",
-      label: "Triceratop",
+      label: "Triceratops",
       helper: "Balanced multilingual mode for most devices.",
       icon: "/assets/transcription-models/triceratop.png",
       modelId: "onnx-community/whisper-small_timestamped"
@@ -185,6 +185,108 @@
     { code: "yo", name: "Yoruba", flag: "🇳🇬" },
     { code: "yue", name: "Cantonese", flag: "🇭🇰" }
   ];
+  var LANGUAGE_NATIVE_NAMES = {
+    en: "English",
+    ar: "العربية",
+    es: "Español",
+    fr: "Français",
+    de: "Deutsch",
+    hi: "हिन्दी",
+    ur: "اردو",
+    tr: "Türkçe",
+    zh: "中文",
+    pt: "Português",
+    ru: "Русский",
+    ja: "日本語",
+    ko: "한국어",
+    it: "Italiano",
+    nl: "Nederlands",
+    fa: "فارسی",
+    bn: "বাংলা",
+    pa: "ਪੰਜਾਬੀ",
+    ta: "தமிழ்",
+    te: "తెలుగు",
+    vi: "Tiếng Việt",
+    id: "Bahasa Indonesia",
+    af: "Afrikaans",
+    am: "አማርኛ",
+    as: "অসমীয়া",
+    az: "Azərbaycan dili",
+    ba: "Башҡортса",
+    be: "Беларуская",
+    bg: "Български",
+    bo: "བོད་ཡིག",
+    br: "Brezhoneg",
+    bs: "Bosanski",
+    ca: "Català",
+    cs: "Čeština",
+    cy: "Cymraeg",
+    da: "Dansk",
+    el: "Ελληνικά",
+    et: "Eesti",
+    eu: "Euskara",
+    fi: "Suomi",
+    fo: "Føroyskt",
+    gl: "Galego",
+    gu: "ગુજરાતી",
+    ha: "Hausa",
+    haw: "ʻŌlelo Hawaiʻi",
+    he: "עברית",
+    hr: "Hrvatski",
+    ht: "Kreyòl ayisyen",
+    hu: "Magyar",
+    hy: "Հայերեն",
+    is: "Íslenska",
+    jw: "Basa Jawa",
+    ka: "ქართული",
+    kk: "Қазақша",
+    km: "ខ្មែរ",
+    kn: "ಕನ್ನಡ",
+    la: "Latina",
+    lb: "Lëtzebuergesch",
+    ln: "Lingála",
+    lo: "ລາວ",
+    lt: "Lietuvių",
+    lv: "Latviešu",
+    mg: "Malagasy",
+    mi: "Māori",
+    mk: "Македонски",
+    ml: "മലയാളം",
+    mn: "Монгол",
+    mr: "मराठी",
+    ms: "Bahasa Melayu",
+    mt: "Malti",
+    my: "မြန်မာ",
+    ne: "नेपाली",
+    nn: "Norsk nynorsk",
+    no: "Norsk",
+    oc: "Occitan",
+    pl: "Polski",
+    ps: "پښتو",
+    ro: "Română",
+    sa: "संस्कृतम्",
+    sd: "سنڌي",
+    si: "සිංහල",
+    sk: "Slovenčina",
+    sl: "Slovenščina",
+    sn: "ChiShona",
+    so: "Soomaali",
+    sq: "Shqip",
+    sr: "Српски",
+    su: "Basa Sunda",
+    sv: "Svenska",
+    sw: "Kiswahili",
+    tg: "Тоҷикӣ",
+    th: "ไทย",
+    tk: "Türkmen",
+    tl: "Tagalog",
+    tt: "Татарча",
+    uk: "Українська",
+    uz: "Oʻzbek",
+    yi: "ייִדיש",
+    yo: "Yorùbá",
+    yue: "粵語"
+  };
   var PINNED_TRANSCRIPTION_LANGUAGE_CODES = [
     "en", "ar", "es", "fr", "de", "hi", "ur", "tr", "zh", "pt", "ru", "ja", "ko", "it", "nl", "fa", "bn", "pa", "ta", "te", "vi", "id"
   ];
@@ -290,6 +392,28 @@
     yo: "ng",
     yue: "hk"
   };
+
+  function getLanguageDisplayName(item) {
+    var code;
+    if (!item) {
+      return "";
+    }
+
+    code = String(item.code || "").toLowerCase();
+    return LANGUAGE_NATIVE_NAMES[code] || item.name || code.toUpperCase();
+  }
+
+  function getLanguageSearchText(item) {
+    if (!item) {
+      return "";
+    }
+
+    return [
+      item.name || "",
+      getLanguageDisplayName(item),
+      item.code || ""
+    ].join(" ").toLowerCase();
+  }
   var MODEL_LOCK_KEY = "fat:transcribe:model-lock:v1";
   var MODEL_LOCK_STALE_MS = 10000;
   var MODEL_LOCK_HEARTBEAT_MS = 5000;
@@ -823,7 +947,7 @@
     TRANSLATION_LANGUAGES.forEach(function (item) {
       options.push(
         '<option value="' + escapeHtml(item.code) + '">' +
-        escapeHtml(item.name) +
+        escapeHtml(getLanguageDisplayName(item)) +
         "</option>"
       );
     });
@@ -891,7 +1015,7 @@
         ? '<img src="' + escapeHtml(flagUrl) + '" alt="" loading="lazy" decoding="async" width="20" height="15" data-role="translationLanguagePickerFlag">'
         : "",
       '<span data-role="translationLanguagePickerTextWrap">',
-      '<span data-role="translationLanguagePickerName">' + escapeHtml(item.name) + "</span>",
+      '<span data-role="translationLanguagePickerName">' + escapeHtml(getLanguageDisplayName(item)) + "</span>",
       '<span data-role="translationLanguagePickerCode">' + escapeHtml(item.code.toUpperCase()) + "</span>",
       "</span>",
       "</span>"
@@ -905,8 +1029,7 @@
         return true;
       }
 
-      return item.name.toLowerCase().indexOf(normalizedQuery) !== -1
-        || item.code.toLowerCase().indexOf(normalizedQuery) !== -1;
+      return getLanguageSearchText(item).indexOf(normalizedQuery) !== -1;
     });
 
     if (!filtered.length) {
@@ -926,7 +1049,7 @@
         flagUrl
           ? '<img src="' + escapeHtml(flagUrl) + '" alt="" loading="lazy" decoding="async" width="20" height="15" data-role="translationLanguagePickerFlag">'
           : "",
-        '<span data-role="translationLanguagePickerOptionLabel">' + escapeHtml(item.name) + "</span>",
+        '<span data-role="translationLanguagePickerOptionLabel">' + escapeHtml(getLanguageDisplayName(item)) + "</span>",
         '<span data-role="translationLanguagePickerOptionCode">' + escapeHtml(item.code.toUpperCase()) + "</span>",
         isBlocked
           ? '<span data-role="translationLanguagePickerDisabledMark" aria-hidden="true">Source</span>'
@@ -995,7 +1118,7 @@
     }
 
     if (!targetItem) {
-      hintEl.textContent = "Transcript language is set to " + sourceItem.name + ". Choose a different target language to translate your edited transcript.";
+      hintEl.textContent = "Transcript language is set to " + getLanguageDisplayName(sourceItem) + ". Choose a different target language to translate your edited transcript.";
       return;
     }
 
@@ -1004,7 +1127,7 @@
       return;
     }
 
-    hintEl.textContent = "Translating from " + sourceItem.name + " to " + targetItem.name + ". Any segment edits will be included.";
+    hintEl.textContent = "Translating from " + getLanguageDisplayName(sourceItem) + " to " + getLanguageDisplayName(targetItem) + ". Any segment edits will be included.";
   }
 
   function getTranscriptionLanguageFlagUrl(code) {
@@ -1029,7 +1152,7 @@
         ? '<img src="' + escapeHtml(flagUrl) + '" alt="" loading="lazy" decoding="async" width="20" height="15" data-role="languagePickerFlag">'
         : "",
       '<span data-role="languagePickerTextWrap">',
-      '<span data-role="languagePickerName">' + escapeHtml(item.name) + "</span>",
+      '<span data-role="languagePickerName">' + escapeHtml(getLanguageDisplayName(item)) + "</span>",
       '<span data-role="languagePickerCode">' + escapeHtml(item.code.toUpperCase()) + "</span>",
       "</span>",
       "</span>"
@@ -1043,8 +1166,7 @@
         return true;
       }
 
-      return item.name.toLowerCase().indexOf(normalizedQuery) !== -1
-        || item.code.toLowerCase().indexOf(normalizedQuery) !== -1;
+      return getLanguageSearchText(item).indexOf(normalizedQuery) !== -1;
     });
 
     if (!filtered.length) {
@@ -1062,7 +1184,7 @@
         flagUrl
           ? '<img src="' + escapeHtml(flagUrl) + '" alt="" loading="lazy" decoding="async" width="20" height="15" data-role="languagePickerFlag">'
           : "",
-        '<span data-role="languagePickerOptionLabel">' + escapeHtml(item.name) + "</span>",
+        '<span data-role="languagePickerOptionLabel">' + escapeHtml(getLanguageDisplayName(item)) + "</span>",
         '<span data-role="languagePickerOptionCode">' + escapeHtml(item.code.toUpperCase()) + "</span>",
         isSelected ? '<span data-role="languagePickerSelectedMark" aria-hidden="true">Selected</span>' : "",
         "</button>"
@@ -1076,7 +1198,7 @@
     getSortedTranscriptionLanguages().forEach(function (item) {
       options.push(
         '<option value="' + escapeHtml(item.code) + '">' +
-        escapeHtml(item.flag + " " + item.name) +
+        escapeHtml(item.flag + " " + getLanguageDisplayName(item)) +
         "</option>"
       );
     });
@@ -1978,7 +2100,9 @@
       ".m4v": true,
       ".mov": true,
       ".webm": true,
-      ".mpga": true
+      ".mpga": true,
+      ".mpeg": true,
+      ".mpg": true
     };
 
     if (!file) {
@@ -4144,7 +4268,7 @@ function generateVTT(segments) {
         var sourceLang = getTranslationFloresCode(sourceCode);
         var mappedTarget = getTranslationFloresCode(targetLang);
         var targetItem = getTranslationLanguageByCode(targetLang);
-        var selectedLanguageName = targetItem ? targetItem.name : "Translated";
+        var selectedLanguageName = targetItem ? getLanguageDisplayName(targetItem) : "Translated";
 
         if (!window.currentSegments || !window.currentSegments.length || !targetLang) {
           return;
