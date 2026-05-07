@@ -163,6 +163,84 @@ nav a.active {
   color: var(--color-primary);
 }
 
+.locale-helper {
+  position: relative;
+  z-index: 15;
+  border-bottom: 1px solid rgba(108, 123, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(238, 241, 255, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.locale-helper__body {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 0.85rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.locale-helper__copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.locale-helper__title {
+  color: var(--color-text);
+  font-size: 0.98rem;
+}
+
+.locale-helper__text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.locale-helper__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.locale-helper__action {
+  border: 1px solid rgba(108, 123, 255, 0.2);
+  background: #ffffff;
+  color: var(--color-primary-strong);
+  border-radius: 999px;
+  padding: 0.6rem 0.95rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: auto;
+  min-height: 0;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.locale-helper__action--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff;
+}
+
+.locale-helper__action:hover,
+.locale-helper__action:focus-visible {
+  background: var(--color-primary-soft);
+  border-color: rgba(108, 123, 255, 0.34);
+  color: var(--color-primary-strong);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.locale-helper__action--primary:hover,
+.locale-helper__action--primary:focus-visible {
+  background: var(--color-primary-strong);
+  border-color: var(--color-primary-strong);
+  color: #ffffff;
+}
+
 .container {
   padding: var(--space-7) 0 var(--space-8);
 }
@@ -1146,6 +1224,12 @@ footer {
 
   .container {
     padding-top: var(--space-5);
+  }
+
+  .locale-helper__body {
+    width: min(100% - 1.25rem, 1100px);
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

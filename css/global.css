@@ -309,6 +309,75 @@ main.container {
 }
 
 /* =========================
+   ARABIC / RTL SUPPORT
+========================= */
+
+html[lang="ar"] body {
+  font-family: 'Tajawal', 'Inter', system-ui, sans-serif !important;
+}
+
+html[lang="ar"] h1,
+html[lang="ar"] h2,
+html[lang="ar"] h3,
+html[lang="ar"] h4,
+html[lang="ar"] .logo,
+html[lang="ar"] nav a {
+  font-family: 'Tajawal', 'Inter', system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+html[dir="rtl"] body {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .hero {
+  text-align: center;
+}
+
+html[dir="rtl"] .nav-links,
+html[dir="rtl"] .footer-container,
+html[dir="rtl"] .content-flow,
+html[dir="rtl"] .section-surface {
+  direction: rtl;
+}
+
+html[dir="rtl"] .header-container,
+html[dir="rtl"] .footer-bottom,
+html[dir="rtl"] .tool-links-grid,
+html[dir="rtl"] .tool-pills,
+html[dir="rtl"] .article-grid,
+html[dir="rtl"] .steps-grid,
+html[dir="rtl"] .benefits-grid,
+html[dir="rtl"] .why-grid,
+html[dir="rtl"] .supported-wrapper {
+  direction: rtl;
+}
+
+html[dir="rtl"] .time-display,
+html[dir="rtl"] code,
+html[dir="rtl"] pre,
+html[dir="rtl"] input[type="file"],
+html[dir="rtl"] input[type="url"],
+html[dir="rtl"] input[type="email"] {
+  direction: ltr;
+  text-align: left;
+}
+
+html[dir="rtl"] body[data-page="trim-ar"] .at-wave-wrap,
+html[dir="rtl"] body[data-page="trim-ar"] .at-times,
+html[dir="rtl"] body[data-page="trim-ar"] [data-role="fileName"] {
+  direction: ltr;
+  text-align: left;
+}
+
+html[dir="rtl"] body[data-page="trim-ar"] .at-status,
+html[dir="rtl"] body[data-page="trim-ar"] .at-btn,
+html[dir="rtl"] body[data-page="trim-ar"] .at-checkbox {
+  text-align: center;
+}
+
+/* =========================
    TOOL SECTION (NEW)
 ========================= */
 
@@ -3597,7 +3666,7 @@ body.audio-converter-page #audio-tool .at-tools {
   line-height: 1.55;
 }
 
-#audio-tool .ts-segment {
+html[dir="rtl"] body[data-page="transcribe-ar"] #audio-tool .ts-segment {
   padding: 12px 0;
   line-height: 2;
   border-bottom: 1px solid #eee;
@@ -3605,15 +3674,15 @@ body.audio-converter-page #audio-tool .at-tools {
   text-align: right;
 }
 
-#audio-tool .ts-segment:hover {
+html[dir="rtl"] body[data-page="transcribe-ar"] #audio-tool .ts-segment:hover {
   background: var(--color-surface-muted);
 }
 
-#audio-tool .ts-segment:last-child {
+html[dir="rtl"] body[data-page="transcribe-ar"] #audio-tool .ts-segment:last-child {
   border-bottom: 0;
 }
 
-#audio-tool .ts-paragraph {
+html[dir="rtl"] body[data-page="transcribe-ar"] #audio-tool .ts-paragraph {
   direction: rtl;
   text-align: right;
   line-height: 2;
