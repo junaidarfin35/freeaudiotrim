@@ -5,6 +5,11 @@ let isBusy = false;
 let translationModel = null;
 let modernTransformersRuntimePromise = null;
 let legacyTransformersRuntimePromise = null;
+const ONNX_RUNTIME_NOISE_PATTERNS = [
+  "VerifyEachNodeIsAssignedToAnEp",
+  "Some nodes were not assigned to the preferred execution providers",
+  "Rerunning with verbose output on a non-minimal build will show node assignments"
+];
 const DEFAULT_TRANSCRIPTION_MODEL_KEY = "triceratop";
 const DEFAULT_CHUNK_LENGTH_SECONDS = 29;
 const DEFAULT_STRIDE_LENGTH_SECONDS = 5;
@@ -27,6 +32,41 @@ const TRANSCRIPTION_MODELS = {
   }
 };
 const ARABIC_TRANSCRIPTION_PROMPT = "هذا تسجيل صوتي باللغة العربية. اكتب الكلام كما يُنطق بوضوح وبنصه الأصلي، مع الحفاظ على المعنى وتسلسل الجمل، من دون ترجمة أو تلخيص. إذا نطق المتحدث كلمات أو عبارات إنجليزية، فاكتبها بالإنجليزية كما قيلت ولا تعرّبها. إذا وُجدت موسيقى أو مؤثر صوتي واضح بلا كلام، فاكتب: (موسيقى). اكتب الأسماء والأماكن والمصطلحات كما تُسمع، واستخدم علامات ترقيم خفيفة عند الحاجة فقط.";
+
+function shouldSuppressOnnxRuntimeNoise(args) {
+  const text = args.map((value) => {
+    if (typeof value === "string") {
+      return value;
+    }
+    if (value instanceof Error) {
+      return value.message || String(value);
+    }
+    try {
+      return JSON.stringify(value);
+    } catch (error) {
+      return String(value);
+    }
+  }).join(" ");
+
+  return ONNX_RUNTIME_NOISE_PATTERNS.some((pattern) => text.includes(pattern));
+}
+
+function filterConsoleMethod(methodName) {
+  if (typeof console === "undefined" || typeof console[methodName] !== "function") {
+    return;
+  }
+
+  const originalMethod = console[methodName].bind(console);
+  console[methodName] = (...args) => {
+    if (shouldSuppressOnnxRuntimeNoise(args)) {
+      return;
+    }
+    originalMethod(...args);
+  };
+}
+
+filterConsoleMethod("warn");
+filterConsoleMethod("error");
 
 function isSafariLikeBrowser() {
   if (typeof navigator === "undefined") {
@@ -81,6 +121,15 @@ function configureTransformersEnvironment(runtimeEnv, safariLike = isSafariLikeB
     : Math.max(1, Math.min(4, Number.isFinite(hardwareConcurrency) && hardwareConcurrency > 0 ? hardwareConcurrency : 2));
 
   runtimeEnv.allowLocalModels = false;
+
+  if (runtimeEnv.backends && runtimeEnv.backends.onnx) {
+    if ("logLevel" in runtimeEnv.backends.onnx) {
+      runtimeEnv.backends.onnx.logLevel = "error";
+    }
+    if (runtimeEnv.backends.onnx.env && "logLevel" in runtimeEnv.backends.onnx.env) {
+      runtimeEnv.backends.onnx.env.logLevel = "error";
+    }
+  }
 
   if ("useBrowserCache" in runtimeEnv) {
     runtimeEnv.useBrowserCache = !safariLike;

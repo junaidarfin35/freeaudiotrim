@@ -2,12 +2,52 @@ let transcriber = null;
 let isLoading = false;
 let isBusy = false;
 let runtimePromise = null;
+const ONNX_RUNTIME_NOISE_PATTERNS = [
+  "VerifyEachNodeIsAssignedToAnEp",
+  "Some nodes were not assigned to the preferred execution providers",
+  "Rerunning with verbose output on a non-minimal build will show node assignments"
+];
 
 const MOBILE_MODEL_KEY = "baby-raptor";
 const MOBILE_MODEL_ID = "Xenova/whisper-base";
 const MOBILE_CHUNK_LENGTH_SECONDS = 30;
 const MOBILE_STRIDE_LENGTH_SECONDS = 5;
 const MOBILE_QUANTIZED = false;
+
+function shouldSuppressOnnxRuntimeNoise(args) {
+  const text = args.map((value) => {
+    if (typeof value === "string") {
+      return value;
+    }
+    if (value instanceof Error) {
+      return value.message || String(value);
+    }
+    try {
+      return JSON.stringify(value);
+    } catch (error) {
+      return String(value);
+    }
+  }).join(" ");
+
+  return ONNX_RUNTIME_NOISE_PATTERNS.some((pattern) => text.includes(pattern));
+}
+
+function filterConsoleMethod(methodName) {
+  if (typeof console === "undefined" || typeof console[methodName] !== "function") {
+    return;
+  }
+
+  const originalMethod = console[methodName].bind(console);
+  console[methodName] = (...args) => {
+    if (shouldSuppressOnnxRuntimeNoise(args)) {
+      return;
+    }
+    originalMethod(...args);
+  };
+}
+
+filterConsoleMethod("warn");
+filterConsoleMethod("error");
 
 function isSafariLikeBrowser() {
   if (typeof navigator === "undefined") {
@@ -156,6 +196,15 @@ function createModelProgressTracker(modelKey) {
 
 function configureRuntimeEnvironment(runtimeEnv) {
   runtimeEnv.allowLocalModels = false;
+
+  if (runtimeEnv.backends && runtimeEnv.backends.onnx) {
+    if ("logLevel" in runtimeEnv.backends.onnx) {
+      runtimeEnv.backends.onnx.logLevel = "error";
+    }
+    if (runtimeEnv.backends.onnx.env && "logLevel" in runtimeEnv.backends.onnx.env) {
+      runtimeEnv.backends.onnx.env.logLevel = "error";
+    }
+  }
 
   if ("useBrowserCache" in runtimeEnv) {
     runtimeEnv.useBrowserCache = true;
