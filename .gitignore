@@ -8,7 +8,7 @@ _scripts/
 automation/
 free-claude-code/
 node_modules/
-
+_tmp/
 
 
 
