@@ -197,8 +197,8 @@ function getArabicDecodeProfile(modelKey) {
 
   if (resolvedModel.key === "t-rex") {
     return {
-      chunk_length_s: 20,
-      stride_length_s: 6,
+      chunk_length_s: DEFAULT_CHUNK_LENGTH_SECONDS,
+      stride_length_s: DEFAULT_STRIDE_LENGTH_SECONDS,
       condition_on_prev_tokens: false,
       compression_ratio_threshold: 1.3,
       no_speech_threshold: 0.6,
@@ -211,11 +211,10 @@ function getArabicDecodeProfile(modelKey) {
   return null;
 }
 
-function getDefaultTranscriptionOptions(modelKey) {
-  const useMobileLegacyDefaults = isMobileSafariLikeBrowser() && modelKey === "baby-raptor";
+function getDefaultTranscriptionOptions() {
   return {
-    chunk_length_s: useMobileLegacyDefaults ? 15 : DEFAULT_CHUNK_LENGTH_SECONDS,
-    stride_length_s: useMobileLegacyDefaults ? 3 : DEFAULT_STRIDE_LENGTH_SECONDS,
+    chunk_length_s: DEFAULT_CHUNK_LENGTH_SECONDS,
+    stride_length_s: DEFAULT_STRIDE_LENGTH_SECONDS,
     return_timestamps: true,
     task: "transcribe"
   };
@@ -841,7 +840,7 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
   const safeTimelineOffset = Number.isFinite(timelineOffset) ? Math.max(0, timelineOffset) : 0;
   const options = {
     sampling_rate: sampleRate,
-    ...getDefaultTranscriptionOptions(modelLoad.modelKey)
+    ...getDefaultTranscriptionOptions()
   };
 
   if (selectedLanguage && selectedLanguage !== "auto") {

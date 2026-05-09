@@ -5,7 +5,7 @@
   var vttContent = "";
   var MAX_DURATION_SECONDS = 180;
   var FRIENDLY_WARNING_SECONDS = 150;
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-05-1";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-09-1";
   var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-05-2";
   var worker = null;
   var workerGeneration = 0;
