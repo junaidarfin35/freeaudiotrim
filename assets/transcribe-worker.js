@@ -10,6 +10,15 @@ const ONNX_RUNTIME_NOISE_PATTERNS = [
   "Some nodes were not assigned to the preferred execution providers",
   "Rerunning with verbose output on a non-minimal build will show node assignments"
 ];
+const WEAK_WEBGPU_TREX_PATTERNS = [
+  "Invalid ComputePipeline",
+  "Invalid BindGroupLayout",
+  "\"Sqrt\"",
+  "\"Div\"",
+  "\"Mul\"",
+  "WebGPU validation",
+  "previous error"
+];
 const DEFAULT_TRANSCRIPTION_MODEL_KEY = "triceratop";
 const DEFAULT_CHUNK_LENGTH_SECONDS = 29;
 const DEFAULT_STRIDE_LENGTH_SECONDS = 5;
@@ -31,7 +40,7 @@ const TRANSCRIPTION_MODELS = {
     modelId: "onnx-community/whisper-large-v3-turbo_timestamped"
   }
 };
-const ARABIC_TRANSCRIPTION_PROMPT = "هذا تسجيل صوتي باللغة العربية. اكتب الكلام كما يُنطق بوضوح وبنصه الأصلي، مع الحفاظ على المعنى وتسلسل الجمل، من دون ترجمة أو تلخيص. إذا نطق المتحدث كلمات أو عبارات إنجليزية، فاكتبها بالإنجليزية كما قيلت ولا تعرّبها. إذا وُجدت موسيقى أو مؤثر صوتي واضح بلا كلام، فاكتب: (موسيقى). اكتب الأسماء والأماكن والمصطلحات كما تُسمع، واستخدم علامات ترقيم خفيفة عند الحاجة فقط.";
+const ARABIC_TRANSCRIPTION_PROMPT = "انسخ كلام التسجيل مثل ما ينقال، بدون ترجمة أو تلخيص. اكتب الإنجليزي كما هو، وإذا فيه موسيقى اكتب: (موسيقى). استخدم ترقيم بسيط عند الحاجةقم بتفريغ النص بدقة مثل ما ينقال، بدون ترجمة أو تلخيص، مع استخدام علامات الترقيم عند الحاجة. اكتب الإنجليزي كما هو، وإذا فيه موسيقى اكتب: (موسيقى)";
 
 function shouldSuppressOnnxRuntimeNoise(args) {
   const text = args.map((value) => {
@@ -205,6 +214,38 @@ function getRuntimeTranscriptionModelId(modelKey, useLegacyRuntime) {
 
 function hasWebGPU() {
   return !!(typeof navigator !== "undefined" && navigator.gpu);
+}
+
+function getErrorText(error) {
+  if (!error) {
+    return "";
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return String(error.message || error.stack || error);
+}
+
+function classifyTranscriptionModelLoadFailure(error, modelKey) {
+  if (getTranscriptionModelConfig(modelKey).key !== "t-rex" || !hasWebGPU()) {
+    return null;
+  }
+
+  const text = getErrorText(error);
+  const matchesWeakWebGpu = WEAK_WEBGPU_TREX_PATTERNS.some((pattern) => text.includes(pattern));
+
+  if (!matchesWeakWebGpu) {
+    return null;
+  }
+
+  return {
+    errorCode: "WEBGPU_TREX_UNSUPPORTED",
+    failedModelKey: "t-rex",
+    fallbackModelKey: "triceratop",
+    userMessage: "T-Rex hit WebGPU validation errors on this device. Switching to Triceratops for a safer local run."
+  };
 }
 
 function shouldUseExtendedArabicPrompt(modelKey) {
@@ -481,13 +522,23 @@ async function loadTranscriptionModel(modelKey) {
       );
     }
   } catch (err) {
+    const failureMeta = classifyTranscriptionModelLoadFailure(err, modelConfig.key);
     transcriber = null;
     activeTranscriptionModelKey = null;
     postMessage({
       type: "model_error",
       modelKey: modelConfig.key,
-      message: err && err.message ? err.message : "Model load failed"
+      message: failureMeta ? failureMeta.userMessage : (err && err.message ? err.message : "Model load failed"),
+      errorCode: failureMeta ? failureMeta.errorCode : "",
+      failedModelKey: failureMeta ? failureMeta.failedModelKey : modelConfig.key,
+      fallbackModelKey: failureMeta ? failureMeta.fallbackModelKey : ""
     });
+    if (failureMeta) {
+      err.errorCode = failureMeta.errorCode;
+      err.failedModelKey = failureMeta.failedModelKey;
+      err.fallbackModelKey = failureMeta.fallbackModelKey;
+      err.message = failureMeta.userMessage;
+    }
     throw err;
   } finally {
     isLoading = false;
@@ -1208,7 +1259,10 @@ self.onmessage = async (e) => {
   } catch (err) {
     postMessage({
       type: requestType === "transcribe" ? "error" : "translation_error",
-      message: err && err.message ? err.message : "Worker request failed"
+      message: err && err.message ? err.message : "Worker request failed",
+      errorCode: requestType === "transcribe" && err && err.errorCode ? err.errorCode : "",
+      failedModelKey: requestType === "transcribe" && err && err.failedModelKey ? err.failedModelKey : modelConfig.key,
+      fallbackModelKey: requestType === "transcribe" && err && err.fallbackModelKey ? err.fallbackModelKey : ""
     });
   } finally {
     isBusy = false;

@@ -6,14 +6,30 @@ Workspace: `D:\Junaid\My 2nd Tool\files`
 ## Next Up
 
 Date: 2026-05-11
-Status: `Planned in strict sequence`
+Status: `Step 4 active`
 
-1. Stabilize mobile transcription teardown and guarantee full deletion of transcription data on change file, start over, and refresh.
-2. Move transcription model loading to explicit user intent only: after language selection and `Transcribe` click.
-3. Harden weak Chrome/WebGPU handling so `T-Rex` fails gracefully and falls back safely without re-upload.
-4. Separate translation pipeline from transcription into independent controller/worker lifecycle while keeping same page UX.
-5. Replace fixed duration cap with dynamic device+model duration limits and explain the limit clearly in UI.
-6. Benchmark Arabic-specific ASR candidates and choose production Arabic default based on accuracy, speed, stability, and browser feasibility.
+1. Completed: stabilize mobile transcription teardown and guarantee full deletion of transcription data on change file, start over, refresh, and page exit.
+2. Completed: move transcription model loading to explicit user intent only, after language selection and `Transcribe` click.
+3. Completed: harden weak Chrome/WebGPU handling so `T-Rex` fails gracefully and falls back safely without re-upload.
+4. Active: separate translation pipeline from transcription into independent controller and worker lifecycle while keeping same page UX.
+5. Pending: replace fixed duration cap with dynamic device and model duration limits and explain the limit clearly in UI.
+6. Pending: benchmark Arabic-specific ASR candidates and choose production Arabic default based on accuracy, speed, stability, and browser feasibility.
+
+## Transcription Progress
+
+Date: 2026-05-11
+Status: `Steps 1-3 completed`
+
+- Mobile transcription teardown now uses one canonical session reset path, preventing stale transcript state across change file, start over, refresh, and page exit flows.
+- Model loading now starts only on explicit user intent after language selection and `Transcribe`, which keeps room for future language-specific routing.
+- Weak Chrome/WebGPU `T-Rex` failures now auto-fallback to `Triceratops` without forcing re-upload.
+- Phone transcription path was further stabilized for repeat-use testing:
+  - browser cache guards for insecure local-network mobile testing
+  - truthful model/download/transcription status handoff
+  - model-first then decode flow to reduce peak mobile memory
+  - lighter Safari phone worker profile
+  - decoded audio release after worker transfer on phone path
+  - transcription failure now keeps tool shell and loaded file visible instead of bouncing back to upload
 
 ## Overall Goal
 

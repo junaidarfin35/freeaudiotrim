@@ -5,8 +5,8 @@
   var vttContent = "";
   var MAX_DURATION_SECONDS = 180;
   var FRIENDLY_WARNING_SECONDS = 150;
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-05-1";
-  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-05-2";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-11-2";
+  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-11-2";
   var worker = null;
   var workerGeneration = 0;
   var processingLocked = false;
@@ -659,6 +659,29 @@
       return "Retry";
     }
     return "Available";
+  }
+
+  function disableModelForSession(modelKey, reason) {
+    var state = ensureTranscriptionModelState(modelKey);
+    state.enabled = false;
+    state.reason = reason || state.reason || "Disabled for this session";
+    state.status = "disabled";
+    state.progress = 0;
+    state.errorMessage = "";
+  }
+
+  function getSafeFallbackModelKey(failedModelKey) {
+    var preferredOrder = failedModelKey === "t-rex"
+      ? ["triceratop", "baby-raptor"]
+      : [FALLBACK_TRANSCRIPTION_MODEL_KEY];
+    var nextModel = preferredOrder.find(function (modelKey) {
+      if (modelKey === failedModelKey) {
+        return false;
+      }
+      return ensureTranscriptionModelState(modelKey).enabled;
+    });
+
+    return nextModel || "";
   }
 
   function getSelectedModelLoadingText() {
@@ -1961,6 +1984,70 @@
     syncTranscribeReadyState();
   }
 
+  function tryKnownTranscriptionFallback(context, workerData) {
+    var failedModelKey = workerData && workerData.failedModelKey
+      ? workerData.failedModelKey
+      : (context && context.modelKey) || selectedTranscriptionModelKey;
+    var fallbackModelKey = workerData && workerData.fallbackModelKey
+      ? workerData.fallbackModelKey
+      : getSafeFallbackModelKey(failedModelKey);
+    var fallbackModel = fallbackModelKey ? getTranscriptionModeByKey(fallbackModelKey) : null;
+    var reason = workerData && workerData.message
+      ? workerData.message
+      : "The selected model is not stable on this device. Switching to a safer transcription mode.";
+
+    if (!context || workerData.errorCode !== "WEBGPU_TREX_UNSUPPORTED" || !fallbackModelKey || !fallbackModel) {
+      return false;
+    }
+
+    stopFakeProgress();
+    stopProgressMessages();
+    setProgress(0);
+    setProgressMessage("");
+    processingLocked = false;
+    modelUnloadPending = false;
+    pendingModelRequestKey = "";
+    activePreparedModelKey = "";
+    stopLockHeartbeat();
+    releaseModelLock();
+    clearPendingTranscriptionStart();
+    activeTranscriptionContext = null;
+    setEnhanceToggleState(document.getElementById("enhance-audio"), true);
+    if (context.input) {
+      context.input.disabled = false;
+    }
+
+    disableModelForSession(failedModelKey, reason);
+    selectedTranscriptionModelKey = fallbackModelKey;
+    modelWarmState = ensureTranscriptionModelState(fallbackModelKey).enabled ? "idle" : "disabled";
+    rebuildTranscribeWorker();
+    refreshTranscriptionModelUi(getPrimaryTranscribeRoot());
+    setStatus(context.statusEl, reason, "warning");
+
+    window.setTimeout(function () {
+      startTranscription(
+        fallbackModel.key,
+        context.language,
+        context.statusEl,
+        context.transcriptEl,
+        context.copyBtn,
+        context.txtBtn,
+        context.srtBtn,
+        context.vttBtn,
+        context.startBtn,
+        context.translateBtn,
+        context.originalTabBtn,
+        context.translatedTabBtn,
+        context.editBtn,
+        context.input,
+        context.audioContext,
+        context.afterRunCleanup
+      );
+    }, 0);
+
+    return true;
+  }
+
   function selectTranscriptionModel(modelKey, options) {
     var nextModel = getTranscriptionModeByKey(modelKey);
     var nextState = ensureTranscriptionModelState(nextModel.key);
@@ -2247,9 +2334,7 @@
       throw new Error("Missing audio source");
     }
 
-    if (audioContext.state === "suspended") {
-      await audioContext.resume();
-    }
+    await ensureTranscriptionAudioContextReady(audioContext);
 
     var arrayBuffer = await audioRecord.file.arrayBuffer();
     var audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
@@ -2272,6 +2357,16 @@
     audioRecord.needsDecode = false;
 
     return audioRecord;
+  }
+
+  async function ensureTranscriptionAudioContextReady(audioContext) {
+    if (!audioContext || typeof audioContext.resume !== "function") {
+      return;
+    }
+
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
   }
 
   function cleanText(text) {
@@ -3066,6 +3161,41 @@ function generateVTT(segments) {
     activeTranscriptionContext = null;
   }
 
+  function restoreAfterTranscriptionFailure(context, options) {
+    var config = options || {};
+    var failureMessage = config.message || "Transcription failed";
+    var modelErrorMessage = config.modelErrorMessage || failureMessage;
+
+    processingLocked = false;
+    stopFakeProgress();
+    stopProgressMessages();
+    stopLockHeartbeat();
+    releaseModelLock();
+    clearPendingTranscriptionStart();
+    modelWarmState = "error";
+    setProgress(0);
+    setProgressMessage("");
+
+    if (context) {
+      setStatus(context.statusEl, failureMessage, "error");
+      setTranscribeButtonState(context.startBtn, false);
+      setEnhanceToggleState(document.getElementById("enhance-audio"), true);
+      if (typeof context.afterRunCleanup === "function") {
+        context.afterRunCleanup({
+          keepResults: true
+        });
+      }
+    }
+
+    if (selectedTranscriptionModelKey) {
+      setModelUiState(selectedTranscriptionModelKey, "error", modelErrorMessage);
+    }
+
+    activeTranscriptionContext = null;
+    syncTranscribeReadyState();
+    refreshTranscribeLayout();
+  }
+
   function handleTranslationResult(text, texts) {
     var context = activeTranslationContext;
     var translatedPayload = Array.isArray(texts) ? texts : [];
@@ -3194,39 +3324,14 @@ function generateVTT(segments) {
       modelUnloadPending = false;
       pendingModelRequestKey = "";
       activePreparedModelKey = "";
-      processingLocked = false;
-      stopFakeProgress();
-      stopProgressMessages();
-      stopLockHeartbeat();
-      releaseModelLock();
-
-      if (selectedTranscriptionModelKey) {
-        setModelUiState(
-          selectedTranscriptionModelKey,
-          "error",
-          isSafariLikeBrowser()
-            ? "Safari could not finish preparing this local model. Try reloading once or use a desktop browser."
-            : "The local transcription worker stopped unexpectedly. Please try again."
-        );
-      }
-
-      modelWarmState = "error";
-
-      var statusEl = getPrimaryTranscribeStatusEl();
-      if (statusEl) {
-        setStatus(
-          statusEl,
-          isSafariLikeBrowser()
-            ? "Safari ran into a memory or browser-limit issue while preparing the model."
-            : "The local transcription worker stopped unexpectedly.",
-          "error"
-        );
-      }
-
-      setProgress(0);
-      setProgressMessage("");
-      syncTranscribeReadyState();
-      refreshTranscribeLayout();
+      restoreAfterTranscriptionFailure(activeTranscriptionContext, {
+        message: isSafariLikeBrowser()
+          ? "This phone ran out of memory during local transcription. File is still loaded. Try again, use a shorter file, or switch to desktop."
+          : "The local transcription worker stopped unexpectedly. File is still loaded so you can retry.",
+        modelErrorMessage: isSafariLikeBrowser()
+          ? "Phone memory ran out during transcription. Try a shorter file or reload once."
+          : "The local transcription worker stopped unexpectedly. Please try again."
+      });
     };
 
     targetWorker.onmessageerror = function () {
@@ -3237,14 +3342,10 @@ function generateVTT(segments) {
       modelUnloadPending = false;
       pendingModelRequestKey = "";
       activePreparedModelKey = "";
-      modelWarmState = "error";
-      stopLockHeartbeat();
-      releaseModelLock();
-      if (selectedTranscriptionModelKey) {
-        setModelUiState(selectedTranscriptionModelKey, "error", "Worker communication failed.");
-      }
-      syncTranscribeReadyState();
-      refreshTranscribeLayout();
+      restoreAfterTranscriptionFailure(activeTranscriptionContext, {
+        message: "Worker communication failed. File is still loaded so you can retry.",
+        modelErrorMessage: "Worker communication failed."
+      });
     };
 
     targetWorker.onmessage = function (e) {
@@ -3320,6 +3421,23 @@ function generateVTT(segments) {
         startLockHeartbeat();
         if (modelKey === selectedTranscriptionModelKey) {
           modelWarmState = "ready";
+        }
+        if (pendingTranscriptionStart && !activeTranscriptionContext && processingLocked && pendingTranscriptionStart.modelKey === modelKey) {
+          var pendingStart = pendingTranscriptionStart;
+          if (pendingStart.statusEl) {
+            setStatus(pendingStart.statusEl, getModelStartStatus(e.data.loadState), "processing");
+          }
+          stopFakeProgress();
+          stopProgressMessages(false);
+          setProgress(0);
+          setProgressMessage("Preparing audio...");
+          processingLocked = false;
+          resumePendingTranscriptionStart().catch(function (error) {
+            console.error("Failed to resume transcription after model load:", error);
+          });
+          syncTranscribeReadyState();
+          refreshTranscribeLayout();
+          return;
         }
         if (activeTranscriptionContext && activeTranscriptionContext.modelKey === modelKey) {
           setStatus(activeTranscriptionContext.statusEl, getModelStartStatus(e.data.loadState), "processing");
@@ -3452,28 +3570,13 @@ function generateVTT(segments) {
 
       if (type === "error") {
         var context = activeTranscriptionContext;
-        processingLocked = false;
-        stopFakeProgress();
-        stopProgressMessages();
-        if (context) {
-          setStatus(context.statusEl, message || "Transcription failed", "error");
-          setProgressMessage("");
-          setProgress(0);
-          setTranscribeButtonState(context.startBtn, false);
-          setEnhanceToggleState(document.getElementById("enhance-audio"), true);
-          if (typeof context.afterRunCleanup === "function") {
-            context.afterRunCleanup({
-              keepResults: false
-            });
-          }
+        if (context && tryKnownTranscriptionFallback(context, e.data || {})) {
+          return;
         }
-        activeTranscriptionContext = null;
-        modelWarmState = "error";
-        setModelUiState(selectedTranscriptionModelKey, "error", message || "Transcription failed");
-        stopLockHeartbeat();
-        releaseModelLock();
-        syncTranscribeReadyState();
-        refreshTranscribeLayout();
+        restoreAfterTranscriptionFailure(context, {
+          message: message || "Transcription failed. File is still loaded so you can retry.",
+          modelErrorMessage: message || "Transcription failed"
+        });
         if (message) {
           console.error("Transcription worker error:", message);
         }
@@ -3525,9 +3628,11 @@ function generateVTT(segments) {
 
   async function startTranscription(modelKey, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, audioContext, afterRunCleanup) {
     var audio = window.transcriptionAudio;
+    var selectedModel = getTranscriptionModeByKey(modelKey) || getSelectedTranscriptionMode();
+    var isPreparedModelReady = activePreparedModelKey === modelKey && modelWarmState === "ready";
 
     // Prevent concurrent processing
-    if (!audio || processingLocked) {
+    if (!audio || activeTranscriptionContext || (processingLocked && !isPreparedModelReady)) {
       return;
     }
 
@@ -3554,7 +3659,6 @@ function generateVTT(segments) {
       return;
     }
 
-    clearPendingTranscriptionStart();
     clearIdleUnloadTimer();
 
     // Lock processing
@@ -3567,6 +3671,17 @@ function generateVTT(segments) {
     input.disabled = true;
 
     try {
+      await ensureTranscriptionAudioContextReady(audioContext);
+
+      if (!isPreparedModelReady) {
+        setStatus(statusEl, "Preparing " + selectedModel.label + "...", "processing");
+        setProgressMessage(FIRST_RUN_MODEL_COPY);
+        setProgress(0);
+        requestModelWarmup();
+        return;
+      }
+
+      clearPendingTranscriptionStart();
       setStatus(statusEl, "Preparing audio...", "processing");
       setProgressMessage("Preparing audio...");
       setProgress(0);
@@ -3612,21 +3727,32 @@ function generateVTT(segments) {
         originalTabBtn: originalTabBtn,
         translatedTabBtn: translatedTabBtn,
         editBtn: editBtn,
+        input: input,
+        audioContext: audioContext,
         duration: audio.duration,
         afterRunCleanup: afterRunCleanup
       };
 
       var selectedLanguage = language || "auto";
+      var shouldReleaseDecodedAudio = !!audio.phoneOptimized || isSafariLikeBrowser();
+      var transferBuffer = resampled.buffer;
 
       worker.postMessage(
     {
       type: "transcribe",
       modelKey: modelKey,
-      audio: resampled.buffer,
+      audio: transferBuffer,
       selectedLanguage: selectedLanguage
     },
-    [resampled.buffer]
+    [transferBuffer]
   );
+      if (shouldReleaseDecodedAudio) {
+        audio.data = null;
+        audio.sampleRate = 0;
+        audio.needsDecode = true;
+      }
+      processedData = null;
+      resampled = null;
       return;
     } catch (error) {
       window.translatedTranscript = "";
@@ -3647,7 +3773,8 @@ function generateVTT(segments) {
       }
     } finally {
       // Unlock processing if transcription context not set (error occurred)
-      if (!activeTranscriptionContext) {
+      var waitingForModelPreparation = !!pendingTranscriptionStart && !activeTranscriptionContext && processingLocked && (modelWarmState === "loading" || modelWarmState === "blocked");
+      if (!activeTranscriptionContext && !waitingForModelPreparation) {
         clearPendingTranscriptionStart();
         processingLocked = false;
         setTranscribeButtonState(startBtn, false);

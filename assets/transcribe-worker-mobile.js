@@ -9,10 +9,6 @@ const ONNX_RUNTIME_NOISE_PATTERNS = [
 ];
 
 const MOBILE_MODEL_KEY = "baby-raptor";
-const MOBILE_MODEL_ID = "Xenova/whisper-base";
-const MOBILE_CHUNK_LENGTH_SECONDS = 30;
-const MOBILE_STRIDE_LENGTH_SECONDS = 5;
-const MOBILE_QUANTIZED = false;
 
 function shouldSuppressOnnxRuntimeNoise(args) {
   const text = args.map((value) => {
@@ -60,6 +56,18 @@ function isSafariLikeBrowser() {
   return /Safari/i.test(userAgent)
     && /Apple/i.test(vendor)
     && !/CriOS|FxiOS|EdgiOS|Chrome|Chromium|Android/i.test(userAgent);
+}
+
+function getMobileRuntimeProfile() {
+  const safariLike = isSafariLikeBrowser();
+
+  return {
+    modelId: safariLike ? "Xenova/whisper-tiny" : "Xenova/whisper-base",
+    chunkLengthSeconds: safariLike ? 18 : 30,
+    strideLengthSeconds: safariLike ? 3 : 5,
+    quantized: safariLike,
+    partialUpdates: !safariLike
+  };
 }
 
 function clampPercent(value) {
@@ -267,22 +275,23 @@ async function loadTranscriptionModel(progressCallback) {
 
   isLoading = true;
   const tracker = createModelProgressTracker(MOBILE_MODEL_KEY);
+  const runtimeProfile = getMobileRuntimeProfile();
 
   try {
     const runtime = await getRuntime();
     postMessage({ type: "model_loading", modelKey: MOBILE_MODEL_KEY });
     transcriber = await runtime.pipeline(
       "automatic-speech-recognition",
-      MOBILE_MODEL_ID,
+      runtimeProfile.modelId,
       {
-        quantized: MOBILE_QUANTIZED,
+        quantized: runtimeProfile.quantized,
         progress_callback: (info) => {
           tracker.update(info);
           if (typeof progressCallback === "function") {
             progressCallback(info);
           }
         },
-        revision: MOBILE_MODEL_ID.includes("/whisper-medium") ? "no_attentions" : "main"
+        revision: runtimeProfile.modelId.includes("/whisper-medium") ? "no_attentions" : "main"
       }
     );
   } catch (error) {
@@ -331,6 +340,7 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
 
   const sampleRate = 16000;
   const durationSeconds = audio.length / sampleRate;
+  const runtimeProfile = getMobileRuntimeProfile();
   const timePrecision = model
     && model.processor
     && model.processor.feature_extractor
@@ -360,7 +370,7 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
       activeChunk.tokens = data[0].output_token_ids.slice();
     }
 
-    if (timePrecision && model && model.tokenizer && typeof model.tokenizer._decode_asr === "function") {
+    if (runtimeProfile.partialUpdates && timePrecision && model && model.tokenizer && typeof model.tokenizer._decode_asr === "function") {
       try {
         const partial = model.tokenizer._decode_asr(callbackChunks, {
           time_precision: timePrecision,
@@ -389,15 +399,18 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
   const options = {
     top_k: 0,
     do_sample: false,
-    chunk_length_s: MOBILE_CHUNK_LENGTH_SECONDS,
-    stride_length_s: MOBILE_STRIDE_LENGTH_SECONDS,
+    chunk_length_s: runtimeProfile.chunkLengthSeconds,
+    stride_length_s: runtimeProfile.strideLengthSeconds,
     return_timestamps: true,
     force_full_sequences: false,
-    callback_function: callbackFunction,
-    chunk_callback: chunkCallback,
     task: "transcribe",
     sampling_rate: sampleRate
   };
+
+  if (runtimeProfile.partialUpdates) {
+    options.callback_function = callbackFunction;
+    options.chunk_callback = chunkCallback;
+  }
 
   if (selectedLanguage && selectedLanguage !== "auto") {
     options.language = selectedLanguage;
