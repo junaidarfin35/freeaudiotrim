@@ -62,30 +62,6 @@ function isSafariLikeBrowser() {
     && !/CriOS|FxiOS|EdgiOS|Chrome|Chromium|Android/i.test(userAgent);
 }
 
-function hasBrowserCacheSupport() {
-  try {
-    if (typeof caches === "undefined" || !caches || typeof caches.open !== "function") {
-      return false;
-    }
-
-    const locationHost = typeof self !== "undefined" && self.location
-      ? String(self.location.hostname || "").toLowerCase()
-      : "";
-    const isLocalhostLike = locationHost === "localhost"
-      || locationHost === "127.0.0.1"
-      || locationHost === "::1";
-    const secureContextKnown = typeof self !== "undefined" && "isSecureContext" in self;
-
-    if (secureContextKnown && !self.isSecureContext && !isLocalhostLike) {
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    return false;
-  }
-}
-
 function clampPercent(value) {
   if (!Number.isFinite(value)) {
     return 0;
@@ -231,7 +207,7 @@ function configureRuntimeEnvironment(runtimeEnv) {
   }
 
   if ("useBrowserCache" in runtimeEnv) {
-    runtimeEnv.useBrowserCache = hasBrowserCacheSupport();
+    runtimeEnv.useBrowserCache = false;
   }
   if ("useWasmCache" in runtimeEnv) {
     runtimeEnv.useWasmCache = !isSafariLikeBrowser();
