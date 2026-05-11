@@ -1624,16 +1624,18 @@
     });
 
     window.addEventListener("pagehide", function () {
-      clearIdleUnloadTimer();
-      stopLockHeartbeat();
-      releaseModelLock();
       try {
-        if (worker) {
-          worker.postMessage({
-            type: "unload",
-            includeTranslation: true,
-            reason: "pagehide"
-          });
+        if (typeof window.__transcribePageExitTeardown === "function") {
+          window.__transcribePageExitTeardown();
+        }
+      } catch (error) {
+      }
+    });
+
+    window.addEventListener("beforeunload", function () {
+      try {
+        if (typeof window.__transcribePageExitTeardown === "function") {
+          window.__transcribePageExitTeardown();
         }
       } catch (error) {
       }
@@ -3866,6 +3868,10 @@ function generateVTT(segments) {
       stopFakeProgress();
       stopProgressMessages();
       clearIdleUnloadTimer();
+      if (lockRetryTimer) {
+        window.clearTimeout(lockRetryTimer);
+        lockRetryTimer = null;
+      }
       setProgress(0);
       setProgressMessage("");
       processingLocked = false;
@@ -3878,6 +3884,8 @@ function generateVTT(segments) {
     function resetTranscriptState() {
       previewEditMode = false;
       root.__translationSetupOpen = false;
+      srtContent = "";
+      vttContent = "";
       window.currentTranscript = "";
       window.currentSegments = [];
       window.translatedTranscript = "";
@@ -3903,13 +3911,47 @@ function generateVTT(segments) {
       syncTranslationReadyState();
     }
 
-    function clearFileSelection() {
+    function resetSessionWorker(options) {
+      var shouldRebuild = !options || options.rebuild !== false;
+
+      clearIdleUnloadTimer();
+      stopLockHeartbeat();
+      releaseModelLock();
+      modelUnloadPending = false;
+      pendingModelRequestKey = "";
+      activePreparedModelKey = "";
+      resetOtherModelStates("");
+      modelWarmState = getSelectedModelState().enabled ? "idle" : "disabled";
+
+      if (selectedTranscriptionModelKey) {
+        setModelUiState(selectedTranscriptionModelKey, getSelectedModelState().enabled ? "idle" : "disabled");
+      }
+
+      if (worker) {
+        try {
+          worker.terminate();
+        } catch (error) {
+        }
+        worker = null;
+      }
+
+      if (shouldRebuild) {
+        var generation = createTranscribeWorker();
+        attachWorkerListeners(worker, generation);
+      }
+    }
+
+    function clearFileSelection(options) {
+      var preserveInputValue = !!(options && options.preserveInputValue);
+
       if (root.__audioPreviewUrl) {
         URL.revokeObjectURL(root.__audioPreviewUrl);
         root.__audioPreviewUrl = "";
       }
       root.__translationSetupOpen = false;
-      input.value = "";
+      if (!preserveInputValue) {
+        input.value = "";
+      }
       input.disabled = false;
       fileNameEl.textContent = "No file selected";
       if (audioPlayer) {
@@ -3923,26 +3965,66 @@ function generateVTT(segments) {
         toolRoot.classList.remove("is-active");
       }
       window.transcriptionAudio = null;
-      requestWorkerUnload("clear_file", true);
       updateToolLayout(root);
+    }
+
+    function teardownTranscriptionSession(options) {
+      var config = options || {};
+      var hideShell = !!config.hideShell;
+      var preserveInputValue = !!config.preserveInputValue;
+      var rebuildWorker = config.rebuildWorker !== false;
+      var resetStatusText = config.resetStatusText !== false;
+
+      resetProcessingUi();
+      resetTranscriptState();
+      clearFileSelection({
+        preserveInputValue: preserveInputValue
+      });
+      resetSessionWorker({
+        rebuild: rebuildWorker
+      });
+      showTimestamps = true;
+      if (timestampCheckbox) {
+        timestampCheckbox.checked = true;
+      }
+      closeLanguagePicker();
+      closeTranslationSourcePicker();
+      closeTranslationTargetPicker();
+      transcriptEl.textContent = EMPTY_TRANSCRIPT_TEXT;
+      setTranscribeButtonState(startBtn, false);
+      setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, false);
+      setTranslationButtonsState(translateBtn, null, null, null, false);
+      setEnhanceToggleState(root.querySelector("#enhance-audio"), true);
+
+      if (resetStatusText) {
+        setStatus(statusEl, "Upload a file to begin transcription", "idle");
+      }
+
+      updateRuntimeMessaging(root);
+      syncTranscribeReadyState();
+      refreshTranscribeLayout();
+      updateToolLayout(root);
+
+      if (hideShell) {
+        document.dispatchEvent(new Event("converter:empty"));
+      }
     }
 
     function resetForNextUpload(options) {
       var keepResults = !!(options && options.keepResults);
 
-      resetProcessingUi();
-
       if (!keepResults) {
-        clearFileSelection();
-        setTranscribeButtonState(startBtn, false);
-        updateRuntimeMessaging(root);
-        resetTranscriptState();
+        teardownTranscriptionSession({
+          hideShell: false,
+          resetStatusText: true,
+          rebuildWorker: true
+        });
       } else if (translateBtn) {
+        resetProcessingUi();
         input.disabled = false;
         translateBtn.disabled = !window.currentTranscript;
+        updateToolLayout(root);
       }
-
-      updateToolLayout(root);
     }
 
     initializeTranscriptionModelStates();
@@ -3991,13 +4073,11 @@ function generateVTT(segments) {
     }
     if (restartBtn) {
       restartBtn.addEventListener("click", function () {
-        resetProcessingUi();
-        resetTranscriptState();
-        clearFileSelection();
-        document.dispatchEvent(new Event("converter:empty"));
-        if (typeof window.initTranscribeTool === "function") {
-          window.initTranscribeTool(root);
-        }
+        teardownTranscriptionSession({
+          hideShell: true,
+          resetStatusText: true,
+          rebuildWorker: true
+        });
       });
     }
     if (changeFileBtn) {
@@ -4376,11 +4456,15 @@ function generateVTT(segments) {
         setStatus(statusEl, "Unsupported or corrupted file", "error");
         return;
       }
+      teardownTranscriptionSession({
+        hideShell: false,
+        preserveInputValue: true,
+        resetStatusText: false,
+        rebuildWorker: true
+      });
       if (toolRoot) {
         toolRoot.classList.add("is-active");
       }
-      previewEditMode = false;
-      resetProcessingUi();
       fileNameEl.textContent = file.name;
       updateFileIcon(root, file);
       window.originalFileName = file.name.replace(/\.[^/.]+$/, "");
@@ -4427,6 +4511,23 @@ function generateVTT(segments) {
       requestModelWarmup();
       syncTranscribeReadyState();
     }
+
+    root.__audioToolController = {
+      destroy: function () {
+        teardownTranscriptionSession({
+          hideShell: false,
+          resetStatusText: true,
+          rebuildWorker: false
+        });
+      }
+    };
+    window.__transcribePageExitTeardown = function () {
+      teardownTranscriptionSession({
+        hideShell: false,
+        resetStatusText: false,
+        rebuildWorker: false
+      });
+    };
 
     window.AudioVideoTranscriptionTool = {
       addFile: handleSelectedFile
