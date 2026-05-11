@@ -3666,28 +3666,63 @@ body.audio-converter-page #audio-tool .at-tools {
   line-height: 1.55;
 }
 
-html[dir="rtl"] body[data-page="transcribe-ar"] #audio-tool .ts-segment {
+#audio-tool .ts-segment {
   padding: 12px 0;
   line-height: 2;
   border-bottom: 1px solid #eee;
-  direction: rtl;
-  text-align: right;
 }
 
-html[dir="rtl"] body[data-page="transcribe-ar"] #audio-tool .ts-segment:hover {
+#audio-tool .ts-segment:hover {
   background: var(--color-surface-muted);
 }
 
-html[dir="rtl"] body[data-page="transcribe-ar"] #audio-tool .ts-segment:last-child {
+#audio-tool .ts-segment:last-child {
   border-bottom: 0;
 }
 
-html[dir="rtl"] body[data-page="transcribe-ar"] #audio-tool .ts-paragraph {
-  direction: rtl;
-  text-align: right;
+#audio-tool .ts-paragraph {
   line-height: 2;
   padding: 12px 0;
   white-space: normal;
+}
+
+#audio-tool .at-transcript-box[data-transcript-root],
+#audio-tool .ts-segment,
+#audio-tool .ts-paragraph,
+#audio-tool .ts-text,
+#audio-tool .ts-segment-text,
+#audio-tool [data-transcript-text] {
+  unicode-bidi: isolate;
+  white-space: pre-wrap;
+}
+
+#audio-tool .at-transcript-box[dir="rtl"],
+#audio-tool .ts-segment[dir="rtl"],
+#audio-tool .ts-paragraph[dir="rtl"],
+#audio-tool .ts-text[dir="rtl"],
+#audio-tool .ts-segment-text[dir="rtl"],
+#audio-tool [data-transcript-text][dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+#audio-tool .at-transcript-box[dir="ltr"],
+#audio-tool .ts-segment[dir="ltr"],
+#audio-tool .ts-paragraph[dir="ltr"],
+#audio-tool .ts-text[dir="ltr"],
+#audio-tool .ts-segment-text[dir="ltr"],
+#audio-tool [data-transcript-text][dir="ltr"] {
+  direction: ltr;
+  text-align: left;
+}
+
+#audio-tool .at-transcript-box[dir="auto"],
+#audio-tool .ts-segment[dir="auto"],
+#audio-tool .ts-paragraph[dir="auto"],
+#audio-tool .ts-text[dir="auto"],
+#audio-tool .ts-segment-text[dir="auto"],
+#audio-tool [data-transcript-text][dir="auto"] {
+  unicode-bidi: plaintext;
 }
 
 #audio-tool .ts-sentence {

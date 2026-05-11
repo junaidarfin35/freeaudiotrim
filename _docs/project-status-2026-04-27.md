@@ -13,6 +13,8 @@ Status: `Step 6 active`
 3. Completed: harden weak Chrome/WebGPU handling so `T-Rex` fails gracefully and falls back safely without re-upload.
 4. Completed: separate translation pipeline from transcription into independent controller and worker lifecycle while keeping same page UX.
 5. Completed: replace fixed duration cap with dynamic device and model duration limits and explain the limit clearly in UI.
+5.5 Completed: make transcript preview and TXT/SRT export direction follow the selected or detected content language instead of the website UI language, without changing transcript text or edit mode behavior.
+5.6 Completed: block memory-risk WAV files on phone before transcription starts, and fix transcript edit mode so typing no longer rebuilds the editable node on every keystroke.
 6. Active: benchmark Arabic-specific ASR candidates and choose production Arabic default based on accuracy, speed, stability, and browser feasibility.
 
 ## Transcription Progress
@@ -25,6 +27,15 @@ Status: `Steps 1-5 completed`
 - Weak Chrome/WebGPU `T-Rex` failures now auto-fallback to `Triceratops` without forcing re-upload.
 - Translation now runs through its own worker lifecycle, so translation start, completion, failure, and reset paths no longer share the transcription worker state.
 - Duration limits now resolve dynamically per device tier and selected model, the UI explains why the limit changes, and over-limit files stay loaded with an actionable next step instead of bouncing back to upload.
+- Transcript preview direction now follows the actual content language instead of the page language:
+  - original transcript follows the selected or detected transcription language
+  - translated transcript follows the actual translation target language
+  - bilingual text relies on browser bidi rendering only, with no word reversal or transcript-text mutation
+  - TXT and SRT exports add safe direction marks only during export generation
+- Phone WAV safety and transcript editing were tightened again:
+  - risky large WAV files on phone now stop before transcription starts with an honest memory-risk message
+  - the file shell stays open so users can change file quickly instead of crashing mid-run
+  - transcript edit mode no longer rerenders the segment DOM on every keystroke, so typing works normally again
 - Phone transcription path was further stabilized for repeat-use testing:
   - browser cache guards for insecure local-network mobile testing
   - truthful model/download/transcription status handoff

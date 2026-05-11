@@ -90,6 +90,16 @@
   var EMPTY_TRANSCRIPT_TEXT = "Transcription will appear here after processing.";
   var showTimestamps = true;
   var previewEditMode = false;
+  var RTL_LANGS = new Set([
+    "ar", "ara",
+    "ur", "urd",
+    "fa", "fas", "per", "pes",
+    "ps", "pus",
+    "he", "heb",
+    "yi", "yid",
+    "sd", "snd",
+    "ku", "ckb"
+  ]);
 
   var TRANSLATION_LANGUAGES = [
     { code: "en", name: "English", flores: "eng_Latn" },
@@ -507,6 +517,143 @@
     return !!language;
   }
 
+  function getTextDirectionFromLanguage(lang) {
+    var value = String(lang || "").toLowerCase();
+    var base;
+
+    if (!value || value === "auto" || value === "detect" || value === "auto-detect") {
+      return "auto";
+    }
+
+    base = value.split("-")[0].split("_")[0];
+    return RTL_LANGS.has(base) ? "rtl" : "ltr";
+  }
+
+  function getLangCode(lang) {
+    var value = String(lang || "").toLowerCase();
+
+    if (!value || value === "auto" || value === "detect" || value === "auto-detect") {
+      return "";
+    }
+
+    return value;
+  }
+
+  function getEffectiveTranscriptionContentLanguage() {
+    return getLangCode(getSelectedTranscriptionLanguage())
+      || getLangCode(window.transcriptionDetectedLanguage)
+      || getLangCode(window.transcriptionSourceLanguage);
+  }
+
+  function getEffectiveTranslatedContentLanguage() {
+    return getLangCode(window.translatedTranscriptLanguage)
+      || getLangCode(window.transcriptionDetectedLanguage)
+      || getLangCode(window.transcriptionSourceLanguage);
+  }
+
+  function getActiveTranscriptContentLanguage() {
+    if (window.currentTab === "translated" && hasTranslatedSegments()) {
+      return getEffectiveTranslatedContentLanguage() || getEffectiveTranscriptionContentLanguage();
+    }
+
+    return getEffectiveTranscriptionContentLanguage();
+  }
+
+  function applyTranscriptDirection(root, selectedLanguage) {
+    var dir;
+    var lang;
+
+    if (!root) {
+      return;
+    }
+
+    dir = getTextDirectionFromLanguage(selectedLanguage);
+    lang = getLangCode(selectedLanguage);
+
+    root.setAttribute("data-transcript-root", "1");
+    root.setAttribute("dir", dir);
+    root.style.direction = dir === "auto" ? "" : dir;
+
+    if (lang) {
+      root.setAttribute("lang", lang);
+    } else {
+      root.removeAttribute("lang");
+    }
+
+    Array.prototype.forEach.call(
+      root.querySelectorAll(".ts-segment, .ts-paragraph, .ts-text, .ts-segment-text, [data-transcript-text]"),
+      function (node) {
+        node.setAttribute("dir", dir);
+
+        if (lang) {
+          node.setAttribute("lang", lang);
+        } else {
+          node.removeAttribute("lang");
+        }
+      }
+    );
+  }
+
+  function clearTranscriptDirection(root) {
+    if (!root) {
+      return;
+    }
+
+    root.removeAttribute("data-transcript-root");
+    root.removeAttribute("dir");
+    root.removeAttribute("lang");
+    root.style.direction = "";
+
+    Array.prototype.forEach.call(
+      root.querySelectorAll(".ts-segment, .ts-paragraph, .ts-text, .ts-segment-text, [data-transcript-text]"),
+      function (node) {
+        node.removeAttribute("dir");
+        node.removeAttribute("lang");
+      }
+    );
+  }
+
+  function applyCurrentTranscriptDirection(root) {
+    if (!root) {
+      return;
+    }
+
+    if (window.currentTab === "translated" && hasTranslatedSegments()) {
+      applyTranscriptDirection(root, getActiveTranscriptContentLanguage());
+      return;
+    }
+
+    if (window.currentTranscript || getActiveSegments().length) {
+      applyTranscriptDirection(root, getActiveTranscriptContentLanguage());
+      return;
+    }
+
+    clearTranscriptDirection(root);
+  }
+
+  function applyExportDirectionMark(text, selectedLanguage) {
+    var dir = getTextDirectionFromLanguage(selectedLanguage);
+
+    if (dir === "rtl") {
+      return "\u200F" + String(text || "");
+    }
+
+    if (dir === "ltr") {
+      return "\u200E" + String(text || "");
+    }
+
+    return String(text || "");
+  }
+
+  function applyExportDirectionMarks(text, selectedLanguage) {
+    return String(text || "")
+      .split(/\r?\n/)
+      .map(function (line) {
+        return line ? applyExportDirectionMark(line, selectedLanguage) : line;
+      })
+      .join("\n");
+  }
+
   function createCapabilityDecision(enabled, reason) {
     return {
       enabled: !!enabled,
@@ -793,6 +940,53 @@
     return minutes + "m " + String(remainder).padStart(2, "0") + "s";
   }
 
+  function formatFileSize(bytes) {
+    var value = Math.max(0, Number(bytes) || 0);
+
+    if (value >= 1024 * 1024) {
+      return (value / (1024 * 1024)).toFixed(value >= 10 * 1024 * 1024 ? 0 : 1) + " MB";
+    }
+
+    if (value >= 1024) {
+      return Math.round(value / 1024) + " KB";
+    }
+
+    return value + " B";
+  }
+
+  function isWaveAudioFile(file) {
+    var type = String(file && file.type || "").toLowerCase();
+    var extension = getFileExtension(file && file.name);
+
+    return extension === ".wav"
+      || type === "audio/wav"
+      || type === "audio/wave"
+      || type === "audio/x-wav"
+      || type === "audio/vnd.wave";
+  }
+
+  function getPhoneFileRiskReason(file) {
+    var size = Number(file && file.size) || 0;
+    var isPhoneMode = isPhoneTranscriptionModeActive();
+    var isSafariPhone = isPhoneMode && isSafariLikeBrowser();
+    var wavMaxBytes = isSafariPhone ? 8 * 1024 * 1024 : 12 * 1024 * 1024;
+    var genericMaxBytes = isSafariPhone ? 48 * 1024 * 1024 : 64 * 1024 * 1024;
+
+    if (!file || !isPhoneMode) {
+      return "";
+    }
+
+    if (isWaveAudioFile(file) && size > wavMaxBytes) {
+      return "This WAV file is too heavy for reliable phone transcription (" + formatFileSize(size) + "). Convert it to M4A or MP3, trim it shorter, or switch to desktop.";
+    }
+
+    if (size > genericMaxBytes) {
+      return "This file is too large for reliable phone transcription (" + formatFileSize(size) + "). Use a shorter clip or switch to desktop.";
+    }
+
+    return "";
+  }
+
   function getDurationPolicyTier(profile) {
     var safeProfile = profile || transcriptionCapabilityProfile || probeTranscriptionCapabilities();
     var memory = safeProfile && Number.isFinite(safeProfile.deviceMemory) ? safeProfile.deviceMemory : 0;
@@ -919,6 +1113,10 @@
       return policy.modelLabel + " is unavailable on this device. " + selectedState.reason;
     }
 
+    if (window.transcriptionAudio && window.transcriptionAudio.phoneRiskReason) {
+      return window.transcriptionAudio.phoneRiskReason;
+    }
+
     if (!hasSelectedTranscriptionLanguage(selectedLanguage)) {
       return "Choose the spoken language to reveal this device's current file limit for " + policy.modelLabel + ". " + policy.reason;
     }
@@ -937,6 +1135,10 @@
 
     if (!selectedState.enabled) {
       return selectedModel.label + " is disabled on this device. " + selectedState.reason;
+    }
+
+    if (window.transcriptionAudio && window.transcriptionAudio.phoneRiskReason) {
+      return window.transcriptionAudio.phoneRiskReason;
     }
 
     if (modelWarmState === "loading") {
@@ -1062,6 +1264,7 @@
 
   function canStartTranscription(language) {
     return hasLoadedTranscriptionFile(window.transcriptionAudio)
+      && !(window.transcriptionAudio && window.transcriptionAudio.phoneRiskReason)
       && hasSelectedTranscriptionLanguage(language)
       && !processingLocked
       && getSelectedModelState().enabled
@@ -1083,6 +1286,8 @@
         startBtn.textContent = "Choose file again";
       } else if (!selectedState.enabled) {
         startBtn.textContent = "Transcribe unavailable";
+      } else if (window.transcriptionAudio && window.transcriptionAudio.phoneRiskReason) {
+        startBtn.textContent = "Use smaller file";
       } else if (!hasSelectedTranscriptionLanguage(selectedLanguage)) {
         startBtn.textContent = "Select language first";
       } else if (modelWarmState === "blocked") {
@@ -2860,7 +3065,7 @@
     downloadBlob(buildExportFileName("Transcription", "txt"), window.currentTranscript);
   }
 
-function generateSRT(segments) {
+function generateSRT(segments, selectedLanguage) {
   if (!segments || segments.length === 0) return "";
 
   function formatTime(seconds) {
@@ -2875,8 +3080,9 @@ function generateSRT(segments) {
   return segments.map((seg, i) => {
     const start = formatTime(seg.timestamp[0]);
     const end = formatTime(seg.timestamp[1]);
+    const cueText = applyExportDirectionMark(seg.text || seg.editedText || seg.originalText || "", selectedLanguage);
 
-    return `${i + 1}\n${start} --> ${end}\n${seg.text || seg.editedText || seg.originalText || ""}\n`;
+    return `${i + 1}\n${start} --> ${end}\n${cueText}\n`;
   }).join('\n');
 }
 
@@ -2948,6 +3154,7 @@ function generateVTT(segments) {
     window.translatedTranscript = "";
     window.translatedTitle = "";
     window.translatedSubtitles = [];
+    window.translatedTranscriptLanguage = "";
     (window.currentSegments || []).forEach(function (segment) {
       if (segment) {
         segment.translatedText = "";
@@ -3169,13 +3376,11 @@ function generateVTT(segments) {
     return translated;
   }
 
-  function renderSegments(container, heading, segments, useTranslatedText) {
+  function renderSegments(container, heading, segments, useTranslatedText, contentLanguage) {
     var items = Array.isArray(segments) ? segments : [];
-    var fullText = getSegmentsParagraphText(items, useTranslatedText);
-    var lang = detectTranscriptLanguage(fullText);
 
     container.textContent = "";
-    container.setAttribute("lang", lang);
+    applyTranscriptDirection(container, contentLanguage);
 
     if (heading) {
       var headingEl = document.createElement("div");
@@ -3183,8 +3388,8 @@ function generateVTT(segments) {
 
       var headingText = document.createElement("div");
       headingText.className = "ts-text";
+      headingText.setAttribute("data-transcript-text", "1");
       headingText.textContent = heading;
-      headingText.lang = lang;
 
       headingEl.appendChild(headingText);
       container.appendChild(headingEl);
@@ -3192,7 +3397,6 @@ function generateVTT(segments) {
 
     var paragraphEl = document.createElement("div");
     paragraphEl.className = "ts-paragraph";
-    paragraphEl.setAttribute("lang", lang);
     items.forEach(function (segment, index) {
       var start = Array.isArray(segment.timestamp)
         ? segment.timestamp[0]
@@ -3211,11 +3415,10 @@ function generateVTT(segments) {
       textEl = document.createElement("span");
       textEl.className = "ts-segment-text";
       textEl.setAttribute("data-segment-editor", "1");
+      textEl.setAttribute("data-transcript-text", "1");
       textEl.setAttribute("data-index", String(index));
       textEl.contentEditable = previewEditMode ? "true" : "false";
       textEl.spellcheck = false;
-      textEl.lang = lang;
-
       textEl.textContent = lineText;
       wrapper.appendChild(textEl);
 
@@ -3231,6 +3434,7 @@ function generateVTT(segments) {
     });
 
     container.appendChild(paragraphEl);
+    applyTranscriptDirection(container, contentLanguage);
   }
 
   function updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn) {
@@ -3263,10 +3467,11 @@ function generateVTT(segments) {
         transcriptEl,
         window.translatedTitle || "",
         getActiveSegments(),
-        true
+        true,
+        getEffectiveTranslatedContentLanguage() || getEffectiveTranscriptionContentLanguage()
       );
     } else if (builtInTranslationAllowed && window.currentTab === "translated" && !hasTranslation) {
-      transcriptEl.removeAttribute("lang");
+      clearTranscriptDirection(transcriptEl);
       transcriptEl.textContent = "Translate your transcript to view it here.";
     } else if (window.currentTranscript) {
       window.currentTab = "original";
@@ -3274,11 +3479,12 @@ function generateVTT(segments) {
         transcriptEl,
         "",
         getActiveSegments(),
-        false
+        false,
+        getEffectiveTranscriptionContentLanguage()
       );
     } else {
       window.currentTab = "original";
-      transcriptEl.removeAttribute("lang");
+      clearTranscriptDirection(transcriptEl);
       transcriptEl.textContent = EMPTY_TRANSCRIPT_TEXT;
     }
 
@@ -3329,17 +3535,19 @@ function generateVTT(segments) {
 
   function downloadActiveTXT() {
     var activeText = getActiveTranscript();
+    var activeLanguage = getActiveTranscriptContentLanguage();
     if (!activeText) {
       return;
     }
 
     var type = window.currentTab === "translated" ? "Translation" : "Transcription";
-    downloadBlob(buildExportFileName(type, "txt"), activeText);
+    downloadBlob(buildExportFileName(type, "txt"), applyExportDirectionMarks(activeText, activeLanguage));
   }
 
   function downloadActiveSRT() {
     var activeText = getActiveTranscript();
     var activeSegments = getActiveSegments();
+    var activeLanguage = getActiveTranscriptContentLanguage();
     if (!activeText || !activeSegments.length) {
       return;
     }
@@ -3351,7 +3559,7 @@ function generateVTT(segments) {
           ? segment.timestamp
           : [segment.start || 0, segment.end || segment.start || 0]
       };
-    }));
+    }), activeLanguage);
     var type = window.currentTab === "translated" ? "Translation" : "Transcription";
     downloadBlob(buildExportFileName(type, "srt"), srt);
   }
@@ -3401,7 +3609,9 @@ function generateVTT(segments) {
       window.translatedTranscript = "";
       window.translatedTitle = "";
       window.translatedSubtitles = [];
+      window.translatedTranscriptLanguage = "";
       window.transcriptionSourceLanguage = context.language;
+      window.transcriptionDetectedLanguage = getLangCode(context.detectedLanguage || "");
       window.currentTranscriptDuration = context.duration || 0;
       window.currentTab = "original";
       syncTranslationSourceSelection(document.querySelector("#translate-source-language"), false);
@@ -3429,7 +3639,9 @@ function generateVTT(segments) {
       window.translatedTranscript = "";
       window.translatedTitle = "";
       window.translatedSubtitles = [];
+      window.translatedTranscriptLanguage = "";
       window.transcriptionSourceLanguage = "";
+      window.transcriptionDetectedLanguage = "";
       window.currentTranscriptDuration = 0;
       syncTranslationSourceSelection(document.querySelector("#translate-source-language"), false);
       if (document.querySelector("#translate-language")) {
@@ -3526,6 +3738,7 @@ function generateVTT(segments) {
       translatedText = getSegmentsParagraphText(window.currentSegments, true);
       window.translatedSubtitles = [];
       window.translatedTranscript = translatedText;
+      window.translatedTranscriptLanguage = "";
       window.currentTab = "translated";
       setTranslationButtonsState(context.translateBtn, null, null, null, true);
       updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
@@ -3554,6 +3767,7 @@ function generateVTT(segments) {
       window.translatedTranscript = "";
       window.translatedTitle = "";
       window.translatedSubtitles = [];
+      window.translatedTranscriptLanguage = "";
       (window.currentSegments || []).forEach(function (segment) {
         segment.translatedText = "";
       });
@@ -3586,6 +3800,7 @@ function generateVTT(segments) {
     translatedText = getSegmentsParagraphText(window.currentSegments, true);
     window.translatedSubtitles = [];
     window.translatedTranscript = translatedText;
+    window.translatedTranscriptLanguage = getLangCode(context.targetLanguageCode || "");
     window.currentTab = "translated";
     setTranslationButtonsState(context.translateBtn, null, null, null, true);
     updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
@@ -3840,6 +4055,10 @@ function generateVTT(segments) {
           var partialText = normalizeTranscriptTextForDisplay(text, activeTranscriptionContext.language);
           if (partialText && activeTranscriptionContext.transcriptEl) {
             activeTranscriptionContext.transcriptEl.textContent = partialText;
+            applyTranscriptDirection(
+              activeTranscriptionContext.transcriptEl,
+              activeTranscriptionContext.language || window.transcriptionDetectedLanguage || window.transcriptionSourceLanguage
+            );
           }
           setStatus(activeTranscriptionContext.statusEl, "Transcribing in browser...", "processing");
         }
@@ -4477,6 +4696,8 @@ function generateVTT(segments) {
       window.translatedTitle = "";
       window.translatedSubtitles = [];
       window.transcriptionSourceLanguage = "";
+      window.transcriptionDetectedLanguage = "";
+      window.translatedTranscriptLanguage = "";
       window.currentTranscriptDuration = 0;
       window.originalFileName = "";
       window.currentTab = "original";
@@ -4760,6 +4981,7 @@ function generateVTT(segments) {
       languageSelect.addEventListener("change", function () {
         syncLanguagePickerSelection();
         updateRuntimeMessaging(root);
+        applyCurrentTranscriptDirection(transcriptEl);
         if (window.transcriptionAudio && !hasTranscriptResults() && !processingLocked) {
           var statusState = modelWarmState === "ready" ? "ready" : "warning";
           setStatus(statusEl, getAudioReadyStatus(languageSelect.value), statusState);
@@ -4912,15 +5134,16 @@ function generateVTT(segments) {
         if (window.currentTab === "translated") {
           activeSegments[index].translatedText = nextText;
           window.translatedTranscript = getSegmentsParagraphText(activeSegments, true);
+          updateExportLabels(txtBtn, srtBtn, vttBtn);
         } else {
           if (hasTranslatedSegments() || window.translatedTranscript) {
             clearTranslatedState();
           }
           activeSegments[index].editedText = nextText;
           window.currentTranscript = getSegmentsParagraphText(activeSegments);
-          updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
           updateExportLabels(txtBtn, srtBtn, vttBtn);
           syncTranslationReadyState();
+          updateToolLayout(root);
         }
       });
     }
@@ -4963,6 +5186,12 @@ function generateVTT(segments) {
 
         if (!hasSelectedTranscriptionLanguage(language)) {
           setStatus(statusEl, "Choose the spoken language before transcribing for best accuracy.", "warning");
+          syncTranscribeReadyState();
+          return;
+        }
+
+        if (window.transcriptionAudio && window.transcriptionAudio.phoneRiskReason) {
+          setStatus(statusEl, window.transcriptionAudio.phoneRiskReason, "error");
           syncTranscribeReadyState();
           return;
         }
@@ -5041,6 +5270,7 @@ function generateVTT(segments) {
           translatedTabBtn: translatedTabBtn,
           editBtn: editBtn,
           selectedLanguageName: selectedLanguageName,
+          targetLanguageCode: targetLang,
           lineCount: linesToTranslate.length,
           afterRunCleanup: resetForNextUpload
         };
@@ -5131,12 +5361,15 @@ function generateVTT(segments) {
         data: null,
         duration: 0,
         needsDecode: true,
-        phoneOptimized: isPhoneTranscriptionModeActive()
+        phoneOptimized: isPhoneTranscriptionModeActive(),
+        phoneRiskReason: getPhoneFileRiskReason(file)
       };
 
       var selectedLanguage = languageSelect ? languageSelect.value : "";
       var readyMessage = getAudioReadyStatus(selectedLanguage);
-      var readyState = modelWarmState === "ready" ? "ready" : "warning";
+      var readyState = window.transcriptionAudio.phoneRiskReason
+        ? "error"
+        : (modelWarmState === "ready" ? "ready" : "warning");
 
       setStatus(statusEl, readyMessage, readyState);
       setProgress(0);
