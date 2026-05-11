@@ -21,6 +21,7 @@
   var idleUnloadTimer = null;
   var lockHeartbeatTimer = null;
   var lockRetryTimer = null;
+  var pendingTranscriptionStart = null;
   var TRANSCRIPTION_MODELS = [
     {
       key: "baby-raptor",
@@ -737,14 +738,18 @@
     }
 
     if (!hasSelectedTranscriptionLanguage(language)) {
-      return "Audio ready for transcription. Choose the spoken language while " + selectedModel.label + " gets ready.";
+      return "Audio ready for transcription. Choose the spoken language before loading " + selectedModel.label + ".";
+    }
+
+    if (modelWarmState === "error") {
+      return selectedModel.label + " could not be prepared last time. Press Transcribe to retry.";
     }
 
     if (modelWarmState === "ready") {
       return selectedModel.label + " is ready. Press Transcribe when you're ready.";
     }
 
-    return "Audio ready for transcription. " + getDeviceSupportLabel();
+    return "Audio ready for transcription. Press Transcribe to load " + selectedModel.label + " locally and start.";
   }
 
   function getSelectedTranscriptionLanguage() {
@@ -800,7 +805,9 @@
     return !!window.transcriptionAudio
       && hasSelectedTranscriptionLanguage(language)
       && !processingLocked
-      && modelWarmState === "ready";
+      && getSelectedModelState().enabled
+      && modelWarmState !== "loading"
+      && modelWarmState !== "blocked";
   }
 
   function syncTranscribeReadyState() {
@@ -815,18 +822,55 @@
         startBtn.textContent = "Transcribe";
       } else if (!selectedState.enabled) {
         startBtn.textContent = "Transcribe unavailable";
+      } else if (!hasSelectedTranscriptionLanguage(selectedLanguage)) {
+        startBtn.textContent = "Select language first";
       } else if (modelWarmState === "blocked") {
         startBtn.textContent = "Waiting for model access";
       } else if (modelWarmState === "loading") {
         startBtn.textContent = getSelectedModelLoadingText();
       } else if (modelWarmState === "error") {
-        startBtn.textContent = "Retry model download";
-      } else if (!hasSelectedTranscriptionLanguage(selectedLanguage)) {
-        startBtn.textContent = "Select language first";
-      } else {
+        startBtn.textContent = "Retry model load";
+      } else if (modelWarmState === "ready") {
         startBtn.textContent = "Transcribe";
+      } else {
+        startBtn.textContent = "Load model and transcribe";
       }
     }
+  }
+
+  function setPendingTranscriptionStart(payload) {
+    pendingTranscriptionStart = payload || null;
+  }
+
+  function clearPendingTranscriptionStart() {
+    pendingTranscriptionStart = null;
+  }
+
+  async function resumePendingTranscriptionStart() {
+    if (!pendingTranscriptionStart || processingLocked) {
+      return;
+    }
+
+    var payload = pendingTranscriptionStart;
+    clearPendingTranscriptionStart();
+    await startTranscription(
+      payload.modelKey,
+      payload.language,
+      payload.statusEl,
+      payload.transcriptEl,
+      payload.copyBtn,
+      payload.txtBtn,
+      payload.srtBtn,
+      payload.vttBtn,
+      payload.startBtn,
+      payload.translateBtn,
+      payload.originalTabBtn,
+      payload.translatedTabBtn,
+      payload.editBtn,
+      payload.input,
+      payload.audioContext,
+      payload.afterRunCleanup
+    );
   }
 
   function syncTranslationReadyState() {
@@ -1420,8 +1464,8 @@
 
     lockRetryTimer = window.setTimeout(function () {
       lockRetryTimer = null;
-      if (!processingLocked && window.transcriptionAudio && modelWarmState === "blocked") {
-        requestModelWarmup();
+      if (!processingLocked && window.transcriptionAudio && modelWarmState === "blocked" && pendingTranscriptionStart) {
+        resumePendingTranscriptionStart();
       }
     }, 3000);
   }
@@ -1489,7 +1533,7 @@
   function ensureModelOwnership(statusEl, startBtn) {
     if (claimModelLock()) {
       startLockHeartbeat();
-      if (modelWarmState === "idle" || modelWarmState === "blocked") {
+      if (modelWarmState !== "ready") {
         modelWarmState = "loading";
       }
       return true;
@@ -1587,8 +1631,8 @@
         }
 
         if (data.type === "lock_released") {
-          if (modelWarmState === "blocked" && window.transcriptionAudio && !processingLocked) {
-            requestModelWarmup();
+          if (modelWarmState === "blocked" && window.transcriptionAudio && !processingLocked && pendingTranscriptionStart) {
+            resumePendingTranscriptionStart();
           }
           syncTranscribeReadyState();
         }
@@ -1600,8 +1644,8 @@
         return;
       }
 
-      if (!event.newValue && modelWarmState === "blocked" && window.transcriptionAudio && !processingLocked) {
-        requestModelWarmup();
+      if (!event.newValue && modelWarmState === "blocked" && window.transcriptionAudio && !processingLocked && pendingTranscriptionStart) {
+        resumePendingTranscriptionStart();
       }
       syncTranscribeReadyState();
     });
@@ -1615,8 +1659,8 @@
       }
 
       clearIdleUnloadTimer();
-      if (modelWarmState === "blocked" && window.transcriptionAudio && !processingLocked) {
-        requestModelWarmup();
+      if (modelWarmState === "blocked" && window.transcriptionAudio && !processingLocked && pendingTranscriptionStart) {
+        resumePendingTranscriptionStart();
       } else if (modelWarmState === "ready") {
         scheduleIdleUnload(IDLE_UNLOAD_VISIBLE_MS);
       }
@@ -1920,7 +1964,6 @@
   function selectTranscriptionModel(modelKey, options) {
     var nextModel = getTranscriptionModeByKey(modelKey);
     var nextState = ensureTranscriptionModelState(nextModel.key);
-    var forceReload = !!(options && options.forceReload);
 
     if (!nextState.enabled || processingLocked) {
       refreshTranscriptionModelUi(getPrimaryTranscribeRoot());
@@ -1933,8 +1976,11 @@
 
     refreshTranscriptionModelUi(getPrimaryTranscribeRoot());
 
-    if (window.transcriptionAudio && (changed || forceReload || nextState.status === "error" || modelWarmState !== "ready")) {
-      requestModelWarmup();
+    if (window.transcriptionAudio && changed && !hasTranscriptResults()) {
+      var statusEl = getPrimaryTranscribeStatusEl();
+      if (statusEl) {
+        setStatus(statusEl, getAudioReadyStatus(getSelectedTranscriptionLanguage()), modelWarmState === "ready" ? "ready" : "warning");
+      }
     }
   }
 
@@ -3482,10 +3528,30 @@ function generateVTT(segments) {
       return;
     }
 
+    setPendingTranscriptionStart({
+      modelKey: modelKey,
+      language: language,
+      statusEl: statusEl,
+      transcriptEl: transcriptEl,
+      copyBtn: copyBtn,
+      txtBtn: txtBtn,
+      srtBtn: srtBtn,
+      vttBtn: vttBtn,
+      startBtn: startBtn,
+      translateBtn: translateBtn,
+      originalTabBtn: originalTabBtn,
+      translatedTabBtn: translatedTabBtn,
+      editBtn: editBtn,
+      input: input,
+      audioContext: audioContext,
+      afterRunCleanup: afterRunCleanup
+    });
+
     if (!ensureModelOwnership(statusEl, startBtn)) {
       return;
     }
 
+    clearPendingTranscriptionStart();
     clearIdleUnloadTimer();
 
     // Lock processing
@@ -3580,6 +3646,7 @@ function generateVTT(segments) {
     } finally {
       // Unlock processing if transcription context not set (error occurred)
       if (!activeTranscriptionContext) {
+        clearPendingTranscriptionStart();
         processingLocked = false;
         setTranscribeButtonState(startBtn, false);
         setEnhanceToggleState(document.getElementById("enhance-audio"), true);
@@ -4004,6 +4071,7 @@ function generateVTT(segments) {
       syncTranscribeReadyState();
       refreshTranscribeLayout();
       updateToolLayout(root);
+      clearPendingTranscriptionStart();
 
       if (hideShell) {
         document.dispatchEvent(new Event("converter:empty"));
@@ -4115,8 +4183,7 @@ function generateVTT(segments) {
       languageSelect.addEventListener("change", function () {
         syncLanguagePickerSelection();
         if (window.transcriptionAudio && !hasTranscriptResults() && !processingLocked) {
-          var canStart = canStartTranscription(languageSelect.value);
-          var statusState = canStart ? "ready" : (modelWarmState === "ready" ? "warning" : "processing");
+          var statusState = modelWarmState === "ready" ? "ready" : "warning";
           setStatus(statusEl, getAudioReadyStatus(languageSelect.value), statusState);
           syncTranscribeReadyState();
         }
@@ -4316,21 +4383,9 @@ function generateVTT(segments) {
           return;
         }
 
-        if (modelWarmState === "error") {
-          requestModelWarmup();
-          setStatus(statusEl, getSelectedModelLoadingText(), "processing");
-          return;
-        }
-
         if (!hasSelectedTranscriptionLanguage(language)) {
           setStatus(statusEl, "Choose the spoken language before transcribing for best accuracy.", "warning");
           syncTranscribeReadyState();
-          return;
-        }
-
-        if (!canStartTranscription(language)) {
-          setStatus(statusEl, getSelectedModelLoadingText(), "processing");
-          requestModelWarmup();
           return;
         }
 
@@ -4503,12 +4558,11 @@ function generateVTT(segments) {
 
       var selectedLanguage = languageSelect ? languageSelect.value : "";
       var readyMessage = getAudioReadyStatus(selectedLanguage);
-      var readyState = hasSelectedTranscriptionLanguage(selectedLanguage) && modelWarmState === "ready" ? "ready" : "warning";
+      var readyState = modelWarmState === "ready" ? "ready" : "warning";
 
       setStatus(statusEl, readyMessage, readyState);
-      setProgress(5);
+      setProgress(0);
       updateToolLayout(root);
-      requestModelWarmup();
       syncTranscribeReadyState();
     }
 
