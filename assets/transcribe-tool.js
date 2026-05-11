@@ -9,6 +9,8 @@
   var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-11-2";
   var worker = null;
   var workerGeneration = 0;
+  var translationWorker = null;
+  var translationWorkerGeneration = 0;
   var processingLocked = false;
   var activeTranscriptionContext = null;
   var activeTranslationContext = null;
@@ -431,6 +433,14 @@
       type: "module"
     });
     return workerGeneration;
+  }
+
+  function createTranslationWorker() {
+    translationWorkerGeneration += 1;
+    translationWorker = new Worker(DESKTOP_TRANSCRIBE_WORKER_URL, {
+      type: "module"
+    });
+    return translationWorkerGeneration;
   }
 
   function getTranscriptionModeByKey(modelKey) {
@@ -1480,6 +1490,39 @@
     attachWorkerListeners(worker, generation);
   }
 
+  function rebuildTranslationWorker() {
+    if (translationWorker) {
+      try {
+        translationWorker.terminate();
+      } catch (error) {
+      }
+    }
+    var generation = createTranslationWorker();
+    attachTranslationWorkerListeners(translationWorker, generation);
+  }
+
+  function ensureTranslationWorker() {
+    if (!translationWorker) {
+      rebuildTranslationWorker();
+    }
+
+    return translationWorker;
+  }
+
+  function requestTranslationWorkerUnload(reason) {
+    if (!translationWorker || activeTranslationContext) {
+      return;
+    }
+
+    try {
+      translationWorker.postMessage({
+        type: "unload",
+        reason: reason || "idle"
+      });
+    } catch (error) {
+    }
+  }
+
   function scheduleWarmupRetry() {
     if (lockRetryTimer) {
       window.clearTimeout(lockRetryTimer);
@@ -1509,7 +1552,7 @@
 
     idleUnloadTimer = window.setTimeout(function () {
       idleUnloadTimer = null;
-      requestWorkerUnload("idle", true);
+      requestWorkerUnload("idle", false);
     }, delayMs);
   }
 
@@ -1648,7 +1691,7 @@
 
         if (data.type === "release_request") {
           if (!processingLocked) {
-            requestWorkerUnload("peer_request", true);
+            requestWorkerUnload("peer_request", false);
           }
           return;
         }
@@ -3363,10 +3406,6 @@ function generateVTT(segments) {
       var modelState = ensureTranscriptionModelState(modelKey);
 
       if (type === "loading") {
-        if (activeTranslationContext) {
-          setStatus(activeTranslationContext.statusEl, "Preparing translation model...", "processing");
-          setProgressMessage("Preparing translation model...");
-        }
         return;
       }
 
@@ -3517,8 +3556,6 @@ function generateVTT(segments) {
               startFakeProgress(getProgressValue(), 90, message);
             }
           }
-        } else if (activeTranslationContext && e.data.phase === "translation_loading") {
-          setStatus(activeTranslationContext.statusEl, message || "Preparing translation model...", "processing");
         }
         setProgressMessage(message || "");
         if (typeof progress === "number") {
@@ -3577,9 +3614,82 @@ function generateVTT(segments) {
           message: message || "Transcription failed. File is still loaded so you can retry.",
           modelErrorMessage: message || "Transcription failed"
         });
-        if (message) {
-          console.error("Transcription worker error:", message);
+      }
+
+    };
+  }
+
+  function attachTranslationWorkerListeners(targetWorker, generation) {
+    targetWorker.onerror = function () {
+      if (generation !== translationWorkerGeneration) {
+        return;
+      }
+
+      if (activeTranslationContext) {
+        processingLocked = false;
+        stopProgressMessages();
+        setProgress(0);
+        setProgressMessage("");
+        setTranslationButtonsState(activeTranslationContext.translateBtn, null, null, null, !!window.currentTranscript);
+        updateTranscriptView(activeTranslationContext.transcriptEl, activeTranslationContext.originalTabBtn, activeTranslationContext.translatedTabBtn, activeTranslationContext.editBtn);
+        updateExportLabels(activeTranslationContext.txtBtn, activeTranslationContext.srtBtn, activeTranslationContext.vttBtn);
+        setStatus(activeTranslationContext.statusEl, "Translation worker stopped unexpectedly. Transcript is still available.", "error");
+        if (typeof activeTranslationContext.afterRunCleanup === "function") {
+          activeTranslationContext.afterRunCleanup({
+            keepResults: true
+          });
         }
+      }
+
+      activeTranslationContext = null;
+      processingLocked = false;
+      syncTranslationReadyState();
+      refreshTranscribeLayout();
+    };
+
+    targetWorker.onmessageerror = function () {
+      if (generation !== translationWorkerGeneration) {
+        return;
+      }
+
+      if (activeTranslationContext) {
+        processingLocked = false;
+        stopProgressMessages();
+        setProgress(0);
+        setProgressMessage("");
+        setTranslationButtonsState(activeTranslationContext.translateBtn, null, null, null, !!window.currentTranscript);
+        updateTranscriptView(activeTranslationContext.transcriptEl, activeTranslationContext.originalTabBtn, activeTranslationContext.translatedTabBtn, activeTranslationContext.editBtn);
+        updateExportLabels(activeTranslationContext.txtBtn, activeTranslationContext.srtBtn, activeTranslationContext.vttBtn);
+        setStatus(activeTranslationContext.statusEl, "Translation worker communication failed. Transcript is still available.", "error");
+        if (typeof activeTranslationContext.afterRunCleanup === "function") {
+          activeTranslationContext.afterRunCleanup({
+            keepResults: true
+          });
+        }
+      }
+
+      activeTranslationContext = null;
+      processingLocked = false;
+      syncTranslationReadyState();
+      refreshTranscribeLayout();
+    };
+
+    targetWorker.onmessage = function (e) {
+      if (generation !== translationWorkerGeneration) {
+        return;
+      }
+
+      var type = e.data.type;
+      var text = normalizeIncomingText(e.data.text);
+      var message = normalizeIncomingText(e.data.message);
+      var progress = e.data.progress;
+
+      if (type === "loading") {
+        if (activeTranslationContext && e.data.phase === "translation_loading") {
+          setStatus(activeTranslationContext.statusEl, message || "Preparing translation model...", "processing");
+          setProgressMessage(message || "Preparing translation model...");
+        }
+        return;
       }
 
       if (type === "translation_progress") {
@@ -3587,6 +3697,7 @@ function generateVTT(segments) {
           setStatus(activeTranslationContext.statusEl, "Translating transcript...", "processing");
           setProgress(50 + progress * 0.4);
         }
+        return;
       }
 
       if (type === "translation_result") {
@@ -3598,10 +3709,11 @@ function generateVTT(segments) {
         var downloadVTTBtn = document.getElementById("downloadVTT");
         if (downloadSRTBtn) downloadSRTBtn.disabled = false;
         if (downloadVTTBtn) downloadVTTBtn.disabled = false;
-        scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
+        requestTranslationWorkerUnload("translation_complete");
+        return;
       }
 
-      if (type === "translation_error") {
+      if (type === "translation_error" || type === "model_error" || type === "error") {
         if (activeTranslationContext) {
           processingLocked = false;
           stopProgressMessages();
@@ -3619,9 +3731,9 @@ function generateVTT(segments) {
           }
         }
         activeTranslationContext = null;
-        if (message) {
-          console.error("Translation worker error:", message);
-        }
+        processingLocked = false;
+        requestTranslationWorkerUnload("translation_error");
+        return;
       }
     };
   }
@@ -4131,6 +4243,14 @@ function generateVTT(segments) {
         worker = null;
       }
 
+      if (translationWorker) {
+        try {
+          translationWorker.terminate();
+        } catch (error) {
+        }
+        translationWorker = null;
+      }
+
       if (shouldRebuild) {
         var generation = createTranscribeWorker();
         attachWorkerListeners(worker, generation);
@@ -4598,7 +4718,7 @@ function generateVTT(segments) {
         root.__translationSetupOpen = false;
         updateToolLayout(root);
 
-        worker.postMessage({
+        ensureTranslationWorker().postMessage({
           type: "translate_subtitles",
           texts: linesToTranslate,
           segments: window.currentSegments || [],

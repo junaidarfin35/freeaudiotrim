@@ -6,23 +6,24 @@ Workspace: `D:\Junaid\My 2nd Tool\files`
 ## Next Up
 
 Date: 2026-05-11
-Status: `Step 4 active`
+Status: `Step 5 active`
 
 1. Completed: stabilize mobile transcription teardown and guarantee full deletion of transcription data on change file, start over, refresh, and page exit.
 2. Completed: move transcription model loading to explicit user intent only, after language selection and `Transcribe` click.
 3. Completed: harden weak Chrome/WebGPU handling so `T-Rex` fails gracefully and falls back safely without re-upload.
-4. Active: separate translation pipeline from transcription into independent controller and worker lifecycle while keeping same page UX.
-5. Pending: replace fixed duration cap with dynamic device and model duration limits and explain the limit clearly in UI.
+4. Completed: separate translation pipeline from transcription into independent controller and worker lifecycle while keeping same page UX.
+5. Active: replace fixed duration cap with dynamic device and model duration limits and explain the limit clearly in UI.
 6. Pending: benchmark Arabic-specific ASR candidates and choose production Arabic default based on accuracy, speed, stability, and browser feasibility.
 
 ## Transcription Progress
 
 Date: 2026-05-11
-Status: `Steps 1-3 completed`
+Status: `Steps 1-4 completed`
 
 - Mobile transcription teardown now uses one canonical session reset path, preventing stale transcript state across change file, start over, refresh, and page exit flows.
 - Model loading now starts only on explicit user intent after language selection and `Transcribe`, which keeps room for future language-specific routing.
 - Weak Chrome/WebGPU `T-Rex` failures now auto-fallback to `Triceratops` without forcing re-upload.
+- Translation now runs through its own worker lifecycle, so translation start, completion, failure, and reset paths no longer share the transcription worker state.
 - Phone transcription path was further stabilized for repeat-use testing:
   - browser cache guards for insecure local-network mobile testing
   - truthful model/download/transcription status handoff
