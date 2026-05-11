@@ -3325,6 +3325,9 @@ function generateVTT(segments) {
           setStatus(activeTranscriptionContext.statusEl, getModelStartStatus(e.data.loadState), "processing");
           setProgress(0);
           setProgressMessage("Transcribing in browser...");
+          if (!progressInterval) {
+            startFakeProgress(4, 90, "Transcribing in browser...");
+          }
         } else if (modelKey === selectedTranscriptionModelKey) {
           var warmupStatusEl = getPrimaryTranscribeStatusEl();
           if (warmupStatusEl) {
@@ -3624,7 +3627,6 @@ function generateVTT(segments) {
     },
     [resampled.buffer]
   );
-      startFakeProgress(4, 90, "Transcribing in browser...");
       return;
     } catch (error) {
       window.translatedTranscript = "";
