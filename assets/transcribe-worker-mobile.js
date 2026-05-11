@@ -63,8 +63,8 @@ function getMobileRuntimeProfile() {
 
   return {
     modelId: safariLike ? "Xenova/whisper-tiny" : "Xenova/whisper-base",
-    chunkLengthSeconds: safariLike ? 18 : 30,
-    strideLengthSeconds: safariLike ? 3 : 5,
+    chunkLengthSeconds: safariLike ? 12 : 30,
+    strideLengthSeconds: safariLike ? 2 : 5,
     quantized: safariLike,
     partialUpdates: !safariLike
   };

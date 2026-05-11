@@ -40,7 +40,7 @@ const TRANSCRIPTION_MODELS = {
     modelId: "onnx-community/whisper-large-v3-turbo_timestamped"
   }
 };
-const ARABIC_TRANSCRIPTION_PROMPT = "انسخ كلام التسجيل مثل ما ينقال، بدون ترجمة أو تلخيص. اكتب الإنجليزي كما هو، وإذا فيه موسيقى اكتب: (موسيقى). استخدم ترقيم بسيط عند الحاجةقم بتفريغ النص بدقة مثل ما ينقال، بدون ترجمة أو تلخيص، مع استخدام علامات الترقيم عند الحاجة. اكتب الإنجليزي كما هو، وإذا فيه موسيقى اكتب: (موسيقى)";
+const ARABIC_TRANSCRIPTION_PROMPT = "قم بتفريغ النص بدقة مثل ما ينقال، بدون ترجمة أو تلخيص، مع استخدام علامات الترقيم عند الحاجة. اكتب الإنجليزي كما هو، وإذا فيه موسيقى اكتب: (موسيقى)";
 
 function shouldSuppressOnnxRuntimeNoise(args) {
   const text = args.map((value) => {

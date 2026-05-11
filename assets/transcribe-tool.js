@@ -3,10 +3,8 @@
 
   var srtContent = "";
   var vttContent = "";
-  var MAX_DURATION_SECONDS = 180;
-  var FRIENDLY_WARNING_SECONDS = 150;
   var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-11-2";
-  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-11-2";
+  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-11-3";
   var worker = null;
   var workerGeneration = 0;
   var translationWorker = null;
@@ -47,8 +45,37 @@
       modelId: "onnx-community/whisper-large-v3-turbo_timestamped"
     }
   ];
+  var TRANSCRIPTION_DURATION_LIMITS = {
+    phone: {
+      "baby-raptor": 90,
+      triceratop: 90,
+      "t-rex": 90
+    },
+    low: {
+      "baby-raptor": 180,
+      triceratop: 150,
+      "t-rex": 120
+    },
+    standard: {
+      "baby-raptor": 300,
+      triceratop: 240,
+      "t-rex": 180
+    },
+    high: {
+      "baby-raptor": 480,
+      triceratop: 360,
+      "t-rex": 240
+    },
+    ultra: {
+      "baby-raptor": 720,
+      triceratop: 480,
+      "t-rex": 300
+    }
+  };
   var DEFAULT_TRANSCRIPTION_MODEL_KEY = "triceratop";
   var FALLBACK_TRANSCRIPTION_MODEL_KEY = "baby-raptor";
+  var TRANSCRIPTION_RECOVERY_STORAGE_KEY = "fat:transcribe:recovery:v1";
+  var TRANSCRIPTION_RECOVERY_MAX_AGE_MS = 10 * 60 * 1000;
   var transcriptionCapabilityProfile = null;
   var selectedTranscriptionModelKey = DEFAULT_TRANSCRIPTION_MODEL_KEY;
   var transcriptionModelStates = Object.create(null);
@@ -750,17 +777,163 @@
       : "Local AI available in compatibility mode";
   }
 
-  function getProcessingInfoCopy() {
-    if (transcriptionCapabilityProfile && transcriptionCapabilityProfile.phoneOptimized) {
-      return "Phone mode keeps Baby Raptor ready for local transcription. For more powerful models, switch to a desktop or laptop for the full transcription experience.";
+  function formatDurationSeconds(seconds) {
+    var safeSeconds = Math.max(0, Math.round(Number(seconds) || 0));
+    var minutes = Math.floor(safeSeconds / 60);
+    var remainder = safeSeconds % 60;
+
+    if (!minutes) {
+      return safeSeconds + " seconds";
     }
 
-    return getDeviceSupportLabel() + ". Transcription runs entirely in your browser, so your media never leaves your device.";
+    if (!remainder) {
+      return minutes + (minutes === 1 ? " minute" : " minutes");
+    }
+
+    return minutes + "m " + String(remainder).padStart(2, "0") + "s";
+  }
+
+  function getDurationPolicyTier(profile) {
+    var safeProfile = profile || transcriptionCapabilityProfile || probeTranscriptionCapabilities();
+    var memory = safeProfile && Number.isFinite(safeProfile.deviceMemory) ? safeProfile.deviceMemory : 0;
+    var cpu = safeProfile && Number.isFinite(safeProfile.hardwareConcurrency) ? safeProfile.hardwareConcurrency : 0;
+    var coarsePointer = !!(safeProfile && safeProfile.isCoarsePointer);
+    var hasWebGPU = hasWebGPUAcceleration();
+    var safariPenalty = isSafariLikeBrowser() ? 1 : 0;
+    var score = 0;
+
+    if (safeProfile && safeProfile.phoneOptimized) {
+      return "phone";
+    }
+
+    if (memory >= 16) {
+      score += 3;
+    } else if (memory >= 8) {
+      score += 2;
+    } else if (memory >= 4) {
+      score += 1;
+    }
+
+    if (cpu >= 12) {
+      score += 3;
+    } else if (cpu >= 8) {
+      score += 2;
+    } else if (cpu >= 4) {
+      score += 1;
+    }
+
+    if (hasWebGPU) {
+      score += 1;
+    }
+
+    if (coarsePointer) {
+      score -= 1;
+    }
+
+    score -= safariPenalty;
+
+    if (score >= 6) {
+      return "ultra";
+    }
+
+    if (score >= 4) {
+      return "high";
+    }
+
+    if (score >= 2) {
+      return "standard";
+    }
+
+    return "low";
+  }
+
+  function getTranscriptionDurationPolicy(modelKey) {
+    var profile = transcriptionCapabilityProfile || probeTranscriptionCapabilities();
+    var targetModelKey = modelKey || selectedTranscriptionModelKey;
+    var model = getTranscriptionModeByKey(targetModelKey);
+    var state = ensureTranscriptionModelState(targetModelKey);
+    var tier = getDurationPolicyTier(profile);
+    var tierLimits = TRANSCRIPTION_DURATION_LIMITS[tier] || TRANSCRIPTION_DURATION_LIMITS.standard;
+    var limitSeconds = tierLimits[targetModelKey] || TRANSCRIPTION_DURATION_LIMITS.standard[targetModelKey] || 180;
+    var runtimeReason = tier === "phone"
+      ? "Phone mode uses shorter files so local transcription stays stable in mobile browser memory."
+      : "Limits change by model size, browser memory, and device speed because transcription runs locally on your device.";
+
+    return {
+      modelKey: targetModelKey,
+      modelLabel: model.label,
+      enabled: !!state.enabled,
+      tier: tier,
+      seconds: limitSeconds,
+      formattedLimit: formatDurationSeconds(limitSeconds),
+      reason: runtimeReason
+    };
+  }
+
+  function getLongerDurationFallback(modelKey) {
+    var currentPolicy = getTranscriptionDurationPolicy(modelKey);
+    var best = null;
+
+    TRANSCRIPTION_MODELS.forEach(function (model) {
+      var state = ensureTranscriptionModelState(model.key);
+      if (!state.enabled || model.key === currentPolicy.modelKey) {
+        return;
+      }
+
+      var policy = getTranscriptionDurationPolicy(model.key);
+      if (policy.seconds <= currentPolicy.seconds) {
+        return;
+      }
+
+      if (!best || policy.seconds > best.seconds) {
+        best = policy;
+      }
+    });
+
+    return best;
+  }
+
+  function buildFileTooLongMessage(error, modelKey) {
+    var policy = getTranscriptionDurationPolicy(modelKey);
+    var actualSeconds = error && Number.isFinite(error.actualDuration) ? error.actualDuration : 0;
+    var currentFile = actualSeconds > 0 ? formatDurationSeconds(actualSeconds) : "This file";
+    var fallback = getLongerDurationFallback(modelKey);
+    var nextStep = fallback
+      ? " Try " + fallback.modelLabel + " for up to " + fallback.formattedLimit + " on this device."
+      : " Try a shorter file, split the recording, or switch to a stronger desktop.";
+
+    return currentFile + " is over the " + policy.formattedLimit + " limit for " + policy.modelLabel + " on this device." + nextStep;
+  }
+
+  function getProcessingInfoCopy() {
+    var selectedLanguage = getSelectedTranscriptionLanguage();
+    var hasAudioReady = !!window.transcriptionAudio;
+    var policy = getTranscriptionDurationPolicy(selectedTranscriptionModelKey);
+    var selectedState = getSelectedModelState();
+
+    if (!hasAudioReady) {
+      return getDeviceSupportLabel() + ". Transcription runs entirely in your browser, so your media never leaves your device.";
+    }
+
+    if (!selectedState.enabled) {
+      return policy.modelLabel + " is unavailable on this device. " + selectedState.reason;
+    }
+
+    if (!hasSelectedTranscriptionLanguage(selectedLanguage)) {
+      return "Choose the spoken language to reveal this device's current file limit for " + policy.modelLabel + ". " + policy.reason;
+    }
+
+    if (transcriptionCapabilityProfile && transcriptionCapabilityProfile.phoneOptimized) {
+      return policy.modelLabel + " can handle up to " + policy.formattedLimit + " on this phone. " + policy.reason;
+    }
+
+    return policy.modelLabel + " can handle up to " + policy.formattedLimit + " on this device. " + policy.reason;
   }
 
   function getAudioReadyStatus(language) {
     var selectedModel = getSelectedTranscriptionMode();
     var selectedState = getSelectedModelState();
+    var durationPolicy = getTranscriptionDurationPolicy(selectedModel.key);
 
     if (!selectedState.enabled) {
       return selectedModel.label + " is disabled on this device. " + selectedState.reason;
@@ -771,7 +944,7 @@
     }
 
     if (!hasSelectedTranscriptionLanguage(language)) {
-      return "Audio ready for transcription. Choose the spoken language before loading " + selectedModel.label + ".";
+      return "Audio ready for transcription. Choose the spoken language to reveal the current file limit for " + selectedModel.label + ".";
     }
 
     if (modelWarmState === "error") {
@@ -779,15 +952,68 @@
     }
 
     if (modelWarmState === "ready") {
-      return selectedModel.label + " is ready. Press Transcribe when you're ready.";
+      return selectedModel.label + " is ready. Current device limit: up to " + durationPolicy.formattedLimit + ".";
     }
 
-    return "Audio ready for transcription. Press Transcribe to load " + selectedModel.label + " locally and start.";
+    return "Audio ready for transcription. Press Transcribe to load " + selectedModel.label + " locally and start. Current device limit: up to " + durationPolicy.formattedLimit + ".";
   }
 
   function getSelectedTranscriptionLanguage() {
     var languageSelect = document.querySelector("#language-select");
     return languageSelect ? languageSelect.value : "";
+  }
+
+  function hasLoadedTranscriptionFile(audioRecord) {
+    return !!(audioRecord && audioRecord.file);
+  }
+
+  function readTranscriptionRecoveryState() {
+    try {
+      if (typeof window === "undefined" || !window.sessionStorage) {
+        return null;
+      }
+      var raw = window.sessionStorage.getItem(TRANSCRIPTION_RECOVERY_STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+      var parsed = JSON.parse(raw);
+      if (!parsed || !parsed.timestamp || (Date.now() - parsed.timestamp) > TRANSCRIPTION_RECOVERY_MAX_AGE_MS) {
+        window.sessionStorage.removeItem(TRANSCRIPTION_RECOVERY_STORAGE_KEY);
+        return null;
+      }
+      return parsed;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeTranscriptionRecoveryState(payload) {
+    try {
+      if (typeof window === "undefined" || !window.sessionStorage) {
+        return;
+      }
+      window.sessionStorage.setItem(
+        TRANSCRIPTION_RECOVERY_STORAGE_KEY,
+        JSON.stringify({
+          phase: payload && payload.phase ? payload.phase : "processing",
+          fileName: payload && payload.fileName ? payload.fileName : "",
+          language: payload && payload.language ? payload.language : "",
+          modelKey: payload && payload.modelKey ? payload.modelKey : selectedTranscriptionModelKey,
+          timestamp: Date.now()
+        })
+      );
+    } catch (error) {
+    }
+  }
+
+  function clearTranscriptionRecoveryState() {
+    try {
+      if (typeof window === "undefined" || !window.sessionStorage) {
+        return;
+      }
+      window.sessionStorage.removeItem(TRANSCRIPTION_RECOVERY_STORAGE_KEY);
+    } catch (error) {
+    }
   }
 
   function getWarmModelReadyStatus(loadState, language) {
@@ -835,7 +1061,7 @@
   }
 
   function canStartTranscription(language) {
-    return !!window.transcriptionAudio
+    return hasLoadedTranscriptionFile(window.transcriptionAudio)
       && hasSelectedTranscriptionLanguage(language)
       && !processingLocked
       && getSelectedModelState().enabled
@@ -853,6 +1079,8 @@
       setTranscribeButtonState(startBtn, canStart);
       if (!window.transcriptionAudio) {
         startBtn.textContent = "Transcribe";
+      } else if (!hasLoadedTranscriptionFile(window.transcriptionAudio)) {
+        startBtn.textContent = "Choose file again";
       } else if (!selectedState.enabled) {
         startBtn.textContent = "Transcribe unavailable";
       } else if (!hasSelectedTranscriptionLanguage(selectedLanguage)) {
@@ -2023,7 +2251,9 @@
   }
 
   function refreshTranscriptionModelUi(root) {
-    syncTranscriptionModelCards(root || getPrimaryTranscribeRoot());
+    var activeRoot = root || getPrimaryTranscribeRoot();
+    updateRuntimeMessaging(activeRoot);
+    syncTranscriptionModelCards(activeRoot);
     syncTranscribeReadyState();
   }
 
@@ -2159,7 +2389,8 @@
     }
 
     var toolCard = root.querySelector(".at-root");
-    var hasAudioReady = !!window.transcriptionAudio;
+    var hasAudioReady = hasLoadedTranscriptionFile(window.transcriptionAudio);
+    var hasRecoveryState = !!(window.transcriptionAudio && window.transcriptionAudio.recoveryOnly);
     var hasResults = hasTranscriptResults();
     var hasTranslation = hasTranslatedSegments();
     var isProcessing = processingLocked;
@@ -2179,7 +2410,7 @@
     }
 
     setElementVisible(root.querySelector('[data-role="progressRow"]'), isPreparing || isProcessing || isModelLoading);
-    setElementVisible(root.querySelector('[data-role="processingInfo"]'), isProcessing || isModelLoading);
+    setElementVisible(root.querySelector('[data-role="processingInfo"]'), showSetup || isProcessing || isModelLoading);
     setElementVisible(root.querySelector('[data-role="modelRow"]'), showSetup);
     setElementVisible(root.querySelector('[data-role="languageRow"]'), showSetup);
     setElementVisible(root.querySelector('[data-role="enhanceRow"]'), showSetup);
@@ -2190,13 +2421,14 @@
     setElementVisible(translateEntryBtn, showTranslateEntry);
     setElementVisible(chatgptEntryBtn, showChatgptEntry);
     setElementVisible(root.querySelector('[data-role="exportRow"]'), showResults);
-    setElementVisible(root.querySelector('[data-role="changeFileBtn"]'), hasAudioReady || showResults);
-    setElementVisible(root.querySelector('[data-role="restartBtn"]'), hasAudioReady || isPreparing || isProcessing || showResults);
+    setElementVisible(root.querySelector('[data-role="changeFileBtn"]'), hasAudioReady || hasRecoveryState || showResults);
+    setElementVisible(root.querySelector('[data-role="restartBtn"]'), hasAudioReady || hasRecoveryState || isPreparing || isProcessing || showResults);
     setElementVisible(translationPanel, showResults && builtInTranslationAllowed && !!root.__translationSetupOpen && !isProcessing);
     updateTranslateEntryButton(translateEntryBtn, root, hasResults, hasTranslation, isProcessing);
     if (chatgptEntryBtn) {
       chatgptEntryBtn.disabled = !showResults || isProcessing;
     }
+    updateRuntimeMessaging(root);
     syncTranscriptionModelCards(root);
   }
 
@@ -2372,7 +2604,26 @@
     return result;
   }
 
-  async function decodeSelectedTranscriptionAudio(audioContext, audioRecord) {
+  function createFileTooLongError(actualDuration, allowedDuration, modelKey) {
+    var error = new Error("FILE_TOO_LONG");
+    error.actualDuration = actualDuration;
+    error.allowedDuration = allowedDuration;
+    error.modelKey = modelKey || selectedTranscriptionModelKey;
+    return error;
+  }
+
+  function enforceTranscriptionDurationLimit(audioRecord, modelKey) {
+    if (!audioRecord) {
+      return;
+    }
+
+    var policy = getTranscriptionDurationPolicy(modelKey);
+    if ((Number(audioRecord.duration) || 0) > policy.seconds) {
+      throw createFileTooLongError(audioRecord.duration, policy.seconds, modelKey);
+    }
+  }
+
+  async function decodeSelectedTranscriptionAudio(audioContext, audioRecord, modelKey) {
     if (!audioContext || !audioRecord || !audioRecord.file) {
       throw new Error("Missing audio source");
     }
@@ -2380,10 +2631,12 @@
     await ensureTranscriptionAudioContextReady(audioContext);
 
     var arrayBuffer = await audioRecord.file.arrayBuffer();
-    var audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+    var audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    var policy = getTranscriptionDurationPolicy(modelKey);
+    audioRecord.duration = audioBuffer.duration;
 
-    if (audioBuffer.duration > MAX_DURATION_SECONDS) {
-      throw new Error("FILE_TOO_LONG");
+    if (audioBuffer.duration > policy.seconds) {
+      throw createFileTooLongError(audioBuffer.duration, policy.seconds, modelKey);
     }
 
     if (audioBuffer.duration < 1) {
@@ -3194,6 +3447,7 @@ function generateVTT(segments) {
     }
 
     processingLocked = false;
+    clearTranscriptionRecoveryState();
     if (typeof context.afterRunCleanup === "function") {
       context.afterRunCleanup({
         keepResults: !!formattedText
@@ -3215,6 +3469,7 @@ function generateVTT(segments) {
     stopLockHeartbeat();
     releaseModelLock();
     clearPendingTranscriptionStart();
+    clearTranscriptionRecoveryState();
     modelWarmState = "error";
     setProgress(0);
     setProgressMessage("");
@@ -3742,11 +3997,19 @@ function generateVTT(segments) {
     var audio = window.transcriptionAudio;
     var selectedModel = getTranscriptionModeByKey(modelKey) || getSelectedTranscriptionMode();
     var isPreparedModelReady = activePreparedModelKey === modelKey && modelWarmState === "ready";
+    var keepLoadedAudioOnFailure = false;
 
     // Prevent concurrent processing
     if (!audio || activeTranscriptionContext || (processingLocked && !isPreparedModelReady)) {
       return;
     }
+
+    writeTranscriptionRecoveryState({
+      phase: "processing",
+      fileName: audio && audio.file ? audio.file.name : "",
+      language: language,
+      modelKey: modelKey
+    });
 
     setPendingTranscriptionStart({
       modelKey: modelKey,
@@ -3799,7 +4062,9 @@ function generateVTT(segments) {
       setProgress(0);
 
       if (audio.needsDecode || !audio.data || !audio.sampleRate) {
-        await decodeSelectedTranscriptionAudio(audioContext, audio);
+        await decodeSelectedTranscriptionAudio(audioContext, audio, modelKey);
+      } else {
+        enforceTranscriptionDurationLimit(audio, modelKey);
       }
 
       var processedData = audio.data;
@@ -3873,9 +4138,12 @@ function generateVTT(segments) {
       setTranslationButtonsState(translateBtn, null, null, null, false);
       updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
       updateExportLabels(txtBtn, srtBtn, vttBtn);
-      console.error("Transcription error:", error);
+      if (!error || (error.message !== "FILE_TOO_LONG" && error.message !== "BAD_AUDIO")) {
+        console.error("Transcription error:", error);
+      }
       if (error && error.message === "FILE_TOO_LONG") {
-        setStatus(statusEl, "File must be under 180 seconds for now.", "error");
+        keepLoadedAudioOnFailure = true;
+        setStatus(statusEl, buildFileTooLongMessage(error, modelKey), "error");
       } else if (error && error.message === "BAD_AUDIO") {
         setStatus(statusEl, "Unsupported or corrupted file", "error");
       } else if (error && error.message === "MODEL_LOAD_FAILED") {
@@ -3891,7 +4159,16 @@ function generateVTT(segments) {
         processingLocked = false;
         setTranscribeButtonState(startBtn, false);
         setEnhanceToggleState(document.getElementById("enhance-audio"), true);
-        if (typeof afterRunCleanup === "function") {
+        if (keepLoadedAudioOnFailure) {
+          clearTranscriptionRecoveryState();
+          stopFakeProgress();
+          stopProgressMessages();
+          setProgress(0);
+          setProgressMessage("");
+          input.disabled = false;
+          syncTranscribeReadyState();
+          refreshTranscribeLayout();
+        } else if (typeof afterRunCleanup === "function") {
           afterRunCleanup({
             keepResults: false
           });
@@ -4290,6 +4567,7 @@ function generateVTT(segments) {
       var preserveInputValue = !!config.preserveInputValue;
       var rebuildWorker = config.rebuildWorker !== false;
       var resetStatusText = config.resetStatusText !== false;
+      var preserveRecoveryState = !!config.preserveRecoveryState;
 
       resetProcessingUi();
       resetTranscriptState();
@@ -4321,6 +4599,9 @@ function generateVTT(segments) {
       refreshTranscribeLayout();
       updateToolLayout(root);
       clearPendingTranscriptionStart();
+      if (!preserveRecoveryState) {
+        clearTranscriptionRecoveryState();
+      }
 
       if (hideShell) {
         document.dispatchEvent(new Event("converter:empty"));
@@ -4344,6 +4625,57 @@ function generateVTT(segments) {
       }
     }
 
+    function restoreInterruptedTranscriptionShell() {
+      var recoveryState = readTranscriptionRecoveryState();
+      var uploadShell;
+      var toolShell;
+      if (!recoveryState || recoveryState.phase !== "processing" || hasLoadedTranscriptionFile(window.transcriptionAudio)) {
+        return;
+      }
+
+      uploadShell = document.getElementById("upload-shell");
+      toolShell = document.getElementById("tool-shell");
+      if (uploadShell) {
+        uploadShell.classList.add("is-hidden");
+      }
+      if (toolShell) {
+        toolShell.classList.remove("is-hidden");
+      }
+      if (toolRoot) {
+        toolRoot.classList.add("is-active");
+      }
+
+      window.transcriptionAudio = {
+        file: null,
+        sampleRate: 0,
+        data: null,
+        duration: 0,
+        needsDecode: true,
+        phoneOptimized: isPhoneTranscriptionModeActive(),
+        recoveryOnly: true
+      };
+
+      if (recoveryState.modelKey && ensureTranscriptionModelState(recoveryState.modelKey).enabled) {
+        selectedTranscriptionModelKey = recoveryState.modelKey;
+        modelWarmState = getSelectedModelState().status;
+      }
+      if (recoveryState.language && languageSelect) {
+        languageSelect.value = recoveryState.language;
+      }
+
+      fileNameEl.textContent = recoveryState.fileName || "Previous file interrupted";
+      setStatus(
+        statusEl,
+        "This phone reloaded during local transcription. Your file was cleared by the browser. Choose the file again, use a shorter clip, or switch to desktop for larger files.",
+        "error"
+      );
+      syncLanguagePickerSelection();
+      updateRuntimeMessaging(root);
+      syncTranscribeReadyState();
+      updateToolLayout(root);
+      clearTranscriptionRecoveryState();
+    }
+
     initializeTranscriptionModelStates();
     applyTranscriptionCapabilityProfile(probeTranscriptionCapabilities());
     rebuildTranscribeWorker();
@@ -4357,6 +4689,7 @@ function generateVTT(segments) {
     updateRuntimeMessaging(root);
     updateEditButton(editBtn);
     resetTranscriptState();
+    restoreInterruptedTranscriptionShell();
     updateToolLayout(root);
     refreshTranscriptionModelUi(root);
     if (copyBtn) {
@@ -4422,15 +4755,11 @@ function generateVTT(segments) {
       });
     }
     if (languageSelect) {
-      var suggestedLanguage = getSuggestedTranscriptionLanguage();
-      if (suggestedLanguage && !languageSelect.value) {
-        languageSelect.value = suggestedLanguage;
-      }
-
       syncLanguagePickerSelection();
 
       languageSelect.addEventListener("change", function () {
         syncLanguagePickerSelection();
+        updateRuntimeMessaging(root);
         if (window.transcriptionAudio && !hasTranscriptResults() && !processingLocked) {
           var statusState = modelWarmState === "ready" ? "ready" : "warning";
           setStatus(statusEl, getAudioReadyStatus(languageSelect.value), statusState);
@@ -4825,10 +5154,20 @@ function generateVTT(segments) {
       }
     };
     window.__transcribePageExitTeardown = function () {
+      var shouldPreserveRecovery = !!(processingLocked || pendingTranscriptionStart || activeTranscriptionContext);
+      if (shouldPreserveRecovery) {
+        writeTranscriptionRecoveryState({
+          phase: "processing",
+          fileName: window.transcriptionAudio && window.transcriptionAudio.file ? window.transcriptionAudio.file.name : "",
+          language: getSelectedTranscriptionLanguage(),
+          modelKey: selectedTranscriptionModelKey
+        });
+      }
       teardownTranscriptionSession({
         hideShell: false,
         resetStatusText: false,
-        rebuildWorker: false
+        rebuildWorker: false,
+        preserveRecoveryState: shouldPreserveRecovery
       });
     };
 
