@@ -79,6 +79,11 @@ Status: `Steps 1-5 completed`
   - final outcome:
     - the repeated mobile transcription jump back to upload shell is now fixed in local testing
     - the key lesson is that this bug was a mix of real mobile reload pressure plus stale session restoration assumptions, not just a simple button/shell toggle bug
+- Same-tab phone reset behavior was tightened again after the reload bug fix:
+  - `Start over` and `Change file` in the same live tab now do a soft reset instead of terminating the transcription worker
+  - file state, transcript state, and status are cleared, but the loaded model stays alive when the selected model is unchanged
+  - this stops users from re-downloading the phone transcription model on every same-tab file change
+  - worker and model teardown still happen only on hard reset cases such as page unload/browser close, explicit model switch, worker crash, memory-pressure recovery, or long idle unload
 
 ## Overall Goal
 

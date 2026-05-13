@@ -4804,6 +4804,58 @@ function generateVTT(segments) {
       }
     }
 
+    function hasReusablePreparedModel() {
+      return !!(
+        worker
+        && activePreparedModelKey
+        && activePreparedModelKey === selectedTranscriptionModelKey
+        && modelWarmState === "ready"
+        && getSelectedModelState().enabled
+      );
+    }
+
+    function schedulePreservedModelIdleUnload() {
+      if (!hasReusablePreparedModel()) {
+        return;
+      }
+
+      scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
+    }
+
+    function softResetTranscriptionShell(options) {
+      var config = options || {};
+      var preserveInputValue = !!config.preserveInputValue;
+      var resetStatusText = config.resetStatusText !== false;
+
+      resetProcessingUi();
+      resetTranscriptState();
+      clearFileSelection({
+        preserveInputValue: preserveInputValue
+      });
+      showTimestamps = true;
+      if (timestampCheckbox) {
+        timestampCheckbox.checked = true;
+      }
+      closeLanguagePicker();
+      closeTranslationSourcePicker();
+      closeTranslationTargetPicker();
+      transcriptEl.textContent = EMPTY_TRANSCRIPT_TEXT;
+      setTranscribeButtonState(startBtn, false);
+      setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, false);
+      setTranslationButtonsState(translateBtn, null, null, null, false);
+      setEnhanceToggleState(root.querySelector("#enhance-audio"), true);
+      if (resetStatusText) {
+        setStatus(statusEl, "Upload a file to begin transcription", "idle");
+      }
+      updateRuntimeMessaging(root);
+      syncTranscribeReadyState();
+      refreshTranscribeLayout();
+      updateToolLayout(root);
+      clearPendingTranscriptionStart();
+      clearTranscriptionRecoveryState();
+      schedulePreservedModelIdleUnload();
+    }
+
     function hardResetTranscriptionShell(options) {
       var config = options || {};
       var resetStatusText = config.resetStatusText !== false;
@@ -4950,18 +5002,19 @@ function generateVTT(segments) {
     }
     if (restartBtn) {
       restartBtn.addEventListener("click", function () {
-        hardResetTranscriptionShell({
+        softResetTranscriptionShell({
           resetStatusText: true,
-          rebuildWorker: true
+          preserveInputValue: false
         });
+        setPrimaryTranscriptionShellVisible(false);
       });
     }
     if (changeFileBtn) {
       changeFileBtn.addEventListener("click", function () {
         if (!processingLocked) {
-          hardResetTranscriptionShell({
+          softResetTranscriptionShell({
             resetStatusText: true,
-            rebuildWorker: true
+            preserveInputValue: false
           });
           input.click();
         }
@@ -5322,17 +5375,17 @@ function generateVTT(segments) {
       }
 
       if (!isSupportedMediaFile(file)) {
-        resetForNextUpload({
-          keepResults: false
+        softResetTranscriptionShell({
+          resetStatusText: true,
+          preserveInputValue: false
         });
+        setPrimaryTranscriptionShellVisible(false);
         setStatus(statusEl, "Unsupported or corrupted file", "error");
         return;
       }
-      teardownTranscriptionSession({
-        hideShell: false,
+      softResetTranscriptionShell({
         preserveInputValue: true,
-        resetStatusText: false,
-        rebuildWorker: true
+        resetStatusText: false
       });
       if (toolRoot) {
         toolRoot.classList.add("is-active");
