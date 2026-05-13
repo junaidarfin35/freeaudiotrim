@@ -36,6 +36,14 @@ Status: `Steps 1-5 completed`
   - risky large WAV files on phone now stop before transcription starts with an honest memory-risk message
   - the file shell stays open so users can change file quickly instead of crashing mid-run
   - transcript edit mode no longer rerenders the segment DOM on every keystroke, so typing works normally again
+- Step 6 first feasibility pass is now on disk:
+  - benchmark harness added at `_scripts/benchmark-arabic-asr.mjs`
+  - first local browser results saved to `_tmp/arabic-asr-benchmark-2026-05-11.json`
+  - first written evaluation note saved to `_docs/arabic-asr-benchmark-2026-05-11.md`
+  - current `Baby Raptor` baseline completed the smoke clips successfully
+  - `onnx-community/moonshine-tiny-ar-ONNX` loaded but failed inference in the current browser stack with `Unable to decode without a tokenizer.`
+  - `speechbrain/asr-whisper-large-v2-commonvoice-ar` and `ayoubkirouane/whisper-small-ar` remain non-drop-in browser candidates for this repo's current local-web architecture
+  - current recommendation is to keep the existing browser default until a larger Arabic reference corpus and/or a safer browser-compatible Arabic candidate is verified
 - Phone transcription path was further stabilized for repeat-use testing:
   - browser cache guards for insecure local-network mobile testing
   - truthful model/download/transcription status handoff
@@ -45,6 +53,32 @@ Status: `Steps 1-5 completed`
   - decoded audio release after worker transfer on phone path
   - transcription failure now keeps tool shell and loaded file visible instead of bouncing back to upload
   - interrupted mobile runs now restore the tool shell with a recovery message instead of returning users to a blank upload state after a browser reload
+- Mobile reload-to-upload bug was finally root-caused and fixed on real phone testing:
+  - user-facing symptom:
+    - first fresh run could work
+    - later runs, reload, change file, or start over could reach `Preparing` / `Transcribing in browser...` and then suddenly jump back to the upload shell
+    - recovery message about the phone reloading during local transcription started appearing more often after the recovery work made the hidden crash visible
+  - what was actually happening:
+    - the page was not simply choosing the wrong shell state
+    - the mobile browser was reloading or killing the page around the transcription-start handoff
+    - after reload, the old `File` object was gone, but earlier code still tried to preserve or restore transcription session assumptions
+  - false leads that were checked during debugging:
+    - stale tool-shell restore logic
+    - `Start over` / `Change file` cleanup paths
+    - browser cache errors on insecure local-network mobile testing
+    - audio-context unlock timing
+    - worker error handling versus shell reset handling
+  - final fixes that mattered:
+    - treat reload, `pageshow`, `Start over`, and `Change file` as hard-reset points whenever the original file object is gone
+    - stop fake-restoring a file-less transcription shell after mobile reload
+    - rebuild the transcription worker cleanly after hard reset when needed
+    - pre-decode phone audio earlier so model-download and decode do not collide at the worst possible moment
+    - treat all iPhone/iPad/iPod browsers as constrained Apple WebKit browsers, not just Safari-branded UA strings
+    - force the phone path to use the safer mobile-worker assumptions consistently on Chrome iPhone and other iOS browsers too
+    - bump tool/worker asset versions so the phone actually receives the new reset/runtime behavior
+  - final outcome:
+    - the repeated mobile transcription jump back to upload shell is now fixed in local testing
+    - the key lesson is that this bug was a mix of real mobile reload pressure plus stale session restoration assumptions, not just a simple button/shell toggle bug
 
 ## Overall Goal
 

@@ -45,6 +45,15 @@ function filterConsoleMethod(methodName) {
 filterConsoleMethod("warn");
 filterConsoleMethod("error");
 
+function isAppleMobileBrowserEngine() {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const userAgent = String(navigator.userAgent || "");
+  return /iPhone|iPad|iPod/i.test(userAgent);
+}
+
 function isSafariLikeBrowser() {
   if (typeof navigator === "undefined") {
     return false;
@@ -52,6 +61,10 @@ function isSafariLikeBrowser() {
 
   const userAgent = String(navigator.userAgent || "");
   const vendor = String(navigator.vendor || "");
+
+  if (isAppleMobileBrowserEngine()) {
+    return true;
+  }
 
   return /Safari/i.test(userAgent)
     && /Apple/i.test(vendor)
