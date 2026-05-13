@@ -2,7 +2,6 @@
   const LOCALE_PREF_KEY = "fat:site-locale-pref:v1";
   const ARABIC_PAGE_MAP = {
     "/": "/ar/",
-    "/index.html": "/ar/",
     "/audio-video-transcription-online.html": "/ar/audio-video-transcription-online.html"
   };
 
@@ -10,6 +9,10 @@
     const value = String(pathname || "/").trim();
 
     if (!value || value === "/") {
+      return "/";
+    }
+
+    if (/^\/index\.html$/i.test(value)) {
       return "/";
     }
 
