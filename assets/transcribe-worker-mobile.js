@@ -2,6 +2,7 @@ let transcriber = null;
 let isLoading = false;
 let isBusy = false;
 let runtimePromise = null;
+const arabicPromptIdsByModel = new Map();
 const ONNX_RUNTIME_NOISE_PATTERNS = [
   "VerifyEachNodeIsAssignedToAnEp",
   "Some nodes were not assigned to the preferred execution providers",
@@ -9,6 +10,13 @@ const ONNX_RUNTIME_NOISE_PATTERNS = [
 ];
 
 const MOBILE_MODEL_KEY = "baby-raptor";
+const MOBILE_CHUNK_LENGTH_SECONDS = 15;
+const MOBILE_STRIDE_LENGTH_SECONDS = 3;
+const TIMESTAMP_COLLAPSE_SECONDS = 29.98;
+const TIMESTAMP_COLLAPSE_EPSILON = 0.18;
+const TIMESTAMP_OVERRUN_EPSILON = 0.35;
+const BAD_OVERLAP_EPSILON = 0.6;
+const ARABIC_TRANSCRIPTION_PROMPT = "\u0642\u0645 \u0628\u062a\u0641\u0631\u064a\u063a \u0627\u0644\u0646\u0635 \u0628\u062f\u0642\u0629 \u0645\u062b\u0644 \u0645\u0627 \u064a\u0646\u0642\u0627\u0644\u060c \u0628\u062f\u0648\u0646 \u062a\u0631\u062c\u0645\u0629 \u0623\u0648 \u062a\u0644\u062e\u064a\u0635\u060c \u0645\u0639 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0639\u0644\u0627\u0645\u0627\u062a \u0627\u0644\u062a\u0631\u0642\u064a\u0645 \u0639\u0646\u062f \u0627\u0644\u062d\u0627\u062c\u0629. \u0627\u0643\u062a\u0628 \u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a \u0643\u0645\u0627 \u0647\u0648\u060c \u0648\u0625\u0630\u0627 \u0641\u064a\u0647 \u0645\u0648\u0633\u064a\u0642\u0649 \u0627\u0643\u062a\u0628: (\u0645\u0648\u0633\u064a\u0642\u0649)";
 
 function shouldSuppressOnnxRuntimeNoise(args) {
   const text = args.map((value) => {
@@ -71,13 +79,26 @@ function isSafariLikeBrowser() {
     && !/CriOS|FxiOS|EdgiOS|Chrome|Chromium|Android/i.test(userAgent);
 }
 
+function getNormalizedLanguageCode(language) {
+  const value = String(language || "").trim().toLowerCase();
+  if (!value || value === "auto" || value === "detect" || value === "auto-detect") {
+    return "";
+  }
+  return value.split("-")[0].split("_")[0];
+}
+
+function shouldUseArabicPrompt(language) {
+  const normalized = getNormalizedLanguageCode(language);
+  return normalized === "ar" || normalized === "ara";
+}
+
 function getMobileRuntimeProfile() {
   const safariLike = isSafariLikeBrowser();
 
   return {
     modelId: safariLike ? "Xenova/whisper-tiny" : "Xenova/whisper-base",
-    chunkLengthSeconds: safariLike ? 12 : 30,
-    strideLengthSeconds: safariLike ? 2 : 5,
+    chunkLengthSeconds: MOBILE_CHUNK_LENGTH_SECONDS,
+    strideLengthSeconds: MOBILE_STRIDE_LENGTH_SECONDS,
     quantized: safariLike,
     partialUpdates: !safariLike
   };
@@ -95,6 +116,164 @@ function normalizeText(text) {
   return String(text || "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+async function buildPromptIds(source, promptText) {
+  if (!source) {
+    return null;
+  }
+
+  if (typeof source.get_prompt_ids === "function") {
+    return await source.get_prompt_ids(promptText);
+  }
+
+  return null;
+}
+
+async function getArabicPromptIds(model) {
+  if (arabicPromptIdsByModel.has(MOBILE_MODEL_KEY)) {
+    return arabicPromptIdsByModel.get(MOBILE_MODEL_KEY);
+  }
+
+  const promptSources = [
+    model && model.processor,
+    model && model.tokenizer,
+    model && model.processor && model.processor.tokenizer
+  ].filter(Boolean);
+
+  for (const source of promptSources) {
+    try {
+      const promptIds = await buildPromptIds(source, ARABIC_TRANSCRIPTION_PROMPT);
+      if (promptIds) {
+        arabicPromptIdsByModel.set(MOBILE_MODEL_KEY, promptIds);
+        return promptIds;
+      }
+    } catch (error) {
+    }
+  }
+
+  return null;
+}
+
+function countConsecutiveRepeats(tokens) {
+  let maxRun = 1;
+  let currentRun = 1;
+
+  for (let index = 1; index < tokens.length; index += 1) {
+    if (tokens[index] === tokens[index - 1]) {
+      currentRun += 1;
+      maxRun = Math.max(maxRun, currentRun);
+    } else {
+      currentRun = 1;
+    }
+  }
+
+  return maxRun;
+}
+
+function hasRepeatedPhraseLoop(text) {
+  const normalized = normalizeText(text);
+  if (!normalized) {
+    return false;
+  }
+
+  const tokens = normalized.split(" ").filter(Boolean);
+  if (tokens.length >= 3 && countConsecutiveRepeats(tokens) >= 5) {
+    return true;
+  }
+
+  const joined = tokens.join(" ");
+  for (let phraseLength = 1; phraseLength <= Math.min(6, Math.floor(tokens.length / 3)); phraseLength += 1) {
+    for (let start = 0; start + (phraseLength * 3) <= tokens.length; start += 1) {
+      const phrase = tokens.slice(start, start + phraseLength).join(" ");
+      if (!phrase) {
+        continue;
+      }
+
+      const repeated = `${phrase} ${phrase} ${phrase}`;
+      if (joined.includes(repeated)) {
+        return true;
+      }
+    }
+  }
+
+  return /(.)\1{7,}/.test(normalized);
+}
+
+function hasArabicSyllableLoop(text) {
+  const normalized = normalizeText(text);
+  if (!normalized) {
+    return false;
+  }
+
+  const compact = normalized.replace(/\s+/g, "");
+  if (compact.length < 12) {
+    return false;
+  }
+
+  if (/([\u0600-\u06FF]{2,4})\1{4,}/u.test(compact)) {
+    return true;
+  }
+
+  return /([\u0600-\u06FF]{2,3})(?:ي|ا|و|ت)?\1(?:ي|ا|و|ت)?\1(?:ي|ا|و|ت)?\1/u.test(compact);
+}
+
+function hasRepetitionLoop(text) {
+  return hasRepeatedPhraseLoop(text) || hasArabicSyllableLoop(text);
+}
+
+function inspectTimestampQuality(chunks, clipDurationSeconds) {
+  if (!Array.isArray(chunks) || !chunks.length) {
+    return {
+      ok: false,
+      reason: "missing_timestamps"
+    };
+  }
+
+  let validCount = 0;
+  let overlapCount = 0;
+  let lastEnd = -Infinity;
+  let collapsedCount = 0;
+
+  for (const chunk of chunks) {
+    const timestamp = chunk && chunk.timestamp;
+    if (!Array.isArray(timestamp) || timestamp.length < 2) {
+      continue;
+    }
+
+    const start = Number(timestamp[0]);
+    const end = Number(timestamp[1]);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+      continue;
+    }
+
+    validCount += 1;
+    if (end > clipDurationSeconds + TIMESTAMP_OVERRUN_EPSILON || start < -TIMESTAMP_OVERRUN_EPSILON) {
+      return { ok: false, reason: "timestamps_exceed_duration" };
+    }
+    if (end <= start) {
+      return { ok: false, reason: "timestamps_invalid_order" };
+    }
+    if (lastEnd > -Infinity && start < lastEnd - BAD_OVERLAP_EPSILON) {
+      overlapCount += 1;
+    }
+    if (Math.abs(end - TIMESTAMP_COLLAPSE_SECONDS) <= TIMESTAMP_COLLAPSE_EPSILON) {
+      collapsedCount += 1;
+    }
+    lastEnd = Math.max(lastEnd, end);
+  }
+
+  if (!validCount) {
+    return { ok: false, reason: "missing_timestamps" };
+  }
+  if (overlapCount >= Math.max(2, Math.floor(validCount * 0.25))) {
+    return { ok: false, reason: "timestamps_overlap_badly" };
+  }
+  if (validCount >= 3 && collapsedCount >= Math.max(3, Math.floor(validCount * 0.5)) && clipDurationSeconds >= 10) {
+    return { ok: false, reason: "timestamps_collapsed_29_98" };
+  }
+
+  return { ok: true, reason: "" };
 }
 
 function normalizeSegments(chunks, durationSeconds) {
@@ -354,6 +533,7 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
   const sampleRate = 16000;
   const durationSeconds = audio.length / sampleRate;
   const runtimeProfile = getMobileRuntimeProfile();
+  const warnings = [];
   const timePrecision = model
     && model.processor
     && model.processor.feature_extractor
@@ -429,7 +609,57 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
     options.language = selectedLanguage;
   }
 
-  const result = await model(audio, options);
+  if (shouldUseArabicPrompt(selectedLanguage)) {
+    const promptIds = await getArabicPromptIds(model);
+    if (promptIds) {
+      options.prompt_ids = promptIds;
+    }
+  }
+
+  let result = await model(audio, options);
+  let resultText = normalizeText(result && result.text);
+  let resultSegments = normalizeSegments(result && result.chunks, durationSeconds);
+  let timestampCheck = inspectTimestampQuality(result && result.chunks, durationSeconds);
+  let repetitionDetected = hasRepetitionLoop(resultText);
+
+  if (!timestampCheck.ok || repetitionDetected) {
+    const retryOptions = {
+      ...options,
+      return_timestamps: true
+    };
+
+    if (retryOptions.prompt_ids) {
+      delete retryOptions.prompt_ids;
+    }
+
+    const retriedResult = await model(audio, retryOptions);
+    const retriedText = normalizeText(retriedResult && retriedResult.text);
+    const retriedSegments = normalizeSegments(retriedResult && retriedResult.chunks, durationSeconds);
+    const retriedTimestampCheck = inspectTimestampQuality(retriedResult && retriedResult.chunks, durationSeconds);
+    const retriedRepetitionDetected = hasRepetitionLoop(retriedText);
+
+    if (retriedTimestampCheck.ok && !retriedRepetitionDetected) {
+      result = retriedResult;
+      resultText = retriedText;
+      resultSegments = retriedSegments;
+      timestampCheck = retriedTimestampCheck;
+      repetitionDetected = false;
+      warnings.push("language_hint");
+    } else {
+      if (!timestampCheck.ok || !retriedTimestampCheck.ok) {
+        warnings.push("weak_audio");
+      }
+      if (repetitionDetected || retriedRepetitionDetected) {
+        warnings.push("repetition");
+        resultText = "";
+        resultSegments = [];
+      }
+      if (!resultText && !retriedText) {
+        resultText = "";
+        resultSegments = [];
+      }
+    }
+  }
 
   postMessage({
     type: "status",
@@ -438,8 +668,8 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
   });
   postMessage({ type: "progress", value: 100, current: 100, total: 100 });
 
-  const text = normalizeText(result && result.text);
-  let segments = normalizeSegments(result && result.chunks, durationSeconds);
+  const text = resultText;
+  let segments = resultSegments;
 
   if (!segments.length && text) {
     segments = [{
@@ -451,7 +681,8 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
   postMessage({
     type: "result",
     text,
-    segments
+    segments,
+    warnings: Array.from(new Set(warnings))
   });
 }
 

@@ -5,6 +5,7 @@ let isBusy = false;
 let translationModel = null;
 let modernTransformersRuntimePromise = null;
 let legacyTransformersRuntimePromise = null;
+const arabicPromptIdsByModel = new Map();
 const ONNX_RUNTIME_NOISE_PATTERNS = [
   "VerifyEachNodeIsAssignedToAnEp",
   "Some nodes were not assigned to the preferred execution providers",
@@ -22,7 +23,13 @@ const WEAK_WEBGPU_TREX_PATTERNS = [
 const DEFAULT_TRANSCRIPTION_MODEL_KEY = "triceratop";
 const DEFAULT_CHUNK_LENGTH_SECONDS = 29;
 const DEFAULT_STRIDE_LENGTH_SECONDS = 5;
+const PHONE_CHUNK_LENGTH_SECONDS = 15;
+const PHONE_STRIDE_LENGTH_SECONDS = 3;
 const MIN_SPEECH_REGION_CLIP_SECONDS = 12;
+const TIMESTAMP_COLLAPSE_SECONDS = 29.98;
+const TIMESTAMP_COLLAPSE_EPSILON = 0.18;
+const TIMESTAMP_OVERRUN_EPSILON = 0.35;
+const BAD_OVERLAP_EPSILON = 0.6;
 const TRANSCRIPTION_MODELS = {
   "baby-raptor": {
     key: "baby-raptor",
@@ -41,6 +48,8 @@ const TRANSCRIPTION_MODELS = {
   }
 };
 const ARABIC_TRANSCRIPTION_PROMPT = "قم بتفريغ النص بدقة مثل ما ينقال، بدون ترجمة أو تلخيص، مع استخدام علامات الترقيم عند الحاجة. اكتب الإنجليزي كما هو، وإذا فيه موسيقى اكتب: (موسيقى)";
+
+const ARABIC_TRANSCRIPTION_PROMPT_TEXT = "\u0642\u0645 \u0628\u062a\u0641\u0631\u064a\u063a \u0627\u0644\u0646\u0635 \u0628\u062f\u0642\u0629 \u0645\u062b\u0644 \u0645\u0627 \u064a\u0646\u0642\u0627\u0644\u060c \u0628\u062f\u0648\u0646 \u062a\u0631\u062c\u0645\u0629 \u0623\u0648 \u062a\u0644\u062e\u064a\u0635\u060c \u0645\u0639 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0639\u0644\u0627\u0645\u0627\u062a \u0627\u0644\u062a\u0631\u0642\u064a\u0645 \u0639\u0646\u062f \u0627\u0644\u062d\u0627\u062c\u0629. \u0627\u0643\u062a\u0628 \u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a \u0643\u0645\u0627 \u0647\u0648\u060c \u0648\u0625\u0630\u0627 \u0641\u064a\u0647 \u0645\u0648\u0633\u064a\u0642\u0649 \u0627\u0643\u062a\u0628: (\u0645\u0648\u0633\u064a\u0642\u0649)";
 
 function shouldSuppressOnnxRuntimeNoise(args) {
   const text = args.map((value) => {
@@ -103,6 +112,38 @@ function isMobileSafariLikeBrowser() {
   return /iPhone|iPad|iPod/i.test(userAgent) || !!coarsePointer;
 }
 
+function getNormalizedLanguageCode(language) {
+  const value = String(language || "").trim().toLowerCase();
+  if (!value || value === "auto" || value === "detect" || value === "auto-detect") {
+    return "";
+  }
+  return value.split("-")[0].split("_")[0];
+}
+
+function shouldUseArabicPrompt(language) {
+  const normalized = getNormalizedLanguageCode(language);
+  return normalized === "ar" || normalized === "ara";
+}
+
+function getSafeWasmThreadCount(safariLike = isSafariLikeBrowser()) {
+  if (safariLike) {
+    return 1;
+  }
+
+  const crossOriginIsolated = typeof self !== "undefined" && self.crossOriginIsolated === true;
+  if (!crossOriginIsolated) {
+    return 1;
+  }
+
+  const hardwareConcurrency = typeof navigator !== "undefined"
+    ? Number(navigator.hardwareConcurrency)
+    : NaN;
+  return Math.max(
+    1,
+    Math.min(4, Number.isFinite(hardwareConcurrency) && hardwareConcurrency > 0 ? hardwareConcurrency : 2)
+  );
+}
+
 function hasBrowserCacheSupport() {
   try {
     if (typeof caches === "undefined" || !caches || typeof caches.open !== "function") {
@@ -146,12 +187,7 @@ async function getModernTransformersRuntime() {
 }
 
 function configureTransformersEnvironment(runtimeEnv, safariLike = isSafariLikeBrowser()) {
-  const hardwareConcurrency = typeof navigator !== "undefined"
-    ? Number(navigator.hardwareConcurrency)
-    : NaN;
-  const threadCount = safariLike
-    ? 1
-    : Math.max(1, Math.min(4, Number.isFinite(hardwareConcurrency) && hardwareConcurrency > 0 ? hardwareConcurrency : 2));
+  const threadCount = getSafeWasmThreadCount(safariLike);
 
   runtimeEnv.allowLocalModels = false;
 
@@ -244,12 +280,8 @@ function classifyTranscriptionModelLoadFailure(error, modelKey) {
     errorCode: "WEBGPU_TREX_UNSUPPORTED",
     failedModelKey: "t-rex",
     fallbackModelKey: "triceratop",
-    userMessage: "T-Rex hit WebGPU validation errors on this device. Switching to Triceratops for a safer local run."
+    userMessage: "T-Rex could not start its WebGPU backend on this device. Switching to Triceratops for a safer local run. If needed, try Baby Raptor next."
   };
-}
-
-function shouldUseExtendedArabicPrompt(modelKey) {
-  return getTranscriptionModelConfig(modelKey).key === "t-rex";
 }
 
 function isSmallerTimestampedWhisper(modelKey) {
@@ -257,32 +289,16 @@ function isSmallerTimestampedWhisper(modelKey) {
   return resolvedModel.key === "baby-raptor" || resolvedModel.key === "triceratop";
 }
 
-function getArabicDecodeProfile(modelKey) {
-  const resolvedModel = getTranscriptionModelConfig(modelKey);
-
-  if (resolvedModel.key === "t-rex") {
-    return {
-      chunk_length_s: 20,
-      stride_length_s: 6,
-      condition_on_prev_tokens: false,
-      compression_ratio_threshold: 1.3,
-      no_speech_threshold: 0.6,
-      temperature: [0.0, 0.1, 0.2],
-      num_beams: 2,
-      useExtendedPrompt: true
-    };
-  }
-
-  return null;
-}
-
-function getDefaultTranscriptionOptions(modelKey) {
-  const useMobileLegacyDefaults = isMobileSafariLikeBrowser() && modelKey === "baby-raptor";
+function getDefaultTranscriptionOptions(modelKey, useLegacyRuntime = false) {
+  const useConservativeLegacyDefaults = useLegacyRuntime && modelKey === "baby-raptor";
   return {
-    chunk_length_s: useMobileLegacyDefaults ? 15 : DEFAULT_CHUNK_LENGTH_SECONDS,
-    stride_length_s: useMobileLegacyDefaults ? 3 : DEFAULT_STRIDE_LENGTH_SECONDS,
-    return_timestamps: true,
-    task: "transcribe"
+    chunk_length_s: useConservativeLegacyDefaults ? PHONE_CHUNK_LENGTH_SECONDS : DEFAULT_CHUNK_LENGTH_SECONDS,
+    stride_length_s: useConservativeLegacyDefaults ? PHONE_STRIDE_LENGTH_SECONDS : DEFAULT_STRIDE_LENGTH_SECONDS,
+    return_timestamps: useLegacyRuntime ? true : "word",
+    task: "transcribe",
+    force_full_sequences: false,
+    top_k: 0,
+    do_sample: false
   };
 }
 
@@ -452,7 +468,8 @@ async function loadTranscriptionModel(modelKey) {
     return {
       model: transcriber,
       modelKey: modelConfig.key,
-      loadState: "memory"
+      loadState: "memory",
+      legacy: runtime.legacy
     };
   }
 
@@ -464,7 +481,8 @@ async function loadTranscriptionModel(modelKey) {
       return {
         model: transcriber,
         modelKey: modelConfig.key,
-        loadState: "memory"
+        loadState: "memory",
+        legacy: runtime.legacy
       };
     }
   }
@@ -548,7 +566,8 @@ async function loadTranscriptionModel(modelKey) {
   return {
     model: transcriber,
     modelKey: modelConfig.key,
-    loadState: tracker && tracker.sawNetworkProgress() ? "downloaded" : "cached"
+    loadState: tracker && tracker.sawNetworkProgress() ? "downloaded" : "cached",
+    legacy: runtime.legacy
   };
 }
 
@@ -609,7 +628,7 @@ async function getArabicPromptIds(model, modelKey) {
 
   for (const source of promptSources) {
     try {
-      const promptIds = await buildPromptIds(source, ARABIC_TRANSCRIPTION_PROMPT);
+      const promptIds = await buildPromptIds(source, ARABIC_TRANSCRIPTION_PROMPT_TEXT);
       if (promptIds) {
         arabicPromptIdsByModel.set(cacheKey, promptIds);
         return promptIds;
@@ -622,10 +641,223 @@ async function getArabicPromptIds(model, modelKey) {
   return null;
 }
 
+function createTranscriptionAttemptOptions(baseOptions, progressHandler, overrides) {
+  return {
+    ...baseOptions,
+    ...(overrides || {}),
+    monitor_progress: progressHandler
+  };
+}
+
 function normalizeText(text) {
   return String(text || "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function countConsecutiveRepeats(tokens) {
+  let maxRun = 1;
+  let currentRun = 1;
+
+  for (let index = 1; index < tokens.length; index += 1) {
+    if (tokens[index] === tokens[index - 1]) {
+      currentRun += 1;
+      maxRun = Math.max(maxRun, currentRun);
+    } else {
+      currentRun = 1;
+    }
+  }
+
+  return maxRun;
+}
+
+function hasRepeatedPhraseLoop(text) {
+  const normalized = normalizeText(text);
+  if (!normalized) {
+    return false;
+  }
+
+  const tokens = normalized.split(" ").filter(Boolean);
+  if (tokens.length >= 3 && countConsecutiveRepeats(tokens) >= 5) {
+    return true;
+  }
+
+  const joined = tokens.join(" ");
+  for (let phraseLength = 1; phraseLength <= Math.min(6, Math.floor(tokens.length / 3)); phraseLength += 1) {
+    for (let start = 0; start + (phraseLength * 3) <= tokens.length; start += 1) {
+      const phrase = tokens.slice(start, start + phraseLength).join(" ");
+      if (!phrase) {
+        continue;
+      }
+
+      const repeated = `${phrase} ${phrase} ${phrase}`;
+      if (joined.includes(repeated)) {
+        return true;
+      }
+    }
+  }
+
+  return /(.)\1{7,}/.test(normalized);
+}
+
+function hasArabicSyllableLoop(text) {
+  const normalized = normalizeText(text);
+  if (!normalized) {
+    return false;
+  }
+
+  const compact = normalized.replace(/\s+/g, "");
+  if (compact.length < 12) {
+    return false;
+  }
+
+  if (/([\u0600-\u06FF]{2,4})\1{4,}/u.test(compact)) {
+    return true;
+  }
+
+  return /([\u0600-\u06FF]{2,3})(?:ي|ا|و|ت)?\1(?:ي|ا|و|ت)?\1(?:ي|ا|و|ت)?\1/u.test(compact);
+}
+
+function hasRepetitionLoop(text) {
+  return hasRepeatedPhraseLoop(text) || hasArabicSyllableLoop(text);
+}
+
+function hasTimestampCollapseAtBoundary(chunks, clipDurationSeconds) {
+  if (!Array.isArray(chunks) || !chunks.length || clipDurationSeconds < 10) {
+    return false;
+  }
+
+  let collapsedCount = 0;
+  let validCount = 0;
+  for (const chunk of chunks) {
+    const timestamp = chunk && chunk.timestamp;
+    if (!Array.isArray(timestamp) || !Number.isFinite(timestamp[1])) {
+      continue;
+    }
+
+    validCount += 1;
+    if (Math.abs(timestamp[1] - TIMESTAMP_COLLAPSE_SECONDS) <= TIMESTAMP_COLLAPSE_EPSILON) {
+      collapsedCount += 1;
+    }
+  }
+
+  return validCount >= 3 && collapsedCount >= Math.max(3, Math.floor(validCount * 0.5));
+}
+
+function inspectTimestampQuality(chunks, clipDurationSeconds) {
+  if (!Array.isArray(chunks) || !chunks.length) {
+    return {
+      ok: false,
+      reason: "missing_timestamps"
+    };
+  }
+
+  let validCount = 0;
+  let lastEnd = -Infinity;
+  let overlapCount = 0;
+
+  for (const chunk of chunks) {
+    const timestamp = chunk && chunk.timestamp;
+    if (!Array.isArray(timestamp) || timestamp.length < 2) {
+      continue;
+    }
+
+    let start = Number(timestamp[0]);
+    let end = Number(timestamp[1]);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+      continue;
+    }
+
+    validCount += 1;
+    if (end > clipDurationSeconds + TIMESTAMP_OVERRUN_EPSILON || start < -TIMESTAMP_OVERRUN_EPSILON) {
+      return {
+        ok: false,
+        reason: "timestamps_exceed_duration"
+      };
+    }
+
+    if (end <= start) {
+      return {
+        ok: false,
+        reason: "timestamps_invalid_order"
+      };
+    }
+
+    if (lastEnd > -Infinity && start < lastEnd - BAD_OVERLAP_EPSILON) {
+      overlapCount += 1;
+    }
+
+    lastEnd = Math.max(lastEnd, end);
+  }
+
+  if (!validCount) {
+    return {
+      ok: false,
+      reason: "missing_timestamps"
+    };
+  }
+
+  if (overlapCount >= Math.max(2, Math.floor(validCount * 0.25))) {
+    return {
+      ok: false,
+      reason: "timestamps_overlap_badly"
+    };
+  }
+
+  if (hasTimestampCollapseAtBoundary(chunks, clipDurationSeconds)) {
+    return {
+      ok: false,
+      reason: "timestamps_collapsed_29_98"
+    };
+  }
+
+  return {
+    ok: true,
+    reason: ""
+  };
+}
+
+function sanitizeTimedChunks(chunks, clipDurationSeconds) {
+  if (!Array.isArray(chunks) || !chunks.length) {
+    return [];
+  }
+
+  const safeDuration = Math.max(0, Number(clipDurationSeconds) || 0);
+  const result = [];
+  let lastEnd = 0;
+
+  chunks.forEach((chunk) => {
+    const text = normalizeText(chunk && chunk.text);
+    const timestamp = chunk && chunk.timestamp;
+    if (!text || !Array.isArray(timestamp) || timestamp.length < 2) {
+      return;
+    }
+
+    let start = Number(timestamp[0]);
+    let end = Number(timestamp[1]);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+      return;
+    }
+
+    start = Math.max(0, Math.min(safeDuration, start));
+    end = Math.max(0, Math.min(safeDuration, end));
+
+    if (start < lastEnd) {
+      start = lastEnd;
+    }
+
+    if (end <= start) {
+      return;
+    }
+
+    result.push({
+      text,
+      timestamp: [start, end]
+    });
+    lastEnd = end;
+  });
+
+  return result;
 }
 
 function applyTerminologyHints(text) {
@@ -916,11 +1148,19 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
   const safeTimelineOffset = Number.isFinite(timelineOffset) ? Math.max(0, timelineOffset) : 0;
   const options = {
     sampling_rate: sampleRate,
-    ...getDefaultTranscriptionOptions(modelLoad.modelKey)
+    ...getDefaultTranscriptionOptions(modelLoad.modelKey, !!modelLoad.legacy)
   };
+  const warnings = [];
 
   if (selectedLanguage && selectedLanguage !== "auto") {
     options.language = selectedLanguage;
+  }
+
+  if (shouldUseArabicPrompt(selectedLanguage)) {
+    const promptIds = await getArabicPromptIds(model, modelLoad.modelKey);
+    if (promptIds) {
+      options.prompt_ids = promptIds;
+    }
   }
 
   let fullText = "";
@@ -957,29 +1197,69 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
       progress: chunkStartProgress
     });
 
-    const result = await model(chunk.audio, {
-      ...options,
-      monitor_progress: (state) => {
-        const internalPercent = getMonitorProgressPercent(state);
-        if (internalPercent == null) {
-          return;
-        }
+    const progressHandler = (state) => {
+      const internalPercent = getMonitorProgressPercent(state);
+      if (internalPercent == null) {
+        return;
+      }
 
-        const liveProgress = chunkStartProgress + Math.round(((chunkEndProgress - chunkStartProgress) * internalPercent) / 100);
-        if (liveProgress > lastChunkProgress) {
-          lastChunkProgress = liveProgress;
-          postMessage({
-            type: "progress",
-            value: liveProgress,
-            current: liveProgress,
-            total: 100,
-            message: chunkPlan.length > 1
-              ? "Transcribing part " + (i + 1) + " of " + chunkPlan.length + "..."
-              : "Transcribing in browser..."
-          });
+      const liveProgress = chunkStartProgress + Math.round(((chunkEndProgress - chunkStartProgress) * internalPercent) / 100);
+      if (liveProgress > lastChunkProgress) {
+        lastChunkProgress = liveProgress;
+        postMessage({
+          type: "progress",
+          value: liveProgress,
+          current: liveProgress,
+          total: 100,
+          message: chunkPlan.length > 1
+            ? "Transcribing part " + (i + 1) + " of " + chunkPlan.length + "..."
+            : "Transcribing in browser..."
+        });
+      }
+    };
+    const clipDurationSeconds = chunk.audio.length / sampleRate;
+    let result = await model(chunk.audio, createTranscriptionAttemptOptions(options, progressHandler));
+    let resultText = normalizeText(result && result.text);
+    let resultChunks = sanitizeTimedChunks(result && result.chunks, clipDurationSeconds);
+    let timestampCheck = inspectTimestampQuality(result && result.chunks, clipDurationSeconds);
+    let repetitionDetected = hasRepetitionLoop(resultText);
+
+    if (!timestampCheck.ok || repetitionDetected) {
+      const retryOptions = {
+        ...options,
+        return_timestamps: true
+      };
+
+      if (retryOptions.prompt_ids) {
+        delete retryOptions.prompt_ids;
+      }
+
+      const retryReason = !timestampCheck.ok ? timestampCheck.reason : "repetition";
+      const retriedResult = await model(chunk.audio, createTranscriptionAttemptOptions(retryOptions, progressHandler));
+      const retriedText = normalizeText(retriedResult && retriedResult.text);
+      const retriedChunks = sanitizeTimedChunks(retriedResult && retriedResult.chunks, clipDurationSeconds);
+      const retriedTimestampCheck = inspectTimestampQuality(retriedResult && retriedResult.chunks, clipDurationSeconds);
+      const retriedRepetitionDetected = hasRepetitionLoop(retriedText);
+
+      if (retriedTimestampCheck.ok && !retriedRepetitionDetected) {
+        result = retriedResult;
+        resultText = retriedText;
+        resultChunks = retriedChunks;
+        timestampCheck = retriedTimestampCheck;
+        repetitionDetected = false;
+        warnings.push("language_hint");
+      } else {
+        if (!timestampCheck.ok || !retriedTimestampCheck.ok) {
+          warnings.push("weak_audio");
+        }
+        if (repetitionDetected || retriedRepetitionDetected) {
+          warnings.push("repetition");
+        }
+        if (retryReason === "repetition" && !retriedText && !resultText) {
+          continue;
         }
       }
-    });
+    }
 
     postMessage({
       type: "progress",
@@ -991,14 +1271,26 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
         : "Finalizing transcript..."
     });
 
-    if (result && Array.isArray(result.chunks) && result.chunks.length) {
-      appendTimedChunks(fullChunks, result.chunks, chunkOffsetSeconds);
+    if (timestampCheck.ok && resultChunks.length) {
+      appendTimedChunks(fullChunks, resultChunks, chunkOffsetSeconds);
+    } else if (resultText) {
+      if (!timestampCheck.ok) {
+        warnings.push("weak_audio");
+      }
+      if (repetitionDetected) {
+        warnings.push("repetition");
+        continue;
+      }
+      fullChunks.push({
+        text: resultText,
+        timestamp: [chunkOffsetSeconds, chunkOffsetSeconds + clipDurationSeconds]
+      });
     } else if (result && result.text) {
       const fallbackText = normalizeText(result.text);
       if (fallbackText) {
         fullChunks.push({
           text: fallbackText,
-          timestamp: [chunkOffsetSeconds, chunkOffsetSeconds + (chunk.audio.length / sampleRate)]
+          timestamp: [chunkOffsetSeconds, chunkOffsetSeconds + clipDurationSeconds]
         });
       }
     }
@@ -1022,7 +1314,8 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
   postMessage({
     type: "result",
     text: fullText.trim(),
-    segments: fullChunks
+    segments: fullChunks,
+    warnings: Array.from(new Set(warnings))
   });
 }
 
@@ -1122,10 +1415,13 @@ async function handleSubtitleTranslation(data) {
       postMessage({ type: "progress", value: progress, current: progress, total: 100 });
 
       const result = await model(chunk, {
-        chunk_length_s: 30,
+        chunk_length_s: DEFAULT_CHUNK_LENGTH_SECONDS,
         stride_length_s: 5,
         return_timestamps: true,
-        task: "translate"
+        task: "translate",
+        force_full_sequences: false,
+        top_k: 0,
+        do_sample: false
       });
 
       if (result && result.text) {

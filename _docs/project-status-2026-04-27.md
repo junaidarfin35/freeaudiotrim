@@ -5,8 +5,8 @@ Workspace: `D:\Junaid\My 2nd Tool\files`
 
 ## Next Up
 
-Date: 2026-05-11
-Status: `Step 6 active`
+Date: 2026-05-13
+Status: `Step 6 parked - keep current live model route`
 
 1. Completed: stabilize mobile transcription teardown and guarantee full deletion of transcription data on change file, start over, refresh, and page exit.
 2. Completed: move transcription model loading to explicit user intent only, after language selection and `Transcribe` click.
@@ -15,7 +15,7 @@ Status: `Step 6 active`
 5. Completed: replace fixed duration cap with dynamic device and model duration limits and explain the limit clearly in UI.
 5.5 Completed: make transcript preview and TXT/SRT export direction follow the selected or detected content language instead of the website UI language, without changing transcript text or edit mode behavior.
 5.6 Completed: block memory-risk WAV files on phone before transcription starts, and fix transcript edit mode so typing no longer rebuilds the editable node on every keystroke.
-6. Active: benchmark Arabic-specific ASR candidates and choose production Arabic default based on accuracy, speed, stability, and browser feasibility.
+6. Parked: Arabic ASR model testing was completed enough to make a product decision for now. Keep the current live transcription route, and defer model replacement until a clearly better browser-safe Arabic candidate is verified.
 
 ## Transcription Progress
 
@@ -36,14 +36,15 @@ Status: `Steps 1-5 completed`
   - risky large WAV files on phone now stop before transcription starts with an honest memory-risk message
   - the file shell stays open so users can change file quickly instead of crashing mid-run
   - transcript edit mode no longer rerenders the segment DOM on every keystroke, so typing works normally again
-- Step 6 first feasibility pass is now on disk:
+- Step 6 Arabic ASR testing is now effectively closed for this phase:
   - benchmark harness added at `_scripts/benchmark-arabic-asr.mjs`
   - first local browser results saved to `_tmp/arabic-asr-benchmark-2026-05-11.json`
   - first written evaluation note saved to `_docs/arabic-asr-benchmark-2026-05-11.md`
-  - current `Baby Raptor` baseline completed the smoke clips successfully
-  - `onnx-community/moonshine-tiny-ar-ONNX` loaded but failed inference in the current browser stack with `Unable to decode without a tokenizer.`
-  - `speechbrain/asr-whisper-large-v2-commonvoice-ar` and `ayoubkirouane/whisper-small-ar` remain non-drop-in browser candidates for this repo's current local-web architecture
-  - current recommendation is to keep the existing browser default until a larger Arabic reference corpus and/or a safer browser-compatible Arabic candidate is verified
+  - current `Baby Raptor` / live route remains the safest product choice after real browser and phone stability work
+  - `onnx-community/moonshine-tiny-ar-ONNX` was made runnable in the isolated lab, but output quality stayed unstable and hallucination-prone even after chunking, generation caps, repetition guards, and prompt experiments
+  - `ayoubkirouane/whisper-small-ar` is not packaged as a drop-in browser-ready candidate for this repo's current local-web architecture
+  - the experimental lab was kept isolated under `_tmp/` so the live transcription tool was not disturbed during testing
+  - final decision for now: do not change the live Arabic model route, do not make Moonshine the default, and revisit only when a stronger browser-safe Arabic candidate is available
 - Phone transcription path was further stabilized for repeat-use testing:
   - browser cache guards for insecure local-network mobile testing
   - truthful model/download/transcription status handoff
