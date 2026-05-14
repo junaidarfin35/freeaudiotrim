@@ -1823,10 +1823,7 @@
     }
 
     var sourceViewUrl = buildAbsoluteUrl(buildTranslationViewUrl(sessionId));
-    var localPreviewUrl = sourceViewUrl + (sourceViewUrl.indexOf("?") >= 0 ? "&" : "?") + "preview=local";
-    var targetUrl = isLocalDevTranslationHost()
-      ? localPreviewUrl
-      : buildGoogleTranslateUrl(sourceCode, targetCode, sourceViewUrl);
+    var targetUrl = sourceViewUrl;
     var openedWindow = null;
 
     try {
@@ -3946,6 +3943,7 @@ function generateVTT(segments) {
     updateEditButton(editBtn);
 
     if (builtInTranslationAllowed && window.currentTab === "translated" && hasTranslation) {
+      transcriptEl.setAttribute("data-state", "filled");
       renderSegments(
         transcriptEl,
         window.translatedTitle || "",
@@ -3954,10 +3952,12 @@ function generateVTT(segments) {
         getEffectiveTranslatedContentLanguage() || getEffectiveTranscriptionContentLanguage()
       );
     } else if (builtInTranslationAllowed && window.currentTab === "translated" && !hasTranslation) {
+      transcriptEl.setAttribute("data-state", "empty");
       clearTranscriptDirection(transcriptEl);
       transcriptEl.textContent = "Translate your transcript to view it here.";
     } else if (window.currentTranscript) {
       window.currentTab = "original";
+      transcriptEl.setAttribute("data-state", "filled");
       renderSegments(
         transcriptEl,
         "",
@@ -3967,6 +3967,7 @@ function generateVTT(segments) {
       );
     } else {
       window.currentTab = "original";
+      transcriptEl.setAttribute("data-state", "empty");
       clearTranscriptDirection(transcriptEl);
       transcriptEl.textContent = EMPTY_TRANSCRIPT_TEXT;
     }
@@ -5856,32 +5857,6 @@ function generateVTT(segments) {
         phoneOptimized: isPhoneTranscriptionModeActive(),
         phoneRiskReason: getPhoneFileRiskReason(file)
       };
-
-      if (window.transcriptionAudio.phoneOptimized && !window.transcriptionAudio.phoneRiskReason) {
-        try {
-          setStatus(statusEl, "Preparing audio...", "processing");
-          setProgressMessage("Preparing audio...");
-          setProgress(0);
-          await decodeSelectedTranscriptionAudio(audioContext, window.transcriptionAudio, selectedTranscriptionModelKey);
-        } catch (error) {
-          setProgressMessage("");
-          setProgress(0);
-          if (error && error.message === "FILE_TOO_LONG") {
-            setStatus(statusEl, buildFileTooLongMessage(error, selectedTranscriptionModelKey), "error");
-          } else if (error && error.userMessage) {
-            setStatus(statusEl, error.userMessage, "error");
-          } else if (error && error.message === "BAD_AUDIO") {
-            setStatus(statusEl, "Unsupported or corrupted file", "error");
-          } else {
-            setStatus(statusEl, "Could not prepare audio on this phone. Try a shorter or simpler file.", "error");
-          }
-          syncTranscribeReadyState();
-          updateToolLayout(root);
-          return;
-        }
-        setProgressMessage("");
-        setProgress(0);
-      }
 
       var selectedLanguage = languageSelect ? languageSelect.value : "";
       var readyMessage = getAudioReadyStatus(selectedLanguage);

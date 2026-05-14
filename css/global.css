@@ -3117,9 +3117,13 @@ body.audio-converter-page #audio-tool .at-tools {
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: var(--color-surface-muted);
-  color: var(--color-text-muted);
+  color: var(--color-text);
   white-space: pre-line;
   overflow-wrap: anywhere;
+}
+
+#audio-tool .at-transcript-box[data-state="empty"] {
+  color: var(--color-text-muted);
 }
 
 #audio-tool .transcribe-controls select,
