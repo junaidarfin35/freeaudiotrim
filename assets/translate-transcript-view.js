@@ -460,27 +460,94 @@
     node.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
+  function getTranslatableTextNodes() {
+    return Array.from(document.querySelectorAll('[translate="yes"]'));
+  }
+
+  function getTranslatableTextSnapshot() {
+    return getTranslatableTextNodes().map(function (node) {
+      return String(node.textContent || "").trim();
+    });
+  }
+
+  function hasTranslatedSnapshotChanged(beforeSnapshot) {
+    var afterSnapshot = getTranslatableTextSnapshot();
+    var length = Math.max(beforeSnapshot.length, afterSnapshot.length);
+    var index;
+
+    for (index = 0; index < length; index += 1) {
+      if (String(beforeSnapshot[index] || "") !== String(afterSnapshot[index] || "")) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function waitForTranslatedContent(beforeSnapshot, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var started = Date.now();
+      var timer = window.setInterval(function () {
+        if (hasTranslatedSnapshotChanged(beforeSnapshot)) {
+          window.clearInterval(timer);
+          resolve(true);
+          return;
+        }
+
+        if ((Date.now() - started) > (timeoutMs || 8000)) {
+          window.clearInterval(timer);
+          reject(new Error("Translated content did not appear"));
+        }
+      }, 250);
+    });
+  }
+
   function applyInlineTranslation(sourceLang, targetLang) {
     var normalizedSource = getLangCode(sourceLang || "") || "auto";
     var normalizedTarget = getLangCode(targetLang || "");
+    var beforeSnapshot = getTranslatableTextSnapshot();
 
     if (!normalizedTarget) {
       return Promise.resolve(false);
     }
 
     return loadGoogleTranslateElement(normalizedSource, normalizedTarget).then(function (combo) {
+      function applyTargetSelection() {
+        if (combo.value === normalizedTarget) {
+          combo.value = normalizedSource === "auto" ? "" : normalizedSource;
+          dispatchChange(combo);
+        }
+
+        combo.value = normalizedTarget;
+        dispatchChange(combo);
+      }
+
       if (!combo) {
         return false;
       }
 
-      if (combo.value === normalizedTarget) {
-        combo.value = normalizedSource === "auto" ? "" : normalizedSource;
-        dispatchChange(combo);
-      }
+      return new Promise(function (resolve, reject) {
+        var attempts = 0;
+        var maxAttempts = 3;
 
-      combo.value = normalizedTarget;
-      dispatchChange(combo);
-      return true;
+        function attemptTranslation() {
+          attempts += 1;
+          applyTargetSelection();
+
+          waitForTranslatedContent(beforeSnapshot, 3500).then(function () {
+            resolve(true);
+          }).catch(function () {
+            if (attempts >= maxAttempts) {
+              reject(new Error("Google Translate did not apply the target language"));
+              return;
+            }
+
+            window.setTimeout(attemptTranslation, 450);
+          });
+        }
+
+        window.setTimeout(attemptTranslation, 150);
+      });
     });
   }
 
