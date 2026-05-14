@@ -10,8 +10,8 @@ const ONNX_RUNTIME_NOISE_PATTERNS = [
 ];
 
 const MOBILE_MODEL_KEY = "baby-raptor";
-const MOBILE_CHUNK_LENGTH_SECONDS = 15;
-const MOBILE_STRIDE_LENGTH_SECONDS = 3;
+const MOBILE_CHUNK_LENGTH_SECONDS = 30;
+const MOBILE_STRIDE_LENGTH_SECONDS = 5;
 const TIMESTAMP_COLLAPSE_SECONDS = 29.98;
 const TIMESTAMP_COLLAPSE_EPSILON = 0.18;
 const TIMESTAMP_OVERRUN_EPSILON = 0.35;
@@ -116,43 +116,6 @@ function normalizeText(text) {
   return String(text || "")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-async function buildPromptIds(source, promptText) {
-  if (!source) {
-    return null;
-  }
-
-  if (typeof source.get_prompt_ids === "function") {
-    return await source.get_prompt_ids(promptText);
-  }
-
-  return null;
-}
-
-async function getArabicPromptIds(model) {
-  if (arabicPromptIdsByModel.has(MOBILE_MODEL_KEY)) {
-    return arabicPromptIdsByModel.get(MOBILE_MODEL_KEY);
-  }
-
-  const promptSources = [
-    model && model.processor,
-    model && model.tokenizer,
-    model && model.processor && model.processor.tokenizer
-  ].filter(Boolean);
-
-  for (const source of promptSources) {
-    try {
-      const promptIds = await buildPromptIds(source, ARABIC_TRANSCRIPTION_PROMPT);
-      if (promptIds) {
-        arabicPromptIdsByModel.set(MOBILE_MODEL_KEY, promptIds);
-        return promptIds;
-      }
-    } catch (error) {
-    }
-  }
-
-  return null;
 }
 
 function countConsecutiveRepeats(tokens) {
@@ -533,7 +496,6 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
   const sampleRate = 16000;
   const durationSeconds = audio.length / sampleRate;
   const runtimeProfile = getMobileRuntimeProfile();
-  const warnings = [];
   const timePrecision = model
     && model.processor
     && model.processor.feature_extractor
@@ -563,7 +525,7 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
       activeChunk.tokens = data[0].output_token_ids.slice();
     }
 
-    if (runtimeProfile.partialUpdates && timePrecision && model && model.tokenizer && typeof model.tokenizer._decode_asr === "function") {
+    if (timePrecision && model && model.tokenizer && typeof model.tokenizer._decode_asr === "function") {
       try {
         const partial = model.tokenizer._decode_asr(callbackChunks, {
           time_precision: timePrecision,
@@ -597,62 +559,17 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
     return_timestamps: true,
     force_full_sequences: false,
     task: "transcribe",
-    sampling_rate: sampleRate
+    callback_function: callbackFunction,
+    chunk_callback: chunkCallback
   };
-
-  if (runtimeProfile.partialUpdates) {
-    options.callback_function = callbackFunction;
-    options.chunk_callback = chunkCallback;
-  }
 
   if (selectedLanguage && selectedLanguage !== "auto") {
     options.language = selectedLanguage;
   }
 
-  let result = await model(audio, options);
+  const result = await model(audio, options);
   let resultText = normalizeText(result && result.text);
   let resultSegments = normalizeSegments(result && result.chunks, durationSeconds);
-  let timestampCheck = inspectTimestampQuality(result && result.chunks, durationSeconds);
-  let repetitionDetected = hasRepetitionLoop(resultText);
-
-  if (!timestampCheck.ok || repetitionDetected) {
-    const retryOptions = {
-      ...options,
-      return_timestamps: true
-    };
-
-    if (retryOptions.prompt_ids) {
-      delete retryOptions.prompt_ids;
-    }
-
-    const retriedResult = await model(audio, retryOptions);
-    const retriedText = normalizeText(retriedResult && retriedResult.text);
-    const retriedSegments = normalizeSegments(retriedResult && retriedResult.chunks, durationSeconds);
-    const retriedTimestampCheck = inspectTimestampQuality(retriedResult && retriedResult.chunks, durationSeconds);
-    const retriedRepetitionDetected = hasRepetitionLoop(retriedText);
-
-    if (retriedTimestampCheck.ok && !retriedRepetitionDetected) {
-      result = retriedResult;
-      resultText = retriedText;
-      resultSegments = retriedSegments;
-      timestampCheck = retriedTimestampCheck;
-      repetitionDetected = false;
-      warnings.push("language_hint");
-    } else {
-      if (!timestampCheck.ok || !retriedTimestampCheck.ok) {
-        warnings.push("weak_audio");
-      }
-      if (repetitionDetected || retriedRepetitionDetected) {
-        warnings.push("repetition");
-        resultText = "";
-        resultSegments = [];
-      }
-      if (!resultText && !retriedText) {
-        resultText = "";
-        resultSegments = [];
-      }
-    }
-  }
 
   postMessage({
     type: "status",
@@ -674,8 +591,7 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
   postMessage({
     type: "result",
     text,
-    segments,
-    warnings: Array.from(new Set(warnings))
+    segments
   });
 }
 

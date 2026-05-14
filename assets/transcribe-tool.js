@@ -4,7 +4,7 @@
   var srtContent = "";
   var vttContent = "";
   var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-13-1";
-  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-14-1";
+  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-14-2";
   var worker = null;
   var workerGeneration = 0;
   var translationWorker = null;
@@ -2740,6 +2740,33 @@
     return !!supportedExtensions[extension];
   }
 
+  function isVideoMediaFile(file) {
+    var type = String(file && file.type || "").toLowerCase();
+    var extension = getFileExtension(file && file.name);
+    var videoExtensions = {
+      ".mp4": true,
+      ".m4v": true,
+      ".mov": true,
+      ".webm": true,
+      ".mpeg": true,
+      ".mpg": true
+    };
+
+    if (!file) {
+      return false;
+    }
+
+    if (type.indexOf("video/") === 0) {
+      return true;
+    }
+
+    if (type.indexOf("audio/") === 0) {
+      return false;
+    }
+
+    return !!videoExtensions[extension];
+  }
+
   function getCurrentTranscriptDuration() {
     return window.currentTranscriptDuration || 0;
   }
@@ -2826,6 +2853,12 @@
     return error;
   }
 
+  function createVideoAudioPreparationError(code, message) {
+    var error = new Error(code || "VIDEO_AUDIO_PREP_FAILED");
+    error.userMessage = message || "This iPhone video could not be prepared for local transcription on this device.";
+    return error;
+  }
+
   function enforceTranscriptionDurationLimit(audioRecord, modelKey) {
     if (!audioRecord) {
       return;
@@ -2837,6 +2870,248 @@
     }
   }
 
+  function extractAudioFromVideoFile(audioContext, audioRecord, modelKey) {
+    return new Promise(function (resolve, reject) {
+      var file = audioRecord && audioRecord.file;
+      var objectUrl;
+      var video;
+      var sourceNode = null;
+      var processorNode = null;
+      var gainNode = null;
+      var chunks = [];
+      var totalFrames = 0;
+      var settled = false;
+      var started = false;
+      var timeoutId = null;
+      var startupTimeoutId = null;
+
+      function cleanup() {
+        if (timeoutId) {
+          window.clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (startupTimeoutId) {
+          window.clearTimeout(startupTimeoutId);
+          startupTimeoutId = null;
+        }
+        if (video) {
+          video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+          video.removeEventListener("canplay", startPlayback);
+          video.removeEventListener("ended", handleEnded);
+          video.removeEventListener("error", handleError);
+          try {
+            video.pause();
+          } catch (error) {
+          }
+          video.removeAttribute("src");
+          try {
+            video.load();
+          } catch (error) {
+          }
+          if (video.parentNode) {
+            video.parentNode.removeChild(video);
+          }
+        }
+        if (processorNode) {
+          processorNode.onaudioprocess = null;
+          try {
+            processorNode.disconnect();
+          } catch (error) {
+          }
+        }
+        if (gainNode) {
+          try {
+            gainNode.disconnect();
+          } catch (error) {
+          }
+        }
+        if (sourceNode) {
+          try {
+            sourceNode.disconnect();
+          } catch (error) {
+          }
+        }
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
+        }
+      }
+
+      function fail(error) {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        reject(error);
+      }
+
+      function finish() {
+        var combined;
+        var offset = 0;
+
+        if (settled) {
+          return;
+        }
+
+        if (!totalFrames) {
+          fail(new Error("BAD_AUDIO"));
+          return;
+        }
+
+        combined = new Float32Array(totalFrames);
+        chunks.forEach(function (chunk) {
+          combined.set(chunk, offset);
+          offset += chunk.length;
+        });
+
+        settled = true;
+        cleanup();
+        resolve({
+          sampleRate: audioContext.sampleRate,
+          duration: Number(audioRecord.duration) || (combined.length / audioContext.sampleRate),
+          data: combined
+        });
+      }
+
+      function handleError() {
+        fail(createVideoAudioPreparationError(
+          "VIDEO_AUDIO_PREP_FAILED",
+          "This video format opened, but Safari could not extract its audio track for local transcription. Try a saved video file from Photos, export/share it first, or use desktop."
+        ));
+      }
+
+      function handleEnded() {
+        finish();
+      }
+
+      function handleLoadedMetadata() {
+        var duration = Number(video.duration) || 0;
+
+        audioRecord.duration = duration;
+        if (!Number.isFinite(duration) || duration < 1) {
+          fail(createVideoAudioPreparationError(
+            "VIDEO_AUDIO_PREP_FAILED",
+            "This video did not expose a readable audio track for local transcription on this iPhone."
+          ));
+          return;
+        }
+
+        try {
+          enforceTranscriptionDurationLimit(audioRecord, modelKey);
+        } catch (error) {
+          fail(error);
+          return;
+        }
+
+        if (video.readyState >= 2) {
+          startPlayback();
+        }
+      }
+
+      function startPlayback() {
+        var playPromise;
+
+        if (settled || started) {
+          return;
+        }
+        started = true;
+
+        try {
+          sourceNode = audioContext.createMediaElementSource(video);
+          processorNode = audioContext.createScriptProcessor(4096, 2, 2);
+          gainNode = audioContext.createGain();
+          gainNode.gain.value = 0;
+
+          processorNode.onaudioprocess = function (event) {
+            var inputBuffer = event.inputBuffer;
+            var monoChunk;
+            var left;
+            var right;
+            var index;
+
+            if (!inputBuffer || inputBuffer.numberOfChannels < 1) {
+              return;
+            }
+
+            monoChunk = new Float32Array(inputBuffer.length);
+
+            if (inputBuffer.numberOfChannels === 1) {
+              monoChunk.set(inputBuffer.getChannelData(0));
+            } else {
+              left = inputBuffer.getChannelData(0);
+              right = inputBuffer.getChannelData(1);
+              for (index = 0; index < inputBuffer.length; index += 1) {
+                monoChunk[index] = Math.SQRT2 * (left[index] + right[index]) * 0.5;
+              }
+            }
+
+            totalFrames += monoChunk.length;
+            chunks.push(monoChunk);
+          };
+
+          sourceNode.connect(processorNode);
+          processorNode.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          timeoutId = window.setTimeout(function () {
+            fail(createVideoAudioPreparationError(
+              "VIDEO_AUDIO_PREP_TIMEOUT",
+              "This iPhone video took too long to prepare for local transcription. Try sharing/exporting the video first, using a shorter clip, or switching to desktop."
+            ));
+          }, Math.max(15000, Math.ceil((audioRecord.duration || 0) * 1500)));
+
+          playPromise = video.play();
+          if (playPromise && typeof playPromise.then === "function") {
+            playPromise.catch(function () {
+              fail(createVideoAudioPreparationError(
+                "VIDEO_AUDIO_PREP_FAILED",
+                "Safari blocked audio extraction for this recorded video. Try saving/exporting the clip first, then upload the saved file again."
+              ));
+            });
+          }
+        } catch (error) {
+          fail(error);
+        }
+      }
+
+      if (!file || typeof document === "undefined") {
+        reject(new Error("BAD_AUDIO"));
+        return;
+      }
+
+      try {
+        objectUrl = URL.createObjectURL(file);
+        video = document.createElement("video");
+        video.preload = "auto";
+        video.playsInline = true;
+        video.muted = true;
+        video.defaultMuted = true;
+        video.volume = 0;
+        video.setAttribute("playsinline", "");
+        video.style.position = "fixed";
+        video.style.left = "-9999px";
+        video.style.width = "1px";
+        video.style.height = "1px";
+        video.style.opacity = "0";
+        video.src = objectUrl;
+        video.addEventListener("loadedmetadata", handleLoadedMetadata);
+        video.addEventListener("canplay", startPlayback);
+        video.addEventListener("ended", handleEnded);
+        video.addEventListener("error", handleError);
+        document.body.appendChild(video);
+        startupTimeoutId = window.setTimeout(function () {
+          fail(createVideoAudioPreparationError(
+            "VIDEO_AUDIO_PREP_TIMEOUT",
+            "This iPhone video did not become ready for local transcription. Try saving/exporting the clip first, then upload it again, or use desktop."
+          ));
+        }, 10000);
+        video.load();
+      } catch (error) {
+        fail(error);
+      }
+    });
+  }
+
   async function decodeSelectedTranscriptionAudio(audioContext, audioRecord, modelKey) {
     if (!audioContext || !audioRecord || !audioRecord.file) {
       throw new Error("Missing audio source");
@@ -2844,8 +3119,22 @@
 
     await ensureTranscriptionAudioContextReady(audioContext);
 
-    var arrayBuffer = await audioRecord.file.arrayBuffer();
-    var audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    var audioBuffer;
+    var decodedVideoAudio;
+    try {
+      var arrayBuffer = await audioRecord.file.arrayBuffer();
+      audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    } catch (decodeError) {
+      if (!isVideoMediaFile(audioRecord.file)) {
+        throw decodeError;
+      }
+      decodedVideoAudio = await extractAudioFromVideoFile(audioContext, audioRecord, modelKey);
+      audioRecord.sampleRate = decodedVideoAudio.sampleRate;
+      audioRecord.data = decodedVideoAudio.data;
+      audioRecord.duration = decodedVideoAudio.duration;
+      audioRecord.needsDecode = false;
+      return audioRecord;
+    }
     var policy = getTranscriptionDurationPolicy(modelKey);
     audioRecord.duration = audioBuffer.duration;
 
@@ -4372,6 +4661,8 @@ function generateVTT(segments) {
       if (error && error.message === "FILE_TOO_LONG") {
         keepLoadedAudioOnFailure = true;
         setStatus(statusEl, buildFileTooLongMessage(error, modelKey), "error");
+      } else if (error && error.userMessage) {
+        setStatus(statusEl, error.userMessage, "error");
       } else if (error && error.message === "BAD_AUDIO") {
         setStatus(statusEl, "Unsupported or corrupted file", "error");
       } else if (error && error.message === "MODEL_LOAD_FAILED") {
@@ -5438,6 +5729,8 @@ function generateVTT(segments) {
           setProgress(0);
           if (error && error.message === "FILE_TOO_LONG") {
             setStatus(statusEl, buildFileTooLongMessage(error, selectedTranscriptionModelKey), "error");
+          } else if (error && error.userMessage) {
+            setStatus(statusEl, error.userMessage, "error");
           } else if (error && error.message === "BAD_AUDIO") {
             setStatus(statusEl, "Unsupported or corrupted file", "error");
           } else {
