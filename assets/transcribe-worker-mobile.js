@@ -609,13 +609,6 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
     options.language = selectedLanguage;
   }
 
-  if (shouldUseArabicPrompt(selectedLanguage)) {
-    const promptIds = await getArabicPromptIds(model);
-    if (promptIds) {
-      options.prompt_ids = promptIds;
-    }
-  }
-
   let result = await model(audio, options);
   let resultText = normalizeText(result && result.text);
   let resultSegments = normalizeSegments(result && result.chunks, durationSeconds);
