@@ -76,6 +76,8 @@
   var FALLBACK_TRANSCRIPTION_MODEL_KEY = "baby-raptor";
   var TRANSCRIPTION_RECOVERY_STORAGE_KEY = "fat:transcribe:recovery:v1";
   var TRANSCRIPTION_RECOVERY_MAX_AGE_MS = 10 * 60 * 1000;
+  var TRANSLATION_VIEW_STORAGE_PREFIX = "fat:translation-view:v1:";
+  var TRANSLATION_VIEW_MAX_AGE_MS = 12 * 60 * 60 * 1000;
   var transcriptionCapabilityProfile = null;
   var selectedTranscriptionModelKey = DEFAULT_TRANSCRIPTION_MODEL_KEY;
   var transcriptionModelStates = Object.create(null);
@@ -702,7 +704,7 @@
   }
 
   function isBuiltInTranslationAllowed() {
-    return !(transcriptionCapabilityProfile && transcriptionCapabilityProfile.phoneOptimized);
+    return true;
   }
 
   function createTranscriptionAudioContext(AudioContextCtor) {
@@ -1632,12 +1634,12 @@
     }
 
     if (!sourceItem) {
-      hintEl.textContent = "Translation uses your transcript, including any segment edits. Choose the transcript language carefully for best results.";
+      hintEl.textContent = "Translation opens your edited transcript in a clean new tab for Google Translate. Only transcript lines are marked for translation, while the page UI stays in its original language.";
       return;
     }
 
     if (!targetItem) {
-      hintEl.textContent = "Transcript language is set to " + getLanguageDisplayName(sourceItem) + ". Choose a different target language to translate your edited transcript.";
+      hintEl.textContent = "Transcript language is set to " + getLanguageDisplayName(sourceItem) + ". Choose a target language to open your edited transcript in a browser-translation view.";
       return;
     }
 
@@ -1646,7 +1648,214 @@
       return;
     }
 
-    hintEl.textContent = "Translating from " + getLanguageDisplayName(sourceItem) + " to " + getLanguageDisplayName(targetItem) + ". Any segment edits will be included.";
+    hintEl.textContent = "A clean transcript page will open in a new tab for Google Translate from " + getLanguageDisplayName(sourceItem) + " to " + getLanguageDisplayName(targetItem) + ". Only transcript lines are marked for translation, and your segment edits stay the source of truth.";
+  }
+
+  function getTranslationViewUiLanguage() {
+    var htmlLang = document.documentElement ? String(document.documentElement.lang || "").toLowerCase() : "";
+    if (htmlLang.indexOf("ar") === 0) {
+      return "ar";
+    }
+
+    if (typeof window !== "undefined" && window.location && /^\/ar(\/|$)/.test(String(window.location.pathname || ""))) {
+      return "ar";
+    }
+
+    return "en";
+  }
+
+  function pruneStoredTranslationViews() {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+
+    try {
+      var now = Date.now();
+      var keysToRemove = [];
+
+      for (var index = 0; index < localStorage.length; index += 1) {
+        var key = localStorage.key(index);
+        if (!key || key.indexOf(TRANSLATION_VIEW_STORAGE_PREFIX) !== 0) {
+          continue;
+        }
+
+        try {
+          var raw = localStorage.getItem(key);
+          var payload = raw ? JSON.parse(raw) : null;
+          var createdAt = payload && Number(payload.createdAt);
+          if (!Number.isFinite(createdAt) || (now - createdAt) > TRANSLATION_VIEW_MAX_AGE_MS) {
+            keysToRemove.push(key);
+          }
+        } catch (error) {
+          keysToRemove.push(key);
+        }
+      }
+
+      keysToRemove.forEach(function (key) {
+        localStorage.removeItem(key);
+      });
+    } catch (error) {
+    }
+  }
+
+  function getTranslationViewPagePath() {
+    return getTranslationViewUiLanguage() === "ar"
+      ? "/ar/translate-transcript.html"
+      : "/translate-transcript.html";
+  }
+
+  function buildTranslationViewUrl(sessionId) {
+    return getTranslationViewPagePath() + "?session=" + encodeURIComponent(sessionId);
+  }
+
+  function buildAbsoluteUrl(path) {
+    if (/^https?:\/\//i.test(String(path || ""))) {
+      return String(path || "");
+    }
+
+    if (typeof window === "undefined" || !window.location) {
+      return String(path || "");
+    }
+
+    return new URL(String(path || ""), window.location.origin).toString();
+  }
+
+  function isLocalDevTranslationHost() {
+    if (typeof window === "undefined" || !window.location) {
+      return false;
+    }
+
+    var host = String(window.location.hostname || "").toLowerCase();
+    return host === "localhost"
+      || host === "127.0.0.1"
+      || host === "::1"
+      || /^192\.168\./.test(host)
+      || /^10\./.test(host)
+      || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
+  }
+
+  function buildGoogleTranslateUrl(sourceCode, targetCode, transcriptViewUrl) {
+    var normalizedSource = getLangCode(sourceCode || "") || "auto";
+    var normalizedTarget = getLangCode(targetCode || "") || "";
+    var uiLanguage = getTranslationViewUiLanguage() === "ar" ? "ar" : "en";
+    var params = new URLSearchParams();
+
+    params.set("sl", normalizedSource);
+    params.set("tl", normalizedTarget);
+    params.set("hl", uiLanguage);
+    params.set("u", transcriptViewUrl);
+    params.set("anno", "2");
+
+    return "https://translate.google.com/website?" + params.toString();
+  }
+
+  function openEditedTranscriptTranslationView(options) {
+    var config = options || {};
+    var sourceCode = getLangCode(config.sourceCode || "");
+    var targetCode = getLangCode(config.targetCode || "");
+    var sourceItem = getTranslationLanguageByCode(sourceCode);
+    var targetItem = getTranslationLanguageByCode(targetCode);
+    var sourceLanguageName = sourceItem ? getLanguageDisplayName(sourceItem) : (sourceCode ? sourceCode.toUpperCase() : "Original");
+    var targetLanguageName = targetItem ? getLanguageDisplayName(targetItem) : (targetCode ? targetCode.toUpperCase() : "Target");
+    var segments = (window.currentSegments || []).reduce(function (result, segment) {
+      var text = cleanText((segment && (segment.editedText || segment.originalText || segment.text)) || "");
+      var timestamp = segment && Array.isArray(segment.timestamp) ? segment.timestamp : null;
+
+      if (!text) {
+        return result;
+      }
+
+      result.push({
+        text: text,
+        timestamp: timestamp && timestamp.length >= 2 ? [timestamp[0], timestamp[1]] : null
+      });
+      return result;
+    }, []);
+    var transcriptText = getSegmentsParagraphText(segments);
+    var displayedFileName = "";
+    var sessionId;
+    var payload;
+    if (!segments.length || !transcriptText) {
+      if (config.statusEl) {
+        setStatus(config.statusEl, "No transcript lines are ready to translate.", "error");
+      }
+      return false;
+    }
+
+    try {
+      displayedFileName = (document.querySelector('[data-role="fileName"]') && document.querySelector('[data-role="fileName"]').textContent) || "";
+    } catch (error) {
+      displayedFileName = "";
+    }
+    displayedFileName = String(displayedFileName || "").trim();
+    if (!displayedFileName || displayedFileName === "No file selected") {
+      displayedFileName = window.transcriptionAudio && window.transcriptionAudio.file && window.transcriptionAudio.file.name
+        ? window.transcriptionAudio.file.name
+        : "";
+    }
+    if (!displayedFileName) {
+      displayedFileName = window.originalFileName || "Transcript";
+    }
+
+    sessionId = "translation-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+    payload = {
+      createdAt: Date.now(),
+      uiLang: getTranslationViewUiLanguage(),
+      fileName: displayedFileName,
+      title: displayedFileName,
+      sourceLanguageCode: sourceCode,
+      sourceLanguageName: sourceLanguageName,
+      targetLanguageCode: targetCode,
+      targetLanguageName: targetLanguageName,
+      transcriptText: transcriptText,
+      showTimestamps: !!config.showTimestamps,
+      segments: segments
+    };
+
+    try {
+      pruneStoredTranslationViews();
+      localStorage.setItem(TRANSLATION_VIEW_STORAGE_PREFIX + sessionId, JSON.stringify(payload));
+    } catch (error) {
+      if (config.statusEl) {
+        setStatus(config.statusEl, "Could not prepare the translation view in this browser. Please try again.", "error");
+      }
+      return false;
+    }
+
+    var sourceViewUrl = buildAbsoluteUrl(buildTranslationViewUrl(sessionId));
+    var localPreviewUrl = sourceViewUrl + (sourceViewUrl.indexOf("?") >= 0 ? "&" : "?") + "preview=local";
+    var targetUrl = isLocalDevTranslationHost()
+      ? localPreviewUrl
+      : buildGoogleTranslateUrl(sourceCode, targetCode, sourceViewUrl);
+    var openedWindow = null;
+
+    try {
+      openedWindow = window.open(targetUrl, "_blank", "noopener");
+    } catch (error) {
+      openedWindow = null;
+    }
+
+    if (openedWindow) {
+      return true;
+    }
+
+    try {
+      var fallbackLink = document.createElement("a");
+      fallbackLink.href = targetUrl;
+      fallbackLink.target = "_blank";
+      fallbackLink.rel = "noopener";
+      fallbackLink.style.display = "none";
+      document.body.appendChild(fallbackLink);
+      fallbackLink.click();
+      document.body.removeChild(fallbackLink);
+      return true;
+    } catch (error) {
+    }
+
+    if (config.statusEl) {
+      setStatus(config.statusEl, "Could not open the translation view. Try allowing popups or opening it in a new tab.", "error");
+    }
+    return false;
   }
 
   function getTranscriptionLanguageFlagUrl(code) {
@@ -2268,21 +2477,8 @@
       "  </div>",
       '  <div data-role="translationPanel" class="is-hidden">',
       '  <div class="at-row translation-section">',
-      '    <div class="at-language-field">',
-      '      <label for="translate-source-search-input">Transcript language</label>',
-      '      <div data-role="translateSourcePicker">',
-      '        <button class="at-btn at-btn-soft" type="button" data-role="translateSourcePickerToggle" aria-expanded="false">',
-      '          <span data-role="translateSourcePickerCurrent">Select transcript language</span>',
-      '          <span data-role="translateSourcePickerChevron" aria-hidden="true">▾</span>',
-      "        </button>",
-      '        <div class="is-hidden" data-role="translateSourcePickerPanel">',
-      '          <input id="translate-source-search-input" type="search" data-role="translateSourcePickerSearch" placeholder="Search transcript language" autocomplete="off" spellcheck="false">',
-      '          <div data-role="translateSourcePickerList"></div>',
-      "        </div>",
-      "      </div>",
-      '      <select id="translate-source-language" class="is-hidden">' + buildTranslationLanguageOptions("Select transcript language") + "</select>",
-      "    </div>",
-      '    <div class="at-language-field">',
+      '    <select id="translate-source-language" class="is-hidden">' + buildTranslationLanguageOptions("Select transcript language") + "</select>",
+      '    <div class="at-language-field at-language-field-wide">',
       '      <label for="translate-target-search-input">Translate to</label>',
       '      <div data-role="translateTargetPicker">',
       '        <button class="at-btn at-btn-soft" type="button" data-role="translateTargetPickerToggle" aria-expanded="false">',
@@ -2296,23 +2492,12 @@
       "      </div>",
       '      <select id="translate-language" class="is-hidden">' + buildTranslationLanguageOptions("Select target language") + "</select>",
       "    </div>",
-      '    <div class="at-language-field">',
-      '      <label for="modeSelect">Translation mode</label>',
-      '      <select id="modeSelect">',
-      '        <option value="accurate" selected>Accurate (word-by-word)</option>',
-      '        <option value="subtitle">Subtitle (short & readable)</option>',
-      "      </select>",
-      "    </div>",
       "  </div>",
       '  <div class="at-row translation-section">',
-      '    <label class="enhance-label">',
-      '      <input type="checkbox" id="polishToggle">',
-      '      <span>Improve readability (beta)</span>',
-      '    </label>',
-      '    <p class="translation-hint" data-role="translationHint">Translation uses your transcript, including any segment edits. Choose the transcript language carefully for best results.</p>',
+      '    <p class="translation-hint" data-role="translationHint">Translation opens your edited transcript in a clean new tab for Google Translate. Only transcript lines are marked for translation, while the page UI stays in its original language.</p>',
       "  </div>",
       '  <div class="at-row translation-section">',
-      '    <button class="at-btn at-btn-primary" id="translate-btn" data-role="translateBtn" disabled>Start translation</button>',
+      '    <button class="at-btn at-btn-primary" id="translate-btn" data-role="translateBtn" disabled>Open translation view</button>',
       "  </div>",
       "  </div>",
       '  <div class="at-row transcribe-controls is-hidden" data-role="exportRow">',
@@ -5562,8 +5747,6 @@ function generateVTT(segments) {
         var targetLang = translateLanguage ? translateLanguage.value : "";
         var sourceLang = getTranslationFloresCode(sourceCode);
         var mappedTarget = getTranslationFloresCode(targetLang);
-        var targetItem = getTranslationLanguageByCode(targetLang);
-        var selectedLanguageName = targetItem ? getLanguageDisplayName(targetItem) : "Translated";
 
         if (!window.currentSegments || !window.currentSegments.length || !targetLang) {
           return;
@@ -5585,59 +5768,15 @@ function generateVTT(segments) {
           return;
         }
 
-        var segmentsToTranslate = window.currentSegments || [];
-        var linesToTranslate = segmentsToTranslate.map(function (segment) {
-          var lineText = cleanText((segment && (segment.editedText || segment.originalText || segment.text)) || "");
-          return lineText;
-        }).filter(function (line) {
-          return line.length > 0;
-        });
-
-        if (!linesToTranslate.length) {
-          setStatus(statusEl, "No transcript lines are ready to translate.", "error");
-          return;
-        }
-
-        setTranslationButtonsState(translateBtn, null, null, null, false);
-        var chatgptBtn = document.getElementById("chatgptTranslateBtn");
-        if (chatgptBtn) {
-          chatgptBtn.disabled = true;
-        }
-        setStatus(statusEl, "Translating transcript...", "processing");
-        setProgress(50);
-        setProgressMessage("Translating transcript...");
-        startProgressMessages([
-          "Preparing translation model...",
-          "Translating transcript...",
-          "Finalizing translation..."
-        ]);
-        processingLocked = true;
-        activeTranslationContext = {
-          statusEl: statusEl,
-          transcriptEl: transcriptEl,
-          translateBtn: translateBtn,
-          txtBtn: txtBtn,
-          srtBtn: srtBtn,
-          vttBtn: vttBtn,
-          originalTabBtn: originalTabBtn,
-          translatedTabBtn: translatedTabBtn,
-          editBtn: editBtn,
-          selectedLanguageName: selectedLanguageName,
-          targetLanguageCode: targetLang,
-          lineCount: linesToTranslate.length,
-          afterRunCleanup: resetForNextUpload
-        };
         root.__translationSetupOpen = false;
         updateToolLayout(root);
-
-        ensureTranslationWorker().postMessage({
-          type: "translate_subtitles",
-          texts: linesToTranslate,
-          segments: window.currentSegments || [],
-          sourceLang: sourceLang,
-          targetLang: mappedTarget,
-          mode: modeSelect ? modeSelect.value : "accurate",
-          polish: polishToggle ? polishToggle.checked : false
+        openEditedTranscriptTranslationView({
+          sourceCode: sourceCode,
+          sourceFloresCode: sourceLang,
+          targetCode: targetLang,
+          targetFloresCode: mappedTarget,
+          statusEl: statusEl,
+          showTimestamps: !!(timestampCheckbox && timestampCheckbox.checked)
         });
       });
     } else if (translateBtn) {

@@ -39,6 +39,7 @@
     "Select transcript language": "اختر لغة النص",
     "Translate to": "الترجمة إلى",
     "Select target language": "اختر اللغة الهدف",
+    "Open translation view": "فتح عرض الترجمة",
     "Translation mode": "وضع الترجمة",
     "Accurate (word-by-word)": "دقيق (كلمة بكلمة)",
     "Subtitle (short & readable)": "ترجمة فيديو (قصيرة وواضحة)",
@@ -302,6 +303,9 @@
     if (value === "Translation uses your transcript, including any segment edits. Choose the transcript language carefully for best results.") {
       return "تستخدم الترجمة النص الحالي بما في ذلك أي تعديلات على المقاطع. اختر لغة النص بعناية للحصول على أفضل نتيجة.";
     }
+    if (value === "Translation opens your edited transcript in a clean new tab for Google Translate. Only transcript lines are marked for translation, while the page UI stays in its original language.") {
+      return "يفتح هذا الخيار النص المعدل في تبويب جديد ونظيف عبر Google Translate. يتم تعليم سطور التفريغ فقط للترجمة، بينما تبقى واجهة الصفحة بلغتها الأصلية.";
+    }
     if (value === "Choose a target language different from the transcript language.") {
       return "اختر لغة هدف مختلفة عن لغة النص.";
     }
@@ -311,9 +315,19 @@
       return "تم تحديد لغة النص على " + match[1] + ". اختر لغة هدف مختلفة لترجمة النص المعدّل.";
     }
 
+    match = value.match(/^Transcript language is set to (.+)\. Choose a target language to open your edited transcript in a browser-translation view\.$/);
+    if (match) {
+      return "تم تحديد لغة النص على " + match[1] + ". اختر لغة هدف لفتح النص المعدل في عرض ترجمة داخل المتصفح.";
+    }
+
     match = value.match(/^Translating from (.+) to (.+)\. Any segment edits will be included\.$/);
     if (match) {
       return "تجري الترجمة من " + match[1] + " إلى " + match[2] + ". سيتم تضمين أي تعديلات على المقاطع.";
+    }
+
+    match = value.match(/^A clean transcript page will open in a new tab for Google Translate from (.+) to (.+)\. Only transcript lines are marked for translation, and your segment edits stay the source of truth\.$/);
+    if (match) {
+      return "سيتم فتح صفحة نص نظيفة في تبويب جديد عبر Google Translate من " + match[1] + " إلى " + match[2] + ". يتم تعليم سطور التفريغ فقط للترجمة، وتبقى تعديلات المقاطع هي مصدر الحقيقة.";
     }
 
     return replaceExact(value);

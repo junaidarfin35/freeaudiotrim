@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Raleway:wght@600;700;900&display=swap">
+
+<link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+<link rel="manifest" href="/assets/brand/site.webmanifest">
+
+<link rel="stylesheet" href="/css/global.css?v=2026-05-11-1">
+<link rel="stylesheet" href="/assets/layout.css">
+<link rel="stylesheet" href="/assets/translate-transcript.css?v=2026-05-14-2">
+
+<title>Transcript Translation View | FreeAudioTrim</title>
+</head>
+<body data-page="translate-view">
+<header>
+  <div class="header-container">
+    <a href="/" class="logo" aria-label="Free Audio Trim home"><img src="/assets/brand/logo.svg" alt="Free Audio Trim" width="207" height="32" decoding="async"></a>
+  </div>
+</header>
+
+<main class="container translation-page">
+
+  <section class="content-section section-shell section-surface translation-card is-hidden" data-role="card">
+    <div class="translation-google-bar" translate="no">
+      <div class="translation-google-brand">
+        <a href="https://translate.google.com/" target="_blank" rel="noopener noreferrer" class="translation-google-link" data-role="googleTranslateLink">
+          <img src="https://fonts.gstatic.com/s/i/productlogos/translate/v6/24px.svg" alt="" aria-hidden="true" class="translation-google-icon">
+          <span data-role="googleBrandLabel">Google Translate</span>
+        </a>
+      </div>
+      <div class="translation-google-route">
+        <span class="translation-google-pill" data-role="toolbarSource">Source</span>
+        <span class="translation-google-arrow" aria-hidden="true">→</span>
+        <span class="translation-google-pill is-target" data-role="toolbarTarget">Target</span>
+      </div>
+      <div class="translation-google-state" data-role="toolbarState">Preparing translation…</div>
+    </div>
+
+    <div class="translation-topbar">
+      <div class="translation-title-block">
+        <h2 data-role="title" translate="no">Transcript</h2>
+        <div class="translation-meta" data-role="meta" translate="no"></div>
+      </div>
+      <div class="translation-controls">
+        <button type="button" class="translation-btn" data-role="copyBtn" translate="no">Copy source transcript</button>
+        <label class="translation-toggle" translate="no">
+          <input type="checkbox" data-role="timestampsToggle">
+          <span data-role="timestampsLabel" translate="no">Show timestamps</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="translation-chip-row" translate="no">
+      <div class="translation-chip-group">
+        <span class="translation-chip" data-role="sourceChip" translate="no"></span>
+        <span class="translation-arrow" aria-hidden="true" translate="no">→</span>
+        <span class="translation-chip" data-role="targetChip" translate="no"></span>
+      </div>
+      <button type="button" class="translation-btn translation-download-btn" data-role="downloadActiveBtn" translate="no">Download TXT</button>
+    </div>
+
+    <p class="translation-note" data-role="note" translate="no"></p>
+
+    <div class="translation-format-bar" translate="no">
+      <button type="button" class="translation-format-btn is-active" data-format-button="txt" data-role="txtBtn" translate="no">Translate TXT</button>
+      <button type="button" class="translation-format-btn" data-format-button="srt" data-role="srtBtn" translate="no">Translate SRT</button>
+      <button type="button" class="translation-format-btn" data-format-button="vtt" data-role="vttBtn" translate="no">Translate VTT</button>
+    </div>
+
+    <div class="translation-panel" data-role="panel-txt"></div>
+    <div class="translation-panel is-hidden" data-role="panel-srt"></div>
+    <div class="translation-panel is-hidden" data-role="panel-vtt"></div>
+  </section>
+
+  <section class="content-section section-surface translation-empty is-hidden" data-role="empty" translate="no">
+    <h2 data-role="emptyTitle" translate="no">Translation session expired</h2>
+    <p data-role="emptyBody" translate="no">Return to the transcription tool, then open translation again from your edited transcript.</p>
+  </section>
+</main>
+
+<div id="google_translate_element" class="is-hidden" aria-hidden="true"></div>
+
+<footer class="site-footer">
+  <div class="footer-container">
+    <div class="footer-brand">
+      <h3>FreeAudioTrim</h3>
+      <p>Simple, fast, and private audio tools that run entirely in your browser.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <ul>
+        <li><a href="/audio-cutter-online.html">Audio Cutter</a></li>
+        <li><a href="/free-mp3-cutter.html">MP3 Cutter</a></li>
+        <li><a href="/merge-audio-files.html">Merge Audio</a></li>
+        <li><a href="/remove-silence-from-audio.html">Remove Silence</a></li>
+        <li><a href="/normalize-audio-volume.html">Normalize Audio</a></li>
+        <li><a href="/audio-converter.html">Audio Converter</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>More Tools</h4>
+      <ul>
+        <li><a href="/audio-speed-changer.html">Speed Changer</a></li>
+        <li><a href="/audio-pitch-changer.html">Pitch Changer</a></li>
+        <li><a href="/extract-audio-from-video.html">Extract Audio</a></li>
+        <li><a href="/convert-mp3-to-wav.html">MP3 to WAV</a></li>
+        <li><a href="/mp3-to-m4r.html">MP3 to M4R</a></li>
+        <li><a href="/ringtone-maker.html">Ringtone Maker</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <ul>
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="/blog/audio-editing-guide.html">Audio Editing Guide</a></li>
+        <li><a href="/blog/how-to-trim-mp3-online.html">Trim MP3 Guide</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-legal">
+      <a href="/terms-of-service.html">Terms</a>
+      <a href="/privacy-policy.html">Privacy</a>
+      <a>Cookies</a>
+      <a>Security</a>
+    </div>
+    <div class="footer-social">
+      <a>LinkedIn</a>
+      <a>X</a>
+      <a>YouTube</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/assets/translate-transcript-view.js?v=2026-05-14-3" defer></script>
+<script src="/assets/mobile-menu.js"></script>
+</body>
+</html>

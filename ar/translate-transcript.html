@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Raleway:wght@600;700;900&family=Tajawal:wght@400;500;700;800;900&display=swap">
+
+<link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+<link rel="manifest" href="/assets/brand/site.webmanifest">
+
+<link rel="stylesheet" href="/css/global.css?v=2026-05-11-1">
+<link rel="stylesheet" href="/assets/layout.css">
+<link rel="stylesheet" href="/assets/translate-transcript.css?v=2026-05-14-2">
+
+<title>عرض ترجمة التفريغ | FreeAudioTrim</title>
+</head>
+<body data-page="translate-view-ar">
+<header>
+  <div class="header-container">
+    <a href="/ar/" class="logo" aria-label="العودة إلى الصفحة الرئيسية"><img src="/assets/brand/logo.svg" alt="Free Audio Trim" width="207" height="32" decoding="async"></a>
+    <button class="menu-toggle" aria-label="تبديل القائمة">&#9776;</button>
+    <nav class="nav-links">
+      <a href="/tools.html">كل الأدوات</a>
+      <a href="/blog/">المدونة</a>
+      <a href="/contact.html">تواصل معنا</a>
+      <a href="/translate-transcript.html" lang="en" dir="ltr">English</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container translation-page">
+  <section class="content-section section-intro hero" translate="no">
+    <h1>عرض ترجمة التفريغ<span class="hero-highlight">ترجم نص التفريغ فقط</span></h1>
+    <p>راجع النص المنقح داخل صفحة مخصصة تستخدم نفس واجهة FreeAudioTrim، مع إتاحة سطور التفريغ فقط للترجمة.</p>
+  </section>
+
+  <section class="content-section section-shell section-surface translation-card is-hidden" data-role="card">
+    <div class="translation-google-bar" translate="no">
+      <div class="translation-google-brand">
+        <a href="https://translate.google.com/" target="_blank" rel="noopener noreferrer" class="translation-google-link" data-role="googleTranslateLink">
+          <img src="https://fonts.gstatic.com/s/i/productlogos/translate/v6/24px.svg" alt="" aria-hidden="true" class="translation-google-icon">
+          <span data-role="googleBrandLabel">Google Translate</span>
+        </a>
+      </div>
+      <div class="translation-google-route">
+        <span class="translation-google-pill" data-role="toolbarSource">المصدر</span>
+        <span class="translation-google-arrow" aria-hidden="true">→</span>
+        <span class="translation-google-pill is-target" data-role="toolbarTarget">الهدف</span>
+      </div>
+      <div class="translation-google-state" data-role="toolbarState">جارٍ تجهيز الترجمة…</div>
+    </div>
+
+    <div class="translation-topbar">
+      <div class="translation-title-block">
+        <h2 data-role="title" translate="no">النص</h2>
+        <div class="translation-meta" data-role="meta" translate="no"></div>
+      </div>
+      <div class="translation-controls">
+        <button type="button" class="translation-btn" data-role="copyBtn" translate="no">نسخ النص الأصلي</button>
+        <label class="translation-toggle" translate="no">
+          <input type="checkbox" data-role="timestampsToggle">
+          <span data-role="timestampsLabel" translate="no">إظهار التوقيتات</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="translation-chip-row" translate="no">
+      <div class="translation-chip-group">
+        <span class="translation-chip" data-role="sourceChip" translate="no"></span>
+        <span class="translation-arrow" aria-hidden="true" translate="no">→</span>
+        <span class="translation-chip" data-role="targetChip" translate="no"></span>
+      </div>
+      <button type="button" class="translation-btn translation-download-btn" data-role="downloadActiveBtn" translate="no">تنزيل TXT</button>
+    </div>
+
+    <p class="translation-note" data-role="note" translate="no"></p>
+
+    <div class="translation-format-bar" translate="no">
+      <button type="button" class="translation-format-btn is-active" data-format-button="txt" data-role="txtBtn" translate="no">ترجمة TXT</button>
+      <button type="button" class="translation-format-btn" data-format-button="srt" data-role="srtBtn" translate="no">ترجمة SRT</button>
+      <button type="button" class="translation-format-btn" data-format-button="vtt" data-role="vttBtn" translate="no">ترجمة VTT</button>
+    </div>
+
+    <div class="translation-panel" data-role="panel-txt"></div>
+    <div class="translation-panel is-hidden" data-role="panel-srt"></div>
+    <div class="translation-panel is-hidden" data-role="panel-vtt"></div>
+  </section>
+
+  <section class="content-section section-surface translation-empty is-hidden" data-role="empty" translate="no">
+    <h2 data-role="emptyTitle" translate="no">انتهت جلسة الترجمة</h2>
+    <p data-role="emptyBody" translate="no">ارجع إلى أداة التفريغ ثم افتح الترجمة مرة أخرى من النص المعدل.</p>
+  </section>
+</main>
+
+<div id="google_translate_element" class="is-hidden" aria-hidden="true"></div>
+
+<footer class="site-footer">
+  <div class="footer-container">
+    <div class="footer-brand">
+      <h3>FreeAudioTrim</h3>
+      <p>أدوات صوت بسيطة وسريعة وخاصة تعمل بالكامل داخل متصفحك.</p>
+    </div>
+    <div class="footer-col">
+      <h4>الأدوات</h4>
+      <ul>
+        <li><a href="/audio-cutter-online.html">قص الصوت</a></li>
+        <li><a href="/free-mp3-cutter.html">قص MP3</a></li>
+        <li><a href="/merge-audio-files.html">دمج الصوت</a></li>
+        <li><a href="/remove-silence-from-audio.html">إزالة الصمت</a></li>
+        <li><a href="/normalize-audio-volume.html">تسوية الصوت</a></li>
+        <li><a href="/audio-converter.html">محول الصوت</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>المزيد</h4>
+      <ul>
+        <li><a href="/audio-speed-changer.html">تغيير السرعة</a></li>
+        <li><a href="/audio-pitch-changer.html">تغيير الطبقة</a></li>
+        <li><a href="/extract-audio-from-video.html">استخراج الصوت</a></li>
+        <li><a href="/convert-mp3-to-wav.html">تحويل MP3 إلى WAV</a></li>
+        <li><a href="/mp3-to-m4r.html">تحويل MP3 إلى M4R</a></li>
+        <li><a href="/ringtone-maker.html">صانع النغمات</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>روابط</h4>
+      <ul>
+        <li><a href="/blog/">المدونة</a></li>
+        <li><a href="/blog/audio-editing-guide.html">دليل تعديل الصوت</a></li>
+        <li><a href="/blog/how-to-trim-mp3-online.html">دليل قص MP3</a></li>
+        <li><a href="/contact.html">تواصل معنا</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-legal">
+      <a href="/terms-of-service.html">الشروط</a>
+      <a href="/privacy-policy.html">الخصوصية</a>
+      <a>الكوكيز</a>
+      <a>الأمان</a>
+    </div>
+    <div class="footer-social">
+      <a>LinkedIn</a>
+      <a>X</a>
+      <a>YouTube</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/assets/translate-transcript-view.js?v=2026-05-14-3" defer></script>
+<script src="/assets/mobile-menu.js"></script>
+</body>
+</html>
