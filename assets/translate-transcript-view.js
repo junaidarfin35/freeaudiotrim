@@ -16,6 +16,7 @@
   var translateElementLoader = null;
   var translateElementConfiguredSource = "";
   var translateElementConfiguredTarget = "";
+  var resolvedTimedTranslationSegments = null;
 
   var COPY = {
     en: {
@@ -246,8 +247,125 @@
     return getTranslatedSegmentTexts("txt").join("\n\n");
   }
 
+  function normalizeTextSpacing(text) {
+    return String(text || "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function getWordWeight(text) {
+    var normalized = normalizeTextSpacing(text);
+    if (!normalized) {
+      return 1;
+    }
+
+    var tokens = normalized.split(" ").filter(Boolean);
+    return Math.max(tokens.length, Math.ceil(normalized.length / 12), 1);
+  }
+
+  function allocateTokenCounts(totalTokens, sourceSegments) {
+    var nonEmptyIndexes = [];
+    var weights = [];
+    var baseCounts = [];
+    var weightedTotal = 0;
+    var remainingTokens;
+    var fractional = [];
+    var distributed;
+
+    sourceSegments.forEach(function (segment, index) {
+      var text = normalizeTextSpacing(segment && segment.text);
+      baseCounts[index] = 0;
+      if (!text) {
+        return;
+      }
+
+      nonEmptyIndexes.push(index);
+      weights[index] = getWordWeight(text);
+      weightedTotal += weights[index];
+    });
+
+    if (!nonEmptyIndexes.length || totalTokens <= 0) {
+      return baseCounts;
+    }
+
+    if (totalTokens <= nonEmptyIndexes.length) {
+      nonEmptyIndexes.slice(0, totalTokens).forEach(function (index) {
+        baseCounts[index] = 1;
+      });
+      return baseCounts;
+    }
+
+    nonEmptyIndexes.forEach(function (index) {
+      baseCounts[index] = 1;
+    });
+    remainingTokens = totalTokens - nonEmptyIndexes.length;
+
+    nonEmptyIndexes.forEach(function (index) {
+      var raw = weightedTotal > 0 ? (remainingTokens * weights[index]) / weightedTotal : 0;
+      var floorValue = Math.floor(raw);
+      baseCounts[index] += floorValue;
+      fractional.push({
+        index: index,
+        remainder: raw - floorValue
+      });
+    });
+
+    distributed = nonEmptyIndexes.reduce(function (sum, index) {
+      return sum + baseCounts[index];
+    }, 0);
+
+    fractional.sort(function (a, b) {
+      return b.remainder - a.remainder;
+    });
+
+    for (var cursor = 0; distributed < totalTokens; cursor += 1) {
+      var target = fractional[cursor % fractional.length];
+      baseCounts[target.index] += 1;
+      distributed += 1;
+    }
+
+    return baseCounts;
+  }
+
+  function buildTimedTranslationsFromTxt(payload) {
+    var fullTranslatedText = normalizeTextSpacing(buildTranslatedTxt(payload));
+    var tokens = fullTranslatedText ? fullTranslatedText.split(" ") : [];
+    var counts;
+    var offset = 0;
+
+    if (!tokens.length) {
+      return [];
+    }
+
+    counts = allocateTokenCounts(tokens.length, payload.segments || []);
+
+    return (payload.segments || []).map(function (segment, index) {
+      var count = counts[index] || 0;
+      var translatedText = "";
+
+      if (count > 0) {
+        translatedText = tokens.slice(offset, offset + count).join(" ");
+        offset += count;
+      }
+
+      if (!translatedText) {
+        translatedText = normalizeTextSpacing(segment && segment.text);
+      }
+
+      return translatedText;
+    });
+  }
+
+  function getResolvedTimedTranslationSegments(payload, formatName) {
+    if (Array.isArray(resolvedTimedTranslationSegments) && resolvedTimedTranslationSegments.length) {
+      return resolvedTimedTranslationSegments;
+    }
+
+    return getTranslatedSegmentTexts(formatName);
+  }
+
   function buildTranslatedSrt(payload) {
-    var translatedTexts = getTranslatedSegmentTexts("srt");
+    var translatedTexts = getResolvedTimedTranslationSegments(payload, "srt");
     return (payload.segments || []).map(function (segment, index) {
       var translated = translatedTexts[index] || String(segment && segment.text || "").trim();
       var start = segment && segment.timestamp && segment.timestamp.length >= 2 ? formatTime(segment.timestamp[0], ",") : "00:00:00,000";
@@ -261,7 +379,7 @@
   }
 
   function buildTranslatedVtt(payload) {
-    var translatedTexts = getTranslatedSegmentTexts("vtt");
+    var translatedTexts = getResolvedTimedTranslationSegments(payload, "vtt");
     var body = (payload.segments || []).map(function (segment, index) {
       var translated = translatedTexts[index] || String(segment && segment.text || "").trim();
       var start = segment && segment.timestamp && segment.timestamp.length >= 2 ? formatTime(segment.timestamp[0], ".") : "00:00:00.000";
@@ -390,6 +508,26 @@
       appendTranslateYesText(textRow, text, payload.sourceLanguageCode || "", "translation-line-text");
       block.appendChild(textRow);
       container.appendChild(block);
+    });
+  }
+
+  function applyResolvedTimedTranslations(payload) {
+    var translatedSegments = buildTimedTranslationsFromTxt(payload);
+
+    if (!translatedSegments.length) {
+      resolvedTimedTranslationSegments = null;
+      return;
+    }
+
+    resolvedTimedTranslationSegments = translatedSegments;
+
+    ["srt", "vtt"].forEach(function (formatName) {
+      var nodes = document.querySelectorAll('[data-role="panel-' + formatName + '"] .translation-line-text');
+      Array.prototype.forEach.call(nodes, function (node, index) {
+        if (translatedSegments[index]) {
+          node.textContent = translatedSegments[index];
+        }
+      });
     });
   }
 
@@ -615,6 +753,7 @@
     var toolbarStateEl = document.querySelector('[data-role="toolbarState"]');
     var renderAllPanels = function () {
       var showTimestamps = !!(timestampsToggle && timestampsToggle.checked);
+      resolvedTimedTranslationSegments = null;
       renderTxtPanel(txtPanel, payload, showTimestamps);
       renderTimedPanel(srtPanel, payload, showTimestamps, "srt");
       renderTimedPanel(vttPanel, payload, showTimestamps, "vtt");
@@ -626,6 +765,7 @@
         toolbarStateEl.textContent = uiCopy.toolbarStatePending;
       }
       applyInlineTranslation(payload.sourceLanguageCode, payload.targetLanguageCode).then(function () {
+        applyResolvedTimedTranslations(payload);
         if (noteEl) {
           noteEl.textContent = uiCopy.note;
         }
