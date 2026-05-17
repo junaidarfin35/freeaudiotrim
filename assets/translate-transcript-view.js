@@ -224,7 +224,7 @@
   }
 
   function downloadTextFile(fileName, text) {
-    var blob = new Blob([String(text || "")], { type: "text/plain;charset=utf-8" });
+    var blob = new Blob(["\uFEFF", String(text || "")], { type: "text/plain;charset=utf-8" });
     var url = URL.createObjectURL(blob);
     var link = document.createElement("a");
     link.href = url;
@@ -235,19 +235,21 @@
     URL.revokeObjectURL(url);
   }
 
-  function getTranslatedSegmentTexts() {
-    return Array.from(document.querySelectorAll('[data-role="panel-txt"] [translate="yes"]')).map(function (node) {
+  function getTranslatedSegmentTexts(formatName) {
+    var safeFormat = formatName === "srt" || formatName === "vtt" ? formatName : "txt";
+    return Array.from(document.querySelectorAll('[data-role="panel-' + safeFormat + '"] [translate="yes"]')).map(function (node) {
       return String(node.textContent || "").trim();
     });
   }
 
   function buildTranslatedTxt(payload) {
-    return getTranslatedSegmentTexts().join("\n\n");
+    return getTranslatedSegmentTexts("txt").join("\n\n");
   }
 
   function buildTranslatedSrt(payload) {
+    var translatedTexts = getTranslatedSegmentTexts("srt");
     return (payload.segments || []).map(function (segment, index) {
-      var translated = getTranslatedSegmentTexts()[index] || String(segment && segment.text || "").trim();
+      var translated = translatedTexts[index] || String(segment && segment.text || "").trim();
       var start = segment && segment.timestamp && segment.timestamp.length >= 2 ? formatTime(segment.timestamp[0], ",") : "00:00:00,000";
       var end = segment && segment.timestamp && segment.timestamp.length >= 2 ? formatTime(segment.timestamp[1], ",") : "00:00:00,000";
       return [
@@ -259,8 +261,9 @@
   }
 
   function buildTranslatedVtt(payload) {
+    var translatedTexts = getTranslatedSegmentTexts("vtt");
     var body = (payload.segments || []).map(function (segment, index) {
-      var translated = getTranslatedSegmentTexts()[index] || String(segment && segment.text || "").trim();
+      var translated = translatedTexts[index] || String(segment && segment.text || "").trim();
       var start = segment && segment.timestamp && segment.timestamp.length >= 2 ? formatTime(segment.timestamp[0], ".") : "00:00:00.000";
       var end = segment && segment.timestamp && segment.timestamp.length >= 2 ? formatTime(segment.timestamp[1], ".") : "00:00:00.000";
       return [
