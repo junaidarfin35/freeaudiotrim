@@ -16,7 +16,7 @@
   var translateElementLoader = null;
   var translateElementConfiguredSource = "";
   var translateElementConfiguredTarget = "";
-  var resolvedTimedTranslationSegments = null;
+  var resolvedTimedTranslationCues = null;
 
   var COPY = {
     en: {
@@ -253,6 +253,24 @@
       .trim();
   }
 
+  function splitTextIntoSentences(text) {
+    var normalized = normalizeTextSpacing(text);
+    var matches;
+
+    if (!normalized) {
+      return [];
+    }
+
+    matches = normalized.match(/[^.!?؟。؛]+(?:[.!?؟。؛]+|$)/g);
+    if (!matches || !matches.length) {
+      return [normalized];
+    }
+
+    return matches.map(function (part) {
+      return normalizeTextSpacing(part);
+    }).filter(Boolean);
+  }
+
   function getWordWeight(text) {
     var normalized = normalizeTextSpacing(text);
     if (!normalized) {
@@ -263,45 +281,45 @@
     return Math.max(tokens.length, Math.ceil(normalized.length / 12), 1);
   }
 
-  function allocateTokenCounts(totalTokens, sourceSegments) {
-    var nonEmptyIndexes = [];
-    var weights = [];
+  function allocateWeightedCounts(totalUnits, weights, requireOneEach) {
+    var activeIndexes = [];
     var baseCounts = [];
     var weightedTotal = 0;
-    var remainingTokens;
+    var remainingUnits;
     var fractional = [];
     var distributed;
 
-    sourceSegments.forEach(function (segment, index) {
-      var text = normalizeTextSpacing(segment && segment.text);
+    weights.forEach(function (weight, index) {
+      var safeWeight = Number(weight) || 0;
       baseCounts[index] = 0;
-      if (!text) {
+      if (safeWeight <= 0) {
         return;
       }
 
-      nonEmptyIndexes.push(index);
-      weights[index] = getWordWeight(text);
-      weightedTotal += weights[index];
+      activeIndexes.push(index);
+      weightedTotal += safeWeight;
     });
 
-    if (!nonEmptyIndexes.length || totalTokens <= 0) {
+    if (!activeIndexes.length || totalUnits <= 0) {
       return baseCounts;
     }
 
-    if (totalTokens <= nonEmptyIndexes.length) {
-      nonEmptyIndexes.slice(0, totalTokens).forEach(function (index) {
+    if (requireOneEach && totalUnits <= activeIndexes.length) {
+      activeIndexes.slice(0, totalUnits).forEach(function (index) {
         baseCounts[index] = 1;
       });
       return baseCounts;
     }
 
-    nonEmptyIndexes.forEach(function (index) {
-      baseCounts[index] = 1;
-    });
-    remainingTokens = totalTokens - nonEmptyIndexes.length;
+    if (requireOneEach) {
+      activeIndexes.forEach(function (index) {
+        baseCounts[index] = 1;
+      });
+    }
+    remainingUnits = totalUnits - (requireOneEach ? activeIndexes.length : 0);
 
-    nonEmptyIndexes.forEach(function (index) {
-      var raw = weightedTotal > 0 ? (remainingTokens * weights[index]) / weightedTotal : 0;
+    activeIndexes.forEach(function (index) {
+      var raw = weightedTotal > 0 ? (remainingUnits * weights[index]) / weightedTotal : 0;
       var floorValue = Math.floor(raw);
       baseCounts[index] += floorValue;
       fractional.push({
@@ -310,7 +328,7 @@
       });
     });
 
-    distributed = nonEmptyIndexes.reduce(function (sum, index) {
+    distributed = activeIndexes.reduce(function (sum, index) {
       return sum + baseCounts[index];
     }, 0);
 
@@ -318,7 +336,7 @@
       return b.remainder - a.remainder;
     });
 
-    for (var cursor = 0; distributed < totalTokens; cursor += 1) {
+    for (var cursor = 0; distributed < totalUnits; cursor += 1) {
       var target = fractional[cursor % fractional.length];
       baseCounts[target.index] += 1;
       distributed += 1;
@@ -327,49 +345,183 @@
     return baseCounts;
   }
 
-  function buildTimedTranslationsFromTxt(payload) {
-    var fullTranslatedText = normalizeTextSpacing(buildTranslatedTxt(payload));
-    var tokens = fullTranslatedText ? fullTranslatedText.split(" ") : [];
-    var counts;
-    var offset = 0;
+  function isSentenceBoundaryText(text) {
+    return /[.!?؟。؛]["')\]]*\s*$/.test(String(text || ""));
+  }
 
-    if (!tokens.length) {
-      return [];
+  function buildSourceSentenceGroups(segments) {
+    var groups = [];
+    var current = null;
+
+    (segments || []).forEach(function (segment, index) {
+      var text = normalizeTextSpacing(segment && segment.text);
+      var timestamp = segment && Array.isArray(segment.timestamp) ? segment.timestamp : null;
+      var start = timestamp && Number.isFinite(timestamp[0]) ? Number(timestamp[0]) : null;
+      var end = timestamp && Number.isFinite(timestamp[1]) ? Number(timestamp[1]) : start;
+      var duration;
+      var wordCount;
+
+      if (!text) {
+        return;
+      }
+
+      if (start == null) {
+        start = current && current.end != null ? current.end : 0;
+      }
+      if (end == null || end < start) {
+        end = start;
+      }
+
+      if (!current) {
+        current = {
+          start: start,
+          end: end,
+          textParts: []
+        };
+      }
+
+      current.end = Math.max(current.end, end);
+      current.textParts.push(text);
+      duration = current.end - current.start;
+      wordCount = normalizeTextSpacing(current.textParts.join(" ")).split(" ").filter(Boolean).length;
+
+      if (
+        isSentenceBoundaryText(text)
+        || duration >= 7.5
+        || wordCount >= 20
+        || current.textParts.length >= 4
+        || index === (segments.length - 1)
+      ) {
+        groups.push({
+          start: current.start,
+          end: current.end,
+          text: normalizeTextSpacing(current.textParts.join(" "))
+        });
+        current = null;
+      }
+    });
+
+    if (current) {
+      groups.push({
+        start: current.start,
+        end: current.end,
+        text: normalizeTextSpacing(current.textParts.join(" "))
+      });
     }
 
-    counts = allocateTokenCounts(tokens.length, payload.segments || []);
+    return groups;
+  }
 
-    return (payload.segments || []).map(function (segment, index) {
-      var count = counts[index] || 0;
-      var translatedText = "";
-
-      if (count > 0) {
-        translatedText = tokens.slice(offset, offset + count).join(" ");
-        offset += count;
-      }
-
-      if (!translatedText) {
-        translatedText = normalizeTextSpacing(segment && segment.text);
-      }
-
-      return translatedText;
+  function buildFallbackOriginalCues(payload) {
+    return (payload.segments || []).map(function (segment) {
+      var timestamp = segment && Array.isArray(segment.timestamp) ? segment.timestamp : [0, 0];
+      return {
+        text: String(segment && segment.text || "").trim(),
+        timestamp: [
+          Number.isFinite(timestamp[0]) ? Number(timestamp[0]) : 0,
+          Number.isFinite(timestamp[1]) ? Number(timestamp[1]) : 0
+        ]
+      };
+    }).filter(function (cue) {
+      return !!cue.text;
     });
   }
 
-  function getResolvedTimedTranslationSegments(payload, formatName) {
-    if (Array.isArray(resolvedTimedTranslationSegments) && resolvedTimedTranslationSegments.length) {
-      return resolvedTimedTranslationSegments;
+  function buildSentenceAwareTranslatedCues(payload) {
+    var translatedSentences = splitTextIntoSentences(buildTranslatedTxt(payload));
+    var sourceGroups = buildSourceSentenceGroups(payload.segments || []);
+    var sentenceWeights;
+    var groupCounts;
+    var cursor;
+    var cues = [];
+    var totalStart;
+    var totalEnd;
+    var totalDuration;
+    var totalWeight;
+    var runningStart;
+
+    if (!translatedSentences.length || !sourceGroups.length) {
+      return [];
     }
 
-    return getTranslatedSegmentTexts(formatName);
+    if (translatedSentences.length === 1) {
+      return [{
+        text: translatedSentences[0],
+        timestamp: [sourceGroups[0].start, sourceGroups[sourceGroups.length - 1].end]
+      }];
+    }
+
+    sentenceWeights = translatedSentences.map(getWordWeight);
+
+    if (sourceGroups.length >= translatedSentences.length) {
+      groupCounts = allocateWeightedCounts(sourceGroups.length, sentenceWeights, true);
+      cursor = 0;
+
+      translatedSentences.forEach(function (sentence, index) {
+        var count = groupCounts[index] || 0;
+        var slice;
+        if (count <= 0) {
+          return;
+        }
+        slice = sourceGroups.slice(cursor, cursor + count);
+        cursor += count;
+        if (!slice.length) {
+          return;
+        }
+        cues.push({
+          text: sentence,
+          timestamp: [slice[0].start, slice[slice.length - 1].end]
+        });
+      });
+
+      if (cues.length) {
+        return cues;
+      }
+    }
+
+    totalStart = sourceGroups[0].start;
+    totalEnd = sourceGroups[sourceGroups.length - 1].end;
+    totalDuration = Math.max(0.001, totalEnd - totalStart);
+    totalWeight = sentenceWeights.reduce(function (sum, weight) {
+      return sum + weight;
+    }, 0) || translatedSentences.length;
+    runningStart = totalStart;
+
+    translatedSentences.forEach(function (sentence, index) {
+      var weight = sentenceWeights[index] || 1;
+      var remainingWeight = sentenceWeights.slice(index).reduce(function (sum, value) {
+        return sum + value;
+      }, 0) || weight;
+      var remainingDuration = totalEnd - runningStart;
+      var span = index === translatedSentences.length - 1
+        ? remainingDuration
+        : Math.max(0.8, remainingDuration * (weight / remainingWeight));
+      var end = index === translatedSentences.length - 1
+        ? totalEnd
+        : Math.min(totalEnd, runningStart + span);
+      cues.push({
+        text: sentence,
+        timestamp: [runningStart, end]
+      });
+      runningStart = end;
+    });
+
+    return cues;
+  }
+
+  function getResolvedTimedTranslationCues(payload) {
+    if (Array.isArray(resolvedTimedTranslationCues) && resolvedTimedTranslationCues.length) {
+      return resolvedTimedTranslationCues;
+    }
+
+    return buildFallbackOriginalCues(payload);
   }
 
   function buildTranslatedSrt(payload) {
-    var translatedTexts = getResolvedTimedTranslationSegments(payload, "srt");
-    return (payload.segments || []).map(function (segment, index) {
-      var translated = translatedTexts[index] || String(segment && segment.text || "").trim();
-      var start = segment && segment.timestamp && segment.timestamp.length >= 2 ? formatTime(segment.timestamp[0], ",") : "00:00:00,000";
-      var end = segment && segment.timestamp && segment.timestamp.length >= 2 ? formatTime(segment.timestamp[1], ",") : "00:00:00,000";
+    return getResolvedTimedTranslationCues(payload).map(function (cue, index) {
+      var translated = String(cue && cue.text || "").trim();
+      var start = cue && cue.timestamp && cue.timestamp.length >= 2 ? formatTime(cue.timestamp[0], ",") : "00:00:00,000";
+      var end = cue && cue.timestamp && cue.timestamp.length >= 2 ? formatTime(cue.timestamp[1], ",") : "00:00:00,000";
       return [
         String(index + 1),
         start + " --> " + end,
@@ -379,11 +531,10 @@
   }
 
   function buildTranslatedVtt(payload) {
-    var translatedTexts = getResolvedTimedTranslationSegments(payload, "vtt");
-    var body = (payload.segments || []).map(function (segment, index) {
-      var translated = translatedTexts[index] || String(segment && segment.text || "").trim();
-      var start = segment && segment.timestamp && segment.timestamp.length >= 2 ? formatTime(segment.timestamp[0], ".") : "00:00:00.000";
-      var end = segment && segment.timestamp && segment.timestamp.length >= 2 ? formatTime(segment.timestamp[1], ".") : "00:00:00.000";
+    var body = getResolvedTimedTranslationCues(payload).map(function (cue, index) {
+      var translated = String(cue && cue.text || "").trim();
+      var start = cue && cue.timestamp && cue.timestamp.length >= 2 ? formatTime(cue.timestamp[0], ".") : "00:00:00.000";
+      var end = cue && cue.timestamp && cue.timestamp.length >= 2 ? formatTime(cue.timestamp[1], ".") : "00:00:00.000";
       return [
         String(index + 1),
         start + " --> " + end,
@@ -460,9 +611,10 @@
     container.appendChild(paragraph);
   }
 
-  function renderTimedPanel(container, payload, showTimestamps, formatName) {
+  function renderTimedPanel(container, payload, showTimestamps, formatName, cues) {
     clearElement(container);
     applyDirection(container, payload.sourceLanguageCode || "");
+    var items = Array.isArray(cues) && cues.length ? cues : buildFallbackOriginalCues(payload);
 
     if (formatName === "vtt") {
       var header = document.createElement("div");
@@ -472,8 +624,9 @@
       container.appendChild(header);
     }
 
-    (payload.segments || []).forEach(function (segment, index) {
-      var text = String(segment && segment.text || "").trim();
+    items.forEach(function (cue, index) {
+      var text = String(cue && cue.text || "").trim();
+      var timestamp = cue && Array.isArray(cue.timestamp) ? cue.timestamp : null;
       var block = document.createElement("div");
       var start;
       var end;
@@ -484,9 +637,9 @@
 
       block.className = "translation-segment";
 
-      if (showTimestamps && segment.timestamp && segment.timestamp.length >= 2) {
-        start = formatTime(segment.timestamp[0], formatName === "vtt" ? "." : ",");
-        end = formatTime(segment.timestamp[1], formatName === "vtt" ? "." : ",");
+      if (showTimestamps && timestamp && timestamp.length >= 2) {
+        start = formatTime(timestamp[0], formatName === "vtt" ? "." : ",");
+        end = formatTime(timestamp[1], formatName === "vtt" ? "." : ",");
 
         if (formatName === "srt") {
           var cueNumber = document.createElement("div");
@@ -508,26 +661,6 @@
       appendTranslateYesText(textRow, text, payload.sourceLanguageCode || "", "translation-line-text");
       block.appendChild(textRow);
       container.appendChild(block);
-    });
-  }
-
-  function applyResolvedTimedTranslations(payload) {
-    var translatedSegments = buildTimedTranslationsFromTxt(payload);
-
-    if (!translatedSegments.length) {
-      resolvedTimedTranslationSegments = null;
-      return;
-    }
-
-    resolvedTimedTranslationSegments = translatedSegments;
-
-    ["srt", "vtt"].forEach(function (formatName) {
-      var nodes = document.querySelectorAll('[data-role="panel-' + formatName + '"] .translation-line-text');
-      Array.prototype.forEach.call(nodes, function (node, index) {
-        if (translatedSegments[index]) {
-          node.textContent = translatedSegments[index];
-        }
-      });
     });
   }
 
@@ -753,7 +886,7 @@
     var toolbarStateEl = document.querySelector('[data-role="toolbarState"]');
     var renderAllPanels = function () {
       var showTimestamps = !!(timestampsToggle && timestampsToggle.checked);
-      resolvedTimedTranslationSegments = null;
+      resolvedTimedTranslationCues = null;
       renderTxtPanel(txtPanel, payload, showTimestamps);
       renderTimedPanel(srtPanel, payload, showTimestamps, "srt");
       renderTimedPanel(vttPanel, payload, showTimestamps, "vtt");
@@ -765,7 +898,9 @@
         toolbarStateEl.textContent = uiCopy.toolbarStatePending;
       }
       applyInlineTranslation(payload.sourceLanguageCode, payload.targetLanguageCode).then(function () {
-        applyResolvedTimedTranslations(payload);
+        resolvedTimedTranslationCues = buildSentenceAwareTranslatedCues(payload);
+        renderTimedPanel(srtPanel, payload, showTimestamps, "srt", resolvedTimedTranslationCues);
+        renderTimedPanel(vttPanel, payload, showTimestamps, "vtt", resolvedTimedTranslationCues);
         if (noteEl) {
           noteEl.textContent = uiCopy.note;
         }
