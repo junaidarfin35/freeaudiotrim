@@ -188,6 +188,15 @@
     if (value === "Failed to load AI model. Check your internet connection.") {
       return "تعذّر تحميل نموذج الذكاء الاصطناعي. تحقّق من اتصال الإنترنت.";
     }
+    if (value === "Local transcription could not complete on this device. Try a newer device or use the desktop site.") {
+      return "تعذّر إكمال التفريغ المحلي على هذا الجهاز. جرّب جهازًا أحدث أو استخدم موقعنا على الكمبيوتر.";
+    }
+    if (value === "Transcript ready in mobile test mode. Review the text carefully before exporting.") {
+      return "النص جاهز في وضع اختبار الهاتف. راجع النص بعناية قبل التصدير.";
+    }
+    if (value === "Transcript ready in mobile test mode. Review the text carefully and choose the language manually if needed.") {
+      return "النص جاهز في وضع اختبار الهاتف. راجع النص بعناية واختر اللغة يدويًا إذا لزم الأمر.";
+    }
     if (value === "Transcription failed. Try a shorter or clearer file.") {
       return "تعذّر التفريغ. جرّب ملفًا أقصر أو أوضح.";
     }

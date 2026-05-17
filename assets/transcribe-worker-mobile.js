@@ -1,4 +1,5 @@
 let transcriber = null;
+let transcriberProfile = null;
 let isLoading = false;
 let isBusy = false;
 let runtimePromise = null;
@@ -12,11 +13,27 @@ const ONNX_RUNTIME_NOISE_PATTERNS = [
 const MOBILE_MODEL_KEY = "baby-raptor";
 const MOBILE_CHUNK_LENGTH_SECONDS = 30;
 const MOBILE_STRIDE_LENGTH_SECONDS = 5;
+const MOBILE_SAFARI_CHUNK_LENGTH_SECONDS = 29;
+const MOBILE_SAFARI_STRIDE_LENGTH_SECONDS = 5;
+const MIN_SPEECH_REGION_CLIP_SECONDS = 12;
 const TIMESTAMP_COLLAPSE_SECONDS = 29.98;
 const TIMESTAMP_COLLAPSE_EPSILON = 0.18;
 const TIMESTAMP_OVERRUN_EPSILON = 0.35;
 const BAD_OVERLAP_EPSILON = 0.6;
+const SAFE_NO_REPEAT_NGRAM_SIZE = 3;
+const SAFE_REPETITION_PENALTY = 1.02;
+const MOBILE_DEVICE_LIMIT_MESSAGE = "Local transcription could not complete on this device. Try a newer device or use the desktop site.";
+const KNOWN_SILENCE_HALLUCINATION_PATTERNS = [
+  /^\(?music\)?$/i,
+  /^\[music\]$/i,
+  /^thank you(?: very much)?(?: for watching)?[.!?]*$/i,
+  /^thanks(?: very much)?(?: for watching)?[.!?]*$/i,
+  /^subtitles by\b/i,
+  /^subscribe\b/i,
+  /^bye[.!?]*$/i
+];
 const ARABIC_TRANSCRIPTION_PROMPT = "\u0642\u0645 \u0628\u062a\u0641\u0631\u064a\u063a \u0627\u0644\u0646\u0635 \u0628\u062f\u0642\u0629 \u0645\u062b\u0644 \u0645\u0627 \u064a\u0646\u0642\u0627\u0644\u060c \u0628\u062f\u0648\u0646 \u062a\u0631\u062c\u0645\u0629 \u0623\u0648 \u062a\u0644\u062e\u064a\u0635\u060c \u0645\u0639 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0639\u0644\u0627\u0645\u0627\u062a \u0627\u0644\u062a\u0631\u0642\u064a\u0645 \u0639\u0646\u062f \u0627\u0644\u062d\u0627\u062c\u0629. \u0627\u0643\u062a\u0628 \u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a \u0643\u0645\u0627 \u0647\u0648\u060c \u0648\u0625\u0630\u0627 \u0641\u064a\u0647 \u0645\u0648\u0633\u064a\u0642\u0649 \u0627\u0643\u062a\u0628: (\u0645\u0648\u0633\u064a\u0642\u0649)";
+const ARABIC_TRANSCRIPTION_PROMPT_TEXT = "\u0642\u0645 \u0628\u062a\u0641\u0631\u064a\u063a \u0627\u0644\u0646\u0635 \u0628\u062f\u0642\u0629 \u0645\u062b\u0644 \u0645\u0627 \u064a\u0646\u0642\u0627\u0644\u060c \u0628\u062f\u0648\u0646 \u062a\u0631\u062c\u0645\u0629 \u0623\u0648 \u062a\u0644\u062e\u064a\u0635\u060c \u0645\u0639 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0639\u0644\u0627\u0645\u0627\u062a \u0627\u0644\u062a\u0631\u0642\u064a\u0645 \u0639\u0646\u062f \u0627\u0644\u062d\u0627\u062c\u0629. \u0627\u0643\u062a\u0628 \u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a \u0643\u0645\u0627 \u0647\u0648\u060c \u0648\u0625\u0630\u0627 \u0641\u064a\u0647 \u0645\u0648\u0633\u064a\u0642\u0649 \u0627\u0643\u062a\u0628: (\u0645\u0648\u0633\u064a\u0642\u0649)";
 
 function shouldSuppressOnnxRuntimeNoise(args) {
   const text = args.map((value) => {
@@ -95,12 +112,28 @@ function shouldUseArabicPrompt(language) {
 function getMobileRuntimeProfile() {
   const safariLike = isSafariLikeBrowser();
 
+  if (safariLike) {
+    return {
+      modelId: "Xenova/whisper-base",
+      chunkLengthSeconds: MOBILE_SAFARI_CHUNK_LENGTH_SECONDS,
+      strideLengthSeconds: MOBILE_SAFARI_STRIDE_LENGTH_SECONDS,
+      quantized: true,
+      partialUpdates: false,
+      timestampsEnabled: true,
+      pathLabel: "mobile-safari-base",
+      preferredModelId: "Xenova/whisper-base"
+    };
+  }
+
   return {
-    modelId: safariLike ? "Xenova/whisper-tiny" : "Xenova/whisper-base",
+    modelId: "Xenova/whisper-base",
     chunkLengthSeconds: MOBILE_CHUNK_LENGTH_SECONDS,
     strideLengthSeconds: MOBILE_STRIDE_LENGTH_SECONDS,
-    quantized: safariLike,
-    partialUpdates: !safariLike
+    quantized: false,
+    partialUpdates: true,
+    timestampsEnabled: true,
+    pathLabel: "mobile-browser-base",
+    preferredModelId: "Xenova/whisper-base"
   };
 }
 
@@ -110,6 +143,160 @@ function clampPercent(value) {
   }
 
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function pushUnique(target, value) {
+  if (!value || !Array.isArray(target) || target.includes(value)) {
+    return;
+  }
+
+  target.push(value);
+}
+
+function getErrorText(error) {
+  if (!error) {
+    return "";
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return String(error.message || error.stack || error);
+}
+
+function logWorkerEvent(eventName, payload) {
+  try {
+    console.info("[transcribe-worker-mobile]", eventName, payload);
+  } catch (error) {
+  }
+}
+
+function getGenerationConfigHints(model) {
+  const hints = [];
+  const sources = [
+    model && model.generation_config,
+    model && model.model && model.model.generation_config,
+    model && model.model && model.model.config,
+    model && model.config
+  ];
+
+  sources.forEach((source) => {
+    if (!source || typeof source !== "object") {
+      return;
+    }
+
+    if ("no_repeat_ngram_size" in source) {
+      pushUnique(hints, "no_repeat_ngram_size");
+    }
+    if ("repetition_penalty" in source) {
+      pushUnique(hints, "repetition_penalty");
+    }
+  });
+
+  return hints;
+}
+
+function createGenerationControlState(model, runtimeProfile) {
+  const state = {
+    modelKey: MOBILE_MODEL_KEY,
+    modelId: runtimeProfile && runtimeProfile.modelId ? runtimeProfile.modelId : "",
+    preferredModelId: runtimeProfile && runtimeProfile.preferredModelId ? runtimeProfile.preferredModelId : "",
+    fallbackFromModelId: runtimeProfile && runtimeProfile.fallbackFromModelId ? runtimeProfile.fallbackFromModelId : "",
+    pathLabel: runtimeProfile && runtimeProfile.pathLabel
+      ? runtimeProfile.pathLabel
+      : (runtimeProfile && runtimeProfile.quantized ? "mobile-safari-legacy" : "mobile-browser-legacy"),
+    runtimeHints: getGenerationConfigHints(model),
+    controlsRejected: false,
+    plannedApplied: ["no_repeat_ngram_size=3", "repetition_penalty=1.02"],
+    skipped: [],
+    hasLoggedInitialReport: false
+  };
+
+  if (!state.runtimeHints.length) {
+    pushUnique(state.skipped, "no explicit runtime hint found; will try conservative built-in options and fallback on unsupported");
+  }
+
+  return state;
+}
+
+function getGenerationControlReport(state) {
+  return {
+    modelKey: state.modelKey,
+    modelId: state.modelId,
+    preferredModelId: state.preferredModelId,
+    fallbackFromModelId: state.fallbackFromModelId,
+    path: state.pathLabel,
+    runtimeHints: state.runtimeHints.slice(),
+    applied: state.controlsRejected ? [] : state.plannedApplied.slice(),
+    skipped: state.skipped.slice(),
+    controlsRejected: state.controlsRejected
+  };
+}
+
+async function buildPromptIds(source, promptText) {
+  if (!source) {
+    return null;
+  }
+
+  if (typeof source.get_prompt_ids === "function") {
+    return await source.get_prompt_ids(promptText);
+  }
+
+  return null;
+}
+
+async function getArabicPromptIds(model, modelKey) {
+  const cacheKey = modelKey || MOBILE_MODEL_KEY;
+  if (arabicPromptIdsByModel.has(cacheKey)) {
+    return arabicPromptIdsByModel.get(cacheKey);
+  }
+
+  const promptSources = [
+    model && model.processor,
+    model && model.tokenizer,
+    model && model.processor && model.processor.tokenizer
+  ].filter(Boolean);
+
+  for (const source of promptSources) {
+    try {
+      const promptIds = await buildPromptIds(source, ARABIC_TRANSCRIPTION_PROMPT_TEXT);
+      if (promptIds) {
+        arabicPromptIdsByModel.set(cacheKey, promptIds);
+        return promptIds;
+      }
+    } catch (error) {
+    }
+  }
+
+  return null;
+}
+
+function getGenerationControlOverrides(state) {
+  if (!state || state.controlsRejected) {
+    return {};
+  }
+
+  return {
+    no_repeat_ngram_size: SAFE_NO_REPEAT_NGRAM_SIZE,
+    repetition_penalty: SAFE_REPETITION_PENALTY
+  };
+}
+
+function isUnsupportedGenerationControlError(error) {
+  return /no_repeat_ngram_size|repetition_penalty|unsupported|unexpected|unknown|invalid/i.test(getErrorText(error));
+}
+
+function markGenerationControlsUnsupported(state, error) {
+  if (!state) {
+    return;
+  }
+
+  state.controlsRejected = true;
+  pushUnique(
+    state.skipped,
+    "runtime rejected conservative repetition controls: " + getErrorText(error)
+  );
 }
 
 function normalizeText(text) {
@@ -181,8 +368,106 @@ function hasArabicSyllableLoop(text) {
   return /([\u0600-\u06FF]{2,3})(?:ي|ا|و|ت)?\1(?:ي|ا|و|ت)?\1(?:ي|ا|و|ت)?\1/u.test(compact);
 }
 
-function hasRepetitionLoop(text) {
-  return hasRepeatedPhraseLoop(text) || hasArabicSyllableLoop(text);
+function hasRepetitionLoop(text, language) {
+  if (hasRepeatedPhraseLoop(text)) {
+    return true;
+  }
+
+  if (shouldUseArabicPrompt(language)) {
+    return false;
+  }
+
+  return hasArabicSyllableLoop(text);
+}
+
+function hasRepeatedShortTokenLoop(text) {
+  const normalized = normalizeText(text).toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  const tokens = normalized.split(" ").filter(Boolean);
+  if (tokens.length < 6) {
+    return false;
+  }
+
+  let currentRun = 1;
+  for (let index = 1; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    const previousToken = tokens[index - 1];
+    if (token === previousToken && token.length <= 3) {
+      currentRun += 1;
+      if (currentRun >= 6) {
+        return true;
+      }
+    } else {
+      currentRun = 1;
+    }
+  }
+
+  return false;
+}
+
+function getAudioSignalStats(audio) {
+  if (!audio || !audio.length) {
+    return {
+      rms: 0,
+      peak: 0
+    };
+  }
+
+  let sumSquares = 0;
+  let peak = 0;
+  for (let index = 0; index < audio.length; index += 1) {
+    const sample = Number(audio[index]) || 0;
+    const magnitude = Math.abs(sample);
+    sumSquares += sample * sample;
+    if (magnitude > peak) {
+      peak = magnitude;
+    }
+  }
+
+  return {
+    rms: Math.sqrt(sumSquares / audio.length),
+    peak
+  };
+}
+
+function hasKnownSilenceHallucination(text, audioStats) {
+  const normalized = normalizeText(text);
+  if (!normalized) {
+    return false;
+  }
+
+  const safeStats = audioStats || { rms: 0, peak: 0 };
+  const likelyNearSilence = safeStats.rms < 0.0045 && safeStats.peak < 0.06;
+  if (!likelyNearSilence || normalized.length > 80) {
+    return false;
+  }
+
+  return KNOWN_SILENCE_HALLUCINATION_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function inspectBadTranscriptionOutput(text, audio, language) {
+  const reasons = [];
+  const audioStats = getAudioSignalStats(audio);
+  const useRepetitionGuards = !shouldUseArabicPrompt(language);
+
+  if (useRepetitionGuards && hasRepetitionLoop(text, language)) {
+    reasons.push("repetition_loop");
+  }
+  if (useRepetitionGuards && hasRepeatedShortTokenLoop(text)) {
+    reasons.push("short_token_loop");
+  }
+  if (hasKnownSilenceHallucination(text, audioStats)) {
+    reasons.push("silence_hallucination");
+  }
+
+  return {
+    ok: !reasons.length,
+    reasons,
+    audioStats
+  };
 }
 
 function inspectTimestampQuality(chunks, clipDurationSeconds) {
@@ -239,6 +524,220 @@ function inspectTimestampQuality(chunks, clipDurationSeconds) {
   return { ok: true, reason: "" };
 }
 
+function getPercentile(values, percentile) {
+  if (!values || !values.length) {
+    return 0;
+  }
+
+  const sorted = values.slice().sort((a, b) => a - b);
+  const index = Math.max(0, Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * percentile)));
+  return sorted[index] || 0;
+}
+
+function buildArabicSpeechAwareChunks(audio, sampleRate, chunkLengthSeconds, strideLengthSeconds) {
+  if (!audio || !audio.length || audio.length <= sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS) {
+    return [{
+      audio,
+      startSample: 0,
+      endSample: audio.length
+    }];
+  }
+
+  const frameMs = 30;
+  const frameSize = Math.max(160, Math.floor(sampleRate * (frameMs / 1000)));
+  const minSpeechFrames = Math.max(4, Math.round(180 / frameMs));
+  const mergePauseFrames = Math.max(4, Math.round(240 / frameMs));
+  const packPauseFrames = Math.max(10, Math.round(480 / frameMs));
+  const paddingFrames = Math.max(4, Math.round(180 / frameMs));
+  const maxChunkFrames = Math.max(
+    1,
+    Math.round(((chunkLengthSeconds - strideLengthSeconds) * 1000) / frameMs)
+  );
+  const rms = [];
+  let totalEnergy = 0;
+  let totalCount = 0;
+
+  for (let index = 0; index < audio.length; index += frameSize) {
+    let sum = 0;
+    let count = 0;
+
+    for (let inner = 0; inner < frameSize && index + inner < audio.length; inner += 1) {
+      const sample = audio[index + inner];
+      sum += sample * sample;
+      count += 1;
+    }
+
+    totalEnergy += sum;
+    totalCount += count;
+    rms.push(Math.sqrt(sum / Math.max(1, count)));
+  }
+
+  const globalRms = Math.sqrt(totalEnergy / Math.max(1, totalCount));
+  const noiseFloor = getPercentile(rms, 0.2);
+  const threshold = Math.max(0.006, Math.min(0.03, Math.max(globalRms * 0.45, noiseFloor * 2.2)));
+  const speechRegions = [];
+  let idx = 0;
+
+  while (idx < rms.length) {
+    if (rms[idx] >= threshold) {
+      const startFrame = idx;
+      while (idx < rms.length && rms[idx] >= threshold) {
+        idx += 1;
+      }
+      const endFrame = idx;
+      if (endFrame - startFrame >= minSpeechFrames) {
+        speechRegions.push({ startFrame, endFrame });
+      }
+    } else {
+      idx += 1;
+    }
+  }
+
+  if (!speechRegions.length) {
+    return [{
+      audio,
+      startSample: 0,
+      endSample: audio.length
+    }];
+  }
+
+  const mergedRegions = [];
+  speechRegions.forEach((region) => {
+    if (!mergedRegions.length) {
+      mergedRegions.push({ startFrame: region.startFrame, endFrame: region.endFrame });
+      return;
+    }
+
+    const previous = mergedRegions[mergedRegions.length - 1];
+    if (region.startFrame - previous.endFrame <= mergePauseFrames) {
+      previous.endFrame = region.endFrame;
+    } else {
+      mergedRegions.push({ startFrame: region.startFrame, endFrame: region.endFrame });
+    }
+  });
+
+  const expandedRegions = mergedRegions.map((region) => ({
+    startFrame: Math.max(0, region.startFrame - paddingFrames),
+    endFrame: Math.min(rms.length, region.endFrame + paddingFrames)
+  }));
+
+  const packedChunks = [];
+  expandedRegions.forEach((region) => {
+    if (!packedChunks.length) {
+      packedChunks.push({ startFrame: region.startFrame, endFrame: region.endFrame });
+      return;
+    }
+
+    const current = packedChunks[packedChunks.length - 1];
+    const gapFrames = region.startFrame - current.endFrame;
+    const nextDuration = region.endFrame - current.startFrame;
+
+    if (gapFrames <= packPauseFrames && nextDuration <= maxChunkFrames) {
+      current.endFrame = region.endFrame;
+    } else {
+      packedChunks.push({ startFrame: region.startFrame, endFrame: region.endFrame });
+    }
+  });
+
+  const chunks = packedChunks.map((chunk) => {
+    const startSample = Math.max(0, chunk.startFrame * frameSize);
+    const endSample = Math.min(audio.length, chunk.endFrame * frameSize);
+    return {
+      audio: audio.slice(startSample, endSample),
+      startSample,
+      endSample
+    };
+  }).filter((chunk) => chunk.audio && chunk.audio.length);
+
+  return chunks.length ? chunks : [{
+    audio,
+    startSample: 0,
+    endSample: audio.length
+  }];
+}
+
+function appendTimedChunks(target, sourceChunks, offsetSeconds) {
+  if (!Array.isArray(sourceChunks) || !sourceChunks.length) {
+    return;
+  }
+
+  let lastEnd = target.length ? target[target.length - 1].timestamp[1] : -Infinity;
+
+  sourceChunks.forEach((chunkResult) => {
+    let start = Number(chunkResult && chunkResult.timestamp && chunkResult.timestamp[0]);
+    const end = Number(chunkResult && chunkResult.timestamp && chunkResult.timestamp[1]);
+    const text = normalizeText(chunkResult && chunkResult.text);
+
+    if (!text || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      return;
+    }
+
+    start += offsetSeconds;
+    const absoluteEnd = end + offsetSeconds;
+
+    if (absoluteEnd <= lastEnd + 0.02) {
+      return;
+    }
+
+    if (start < lastEnd && absoluteEnd > lastEnd) {
+      start = lastEnd;
+    }
+
+    if (absoluteEnd <= start) {
+      return;
+    }
+
+    target.push({
+      text,
+      timestamp: [start, absoluteEnd]
+    });
+    lastEnd = absoluteEnd;
+  });
+}
+
+function sanitizeTimedChunks(chunks, clipDurationSeconds) {
+  if (!Array.isArray(chunks) || !chunks.length) {
+    return [];
+  }
+
+  const safeDuration = Math.max(0, Number(clipDurationSeconds) || 0);
+  const result = [];
+  let lastEnd = 0;
+
+  chunks.forEach((chunk) => {
+    const text = normalizeText(chunk && chunk.text);
+    const timestamp = chunk && chunk.timestamp;
+    if (!text || !Array.isArray(timestamp) || timestamp.length < 2) {
+      return;
+    }
+
+    let start = Number(timestamp[0]);
+    let end = Number(timestamp[1]);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) {
+      return;
+    }
+
+    start = Math.max(0, Math.min(safeDuration, start));
+    end = Math.max(0, Math.min(safeDuration, end));
+
+    if (start < lastEnd) {
+      start = lastEnd;
+    }
+
+    if (end <= start) {
+      return;
+    }
+
+    result.push({
+      text,
+      timestamp: [start, end]
+    });
+    lastEnd = end;
+  });
+
+  return result;
+}
+
 function normalizeSegments(chunks, durationSeconds) {
   if (!Array.isArray(chunks) || !chunks.length) {
     return [];
@@ -269,6 +768,32 @@ function normalizeSegments(chunks, durationSeconds) {
     });
     return result;
   }, []);
+}
+
+async function runWhisperTranscriptionAttempt(model, audio, baseOptions, generationState) {
+  const controlOverrides = getGenerationControlOverrides(generationState);
+
+  if (generationState && !generationState.hasLoggedInitialReport) {
+    generationState.hasLoggedInitialReport = true;
+    logWorkerEvent("generation_controls", getGenerationControlReport(generationState));
+  }
+
+  try {
+    return await model(audio, {
+      ...baseOptions,
+      ...controlOverrides
+    });
+  } catch (error) {
+    if (!generationState || !Object.keys(controlOverrides).length || !isUnsupportedGenerationControlError(error)) {
+      throw error;
+    }
+
+    markGenerationControlsUnsupported(generationState, error);
+    logWorkerEvent("generation_controls_fallback", getGenerationControlReport(generationState));
+    return await model(audio, {
+      ...baseOptions
+    });
+  }
 }
 
 function createModelProgressTracker(modelKey) {
@@ -403,14 +928,45 @@ async function disposePipelineInstance(instance) {
 async function unloadModels() {
   await disposePipelineInstance(transcriber);
   transcriber = null;
+  transcriberProfile = null;
+}
+
+function runtimeProfilesMatch(left, right) {
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.modelId === right.modelId
+    && !!left.quantized === !!right.quantized
+    && left.pathLabel === right.pathLabel;
+}
+
+async function createTranscriber(runtime, runtimeProfile, tracker, progressCallback) {
+  return runtime.pipeline(
+    "automatic-speech-recognition",
+    runtimeProfile.modelId,
+    {
+      quantized: runtimeProfile.quantized,
+      progress_callback: (info) => {
+        tracker.update(info);
+        if (typeof progressCallback === "function") {
+          progressCallback(info);
+        }
+      },
+      revision: runtimeProfile.modelId.includes("/whisper-medium") ? "no_attentions" : "main"
+    }
+  );
 }
 
 async function loadTranscriptionModel(progressCallback) {
-  if (transcriber) {
+  const runtimeProfile = getMobileRuntimeProfile();
+
+  if (transcriber && runtimeProfilesMatch(transcriberProfile, runtimeProfile)) {
     return {
       model: transcriber,
       modelKey: MOBILE_MODEL_KEY,
-      loadState: "memory"
+      loadState: "memory",
+      runtimeProfile: transcriberProfile || runtimeProfile
     };
   }
 
@@ -419,44 +975,47 @@ async function loadTranscriptionModel(progressCallback) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    if (transcriber) {
+    if (transcriber && runtimeProfilesMatch(transcriberProfile, runtimeProfile)) {
       return {
         model: transcriber,
         modelKey: MOBILE_MODEL_KEY,
-        loadState: "memory"
+        loadState: "memory",
+        runtimeProfile: transcriberProfile || runtimeProfile
       };
     }
   }
 
+  if (transcriber && !runtimeProfilesMatch(transcriberProfile, runtimeProfile)) {
+    await unloadModels();
+  }
+
   isLoading = true;
   const tracker = createModelProgressTracker(MOBILE_MODEL_KEY);
-  const runtimeProfile = getMobileRuntimeProfile();
 
   try {
     const runtime = await getRuntime();
     postMessage({ type: "model_loading", modelKey: MOBILE_MODEL_KEY });
-    transcriber = await runtime.pipeline(
-      "automatic-speech-recognition",
-      runtimeProfile.modelId,
-      {
-        quantized: runtimeProfile.quantized,
-        progress_callback: (info) => {
-          tracker.update(info);
-          if (typeof progressCallback === "function") {
-            progressCallback(info);
-          }
-        },
-        revision: runtimeProfile.modelId.includes("/whisper-medium") ? "no_attentions" : "main"
-      }
-    );
+    transcriber = await createTranscriber(runtime, runtimeProfile, tracker, progressCallback);
+    transcriberProfile = runtimeProfile;
+    logWorkerEvent("mobile_model_profile_loaded", {
+      modelKey: MOBILE_MODEL_KEY,
+      path: runtimeProfile.pathLabel,
+      modelId: runtimeProfile.modelId,
+      preferredModelId: runtimeProfile.preferredModelId || runtimeProfile.modelId,
+      quantized: runtimeProfile.quantized,
+      partialUpdates: runtimeProfile.partialUpdates !== false,
+      timestampsEnabled: runtimeProfile.timestampsEnabled !== false,
+      fallbackUsed: false
+    });
   } catch (error) {
     transcriber = null;
+    transcriberProfile = null;
     postMessage({
       type: "model_error",
       modelKey: MOBILE_MODEL_KEY,
-      message: error && error.message ? error.message : "Model load failed"
+      message: MOBILE_DEVICE_LIMIT_MESSAGE
     });
-    throw error;
+    throw new Error(MOBILE_DEVICE_LIMIT_MESSAGE);
   } finally {
     isLoading = false;
   }
@@ -464,7 +1023,8 @@ async function loadTranscriptionModel(progressCallback) {
   return {
     model: transcriber,
     modelKey: MOBILE_MODEL_KEY,
-    loadState: tracker.sawNetworkProgress() ? "downloaded" : "cached"
+    loadState: tracker.sawNetworkProgress() ? "downloaded" : "cached",
+    runtimeProfile: transcriberProfile || runtimeProfile
   };
 }
 
@@ -495,39 +1055,63 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
 
   const sampleRate = 16000;
   const durationSeconds = audio.length / sampleRate;
-  const runtimeProfile = getMobileRuntimeProfile();
-  const timePrecision = model
-    && model.processor
-    && model.processor.feature_extractor
-    && model.processor.feature_extractor.config
-    && model.model
-    && model.model.config
-    && Number.isFinite(model.processor.feature_extractor.config.chunk_length)
-    && Number.isFinite(model.model.config.max_source_positions)
-    && model.model.config.max_source_positions > 0
-    ? model.processor.feature_extractor.config.chunk_length / model.model.config.max_source_positions
-    : null;
-  let callbackChunks = [{ tokens: [], finalised: false }];
-
-  function chunkCallback(data) {
-    const activeChunk = callbackChunks[callbackChunks.length - 1];
-    Object.assign(activeChunk, data);
-    activeChunk.finalised = true;
-
-    if (!data.is_last) {
-      callbackChunks.push({ tokens: [], finalised: false });
-    }
+  const runtimeProfile = modelLoad.runtimeProfile || getMobileRuntimeProfile();
+  function getTimePrecision(activeModel) {
+    return activeModel
+      && activeModel.processor
+      && activeModel.processor.feature_extractor
+      && activeModel.processor.feature_extractor.config
+      && activeModel.model
+      && activeModel.model.config
+      && Number.isFinite(activeModel.processor.feature_extractor.config.chunk_length)
+      && Number.isFinite(activeModel.model.config.max_source_positions)
+      && activeModel.model.config.max_source_positions > 0
+      ? activeModel.processor.feature_extractor.config.chunk_length / activeModel.model.config.max_source_positions
+      : null;
   }
 
-  function callbackFunction(data) {
-    const activeChunk = callbackChunks[callbackChunks.length - 1];
-    if (data && data[0] && Array.isArray(data[0].output_token_ids)) {
-      activeChunk.tokens = data[0].output_token_ids.slice();
+  async function createTranscriptionOptions(activeModel, activeRuntimeProfile) {
+    const timePrecision = getTimePrecision(activeModel);
+    const timestampsEnabled = !activeRuntimeProfile || activeRuntimeProfile.timestampsEnabled !== false;
+    const allowPartialUpdates = !!(
+      activeRuntimeProfile
+      && activeRuntimeProfile.partialUpdates !== false
+      && timestampsEnabled
+      && timePrecision
+      && activeModel
+      && activeModel.tokenizer
+      && typeof activeModel.tokenizer._decode_asr === "function"
+    );
+    let callbackChunks = allowPartialUpdates
+      ? [{ tokens: [], finalised: false }]
+      : null;
+
+    function chunkCallback(data) {
+      if (!callbackChunks) {
+        return;
+      }
+
+      const activeChunk = callbackChunks[callbackChunks.length - 1];
+      Object.assign(activeChunk, data);
+      activeChunk.finalised = true;
+
+      if (!data.is_last) {
+        callbackChunks.push({ tokens: [], finalised: false });
+      }
     }
 
-    if (timePrecision && model && model.tokenizer && typeof model.tokenizer._decode_asr === "function") {
+    function callbackFunction(data) {
+      if (!callbackChunks) {
+        return;
+      }
+
+      const activeChunk = callbackChunks[callbackChunks.length - 1];
+      if (data && data[0] && Array.isArray(data[0].output_token_ids)) {
+        activeChunk.tokens = data[0].output_token_ids.slice();
+      }
+
       try {
-        const partial = model.tokenizer._decode_asr(callbackChunks, {
+        const partial = activeModel.tokenizer._decode_asr(callbackChunks, {
           time_precision: timePrecision,
           return_timestamps: true,
           force_full_sequences: false
@@ -542,34 +1126,217 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
         });
       } catch (error) {
       }
+
+      postMessage({
+        type: "status",
+        message: "Transcribing in browser...",
+        progress: 45
+      });
     }
 
-    postMessage({
-      type: "status",
-      message: "Transcribing in browser...",
-      progress: 45
-    });
+    const options = {
+      top_k: 0,
+      do_sample: false,
+      chunk_length_s: activeRuntimeProfile.chunkLengthSeconds,
+      stride_length_s: activeRuntimeProfile.strideLengthSeconds,
+      return_timestamps: timestampsEnabled,
+      force_full_sequences: false,
+      task: "transcribe"
+    };
+
+    if (allowPartialUpdates) {
+      options.callback_function = callbackFunction;
+      options.chunk_callback = chunkCallback;
+    }
+
+    if (selectedLanguage && selectedLanguage !== "auto") {
+      options.language = selectedLanguage;
+    }
+
+    if (shouldUseArabicPrompt(selectedLanguage)) {
+      const promptIds = await getArabicPromptIds(activeModel, MOBILE_MODEL_KEY);
+      if (promptIds) {
+        options.prompt_ids = promptIds;
+        logWorkerEvent("mobile_arabic_prompt_ids", {
+          modelKey: MOBILE_MODEL_KEY,
+          path: activeRuntimeProfile && activeRuntimeProfile.pathLabel ? activeRuntimeProfile.pathLabel : "mobile",
+          enabled: true
+        });
+      } else {
+        logWorkerEvent("mobile_arabic_prompt_ids", {
+          modelKey: MOBILE_MODEL_KEY,
+          path: activeRuntimeProfile && activeRuntimeProfile.pathLabel ? activeRuntimeProfile.pathLabel : "mobile",
+          enabled: false
+        });
+      }
+    }
+
+    return options;
   }
 
-  const options = {
-    top_k: 0,
-    do_sample: false,
-    chunk_length_s: runtimeProfile.chunkLengthSeconds,
-    stride_length_s: runtimeProfile.strideLengthSeconds,
-    return_timestamps: true,
-    force_full_sequences: false,
-    task: "transcribe",
-    callback_function: callbackFunction,
-    chunk_callback: chunkCallback
-  };
+  async function runValidatedTranscription(activeModel, activeRuntimeProfile, allowDecodeFallback) {
+    const generationControlState = createGenerationControlState(activeModel, activeRuntimeProfile);
+    const options = await createTranscriptionOptions(activeModel, activeRuntimeProfile);
+    const timestampsEnabled = !activeRuntimeProfile || activeRuntimeProfile.timestampsEnabled !== false;
+    const useSpeechAwareChunks = shouldUseArabicPrompt(selectedLanguage) && audio.length > sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS;
+    const chunkPlan = useSpeechAwareChunks
+      ? buildArabicSpeechAwareChunks(audio, sampleRate, activeRuntimeProfile.chunkLengthSeconds, activeRuntimeProfile.strideLengthSeconds)
+      : [{
+          audio,
+          startSample: 0,
+          endSample: audio.length
+        }];
+    const combinedWarnings = [];
+    const combinedSegments = [];
+    const combinedTextParts = [];
 
-  if (selectedLanguage && selectedLanguage !== "auto") {
-    options.language = selectedLanguage;
+    if (!timestampsEnabled) {
+      logWorkerEvent("mobile_timestamp_mode", {
+        modelKey: MOBILE_MODEL_KEY,
+        path: generationControlState.pathLabel,
+        mode: "text_first_no_timestamps"
+      });
+    }
+    if (useSpeechAwareChunks && chunkPlan.length > 1) {
+      postMessage({
+        type: "status",
+        message: "Analyzing speech regions...",
+        progress: 14
+      });
+    }
+
+    for (let index = 0; index < chunkPlan.length; index += 1) {
+      const chunk = chunkPlan[index];
+      const chunkOffsetSeconds = chunk.startSample / sampleRate;
+      const clipDurationSeconds = chunk.audio.length / sampleRate;
+      if (chunkPlan.length > 1) {
+        const chunkProgress = 12 + Math.round(((index + 1) / chunkPlan.length) * 82);
+        postMessage({
+          type: "status",
+          message: "Transcribing part " + (index + 1) + " of " + chunkPlan.length + "...",
+          progress: chunkProgress
+        });
+      }
+
+      let result = await runWhisperTranscriptionAttempt(activeModel, chunk.audio, options, generationControlState);
+      let resultText = normalizeText(result && result.text);
+      let rawResultChunks = sanitizeTimedChunks(result && result.chunks, clipDurationSeconds);
+      let resultSegments = normalizeSegments(rawResultChunks, clipDurationSeconds);
+      let timestampCheck = timestampsEnabled
+        ? inspectTimestampQuality(rawResultChunks, clipDurationSeconds)
+        : { ok: true, reason: "timestamps_disabled" };
+      let badOutputCheck = inspectBadTranscriptionOutput(resultText, chunk.audio, selectedLanguage);
+      const mobileWarnings = [];
+
+      if (!timestampCheck.ok || !badOutputCheck.ok) {
+        const retryOptions = {
+          ...options,
+          return_timestamps: timestampsEnabled
+        };
+        if (retryOptions.prompt_ids) {
+          delete retryOptions.prompt_ids;
+          logWorkerEvent("mobile_arabic_prompt_ids_retry_disabled", {
+            modelKey: MOBILE_MODEL_KEY,
+            path: generationControlState.pathLabel
+          });
+        }
+        const retryReason = !timestampCheck.ok
+          ? timestampCheck.reason
+          : badOutputCheck.reasons.join(",") || "bad_output";
+        logWorkerEvent("transcription_retry", {
+          modelKey: MOBILE_MODEL_KEY,
+          path: generationControlState.pathLabel,
+          chunkIndex: index,
+          retryReason
+        });
+        const retriedResult = await runWhisperTranscriptionAttempt(activeModel, chunk.audio, retryOptions, generationControlState);
+        const retriedText = normalizeText(retriedResult && retriedResult.text);
+        const retriedRawChunks = sanitizeTimedChunks(retriedResult && retriedResult.chunks, clipDurationSeconds);
+        const retriedSegments = normalizeSegments(retriedRawChunks, clipDurationSeconds);
+        const retriedTimestampCheck = timestampsEnabled
+          ? inspectTimestampQuality(retriedRawChunks, clipDurationSeconds)
+          : { ok: true, reason: "timestamps_disabled" };
+        const retriedBadOutputCheck = inspectBadTranscriptionOutput(retriedText, chunk.audio, selectedLanguage);
+
+        if (retriedTimestampCheck.ok && retriedBadOutputCheck.ok) {
+          result = retriedResult;
+          resultText = retriedText;
+          resultSegments = retriedSegments;
+          pushUnique(mobileWarnings, "language_hint");
+        } else {
+          logWorkerEvent("transcription_retry_failed", {
+            modelKey: MOBILE_MODEL_KEY,
+            path: generationControlState.pathLabel,
+            chunkIndex: index,
+            retryReason,
+            initialBadOutputReasons: badOutputCheck.reasons,
+            retryBadOutputReasons: retriedBadOutputCheck.reasons,
+            initialTimestampReason: timestampCheck.reason,
+            retryTimestampReason: retriedTimestampCheck.reason
+          });
+          if (
+            retriedBadOutputCheck.ok
+            && retriedText
+            && retriedText.trim()
+          ) {
+            result = retriedResult;
+            resultText = retriedText;
+            resultSegments = [];
+            pushUnique(mobileWarnings, "weak_audio");
+            pushUnique(mobileWarnings, "timestamp_fallback_text");
+            logWorkerEvent("transcription_timestamp_fallback_text", {
+              modelKey: MOBILE_MODEL_KEY,
+              path: generationControlState.pathLabel,
+              chunkIndex: index,
+              retryReason,
+              timestampReason: retriedTimestampCheck.reason
+            });
+          } else if (
+            !timestampsEnabled
+            && retriedText
+            && retriedText.trim()
+          ) {
+            result = retriedResult;
+            resultText = retriedText;
+            resultSegments = [];
+            pushUnique(mobileWarnings, "unstable_output");
+            logWorkerEvent("transcription_unstable_output_fallback_text", {
+              modelKey: MOBILE_MODEL_KEY,
+              path: generationControlState.pathLabel,
+              chunkIndex: index,
+              retryReason,
+              badOutputReasons: retriedBadOutputCheck.reasons
+            });
+          } else {
+            throw new Error(MOBILE_DEVICE_LIMIT_MESSAGE);
+          }
+        }
+      }
+
+      if (resultText) {
+        combinedTextParts.push(resultText);
+      }
+      mobileWarnings.forEach((warning) => pushUnique(combinedWarnings, warning));
+
+      if (timestampsEnabled && resultSegments.length) {
+        appendTimedChunks(combinedSegments, resultSegments, chunkOffsetSeconds);
+      } else if (resultText) {
+        combinedSegments.push({
+          text: resultText,
+          timestamp: [chunkOffsetSeconds, chunkOffsetSeconds + clipDurationSeconds]
+        });
+      }
+    }
+
+    return {
+      text: normalizeText(combinedTextParts.join(" ")),
+      segments: combinedSegments,
+      warnings: combinedWarnings,
+      generationControls: getGenerationControlReport(generationControlState)
+    };
   }
 
-  const result = await model(audio, options);
-  let resultText = normalizeText(result && result.text);
-  let resultSegments = normalizeSegments(result && result.chunks, durationSeconds);
+  const transcriptionOutcome = await runValidatedTranscription(model, runtimeProfile, true);
 
   postMessage({
     type: "status",
@@ -578,8 +1345,8 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
   });
   postMessage({ type: "progress", value: 100, current: 100, total: 100 });
 
-  const text = resultText;
-  let segments = resultSegments;
+  const text = transcriptionOutcome.text;
+  let segments = transcriptionOutcome.segments;
 
   if (!segments.length && text) {
     segments = [{
@@ -588,10 +1355,16 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
     }];
   }
 
+  if (!segments.length && !text) {
+    throw new Error(MOBILE_DEVICE_LIMIT_MESSAGE);
+  }
+
   postMessage({
     type: "result",
     text,
-    segments
+    segments,
+    warnings: Array.from(new Set(transcriptionOutcome.warnings)),
+    generationControls: transcriptionOutcome.generationControls
   });
 }
 
@@ -600,17 +1373,9 @@ self.onmessage = async (event) => {
   const requestType = data.type;
   const modelKey = data.modelKey || MOBILE_MODEL_KEY;
 
-  if (requestType === "translate_subtitles") {
-    postMessage({
-      type: "translation_error",
-      message: "Built-in translation is not available in phone mode yet. Use Refine with ChatGPT or switch to a desktop or laptop."
-    });
-    return;
-  }
-
   if (modelKey !== MOBILE_MODEL_KEY) {
     postMessage({
-      type: requestType === "transcribe" ? "error" : "model_error",
+      type: "error",
       modelKey,
       message: "This phone worker only supports Baby Raptor."
     });

@@ -2,7 +2,6 @@ let transcriber = null;
 let activeTranscriptionModelKey = null;
 let isLoading = false;
 let isBusy = false;
-let translationModel = null;
 let modernTransformersRuntimePromise = null;
 let legacyTransformersRuntimePromise = null;
 const arabicPromptIdsByModel = new Map();
@@ -30,6 +29,17 @@ const TIMESTAMP_COLLAPSE_SECONDS = 29.98;
 const TIMESTAMP_COLLAPSE_EPSILON = 0.18;
 const TIMESTAMP_OVERRUN_EPSILON = 0.35;
 const BAD_OVERLAP_EPSILON = 0.6;
+const SAFE_NO_REPEAT_NGRAM_SIZE = 3;
+const SAFE_REPETITION_PENALTY = 1.02;
+const KNOWN_SILENCE_HALLUCINATION_PATTERNS = [
+  /^\(?music\)?$/i,
+  /^\[music\]$/i,
+  /^thank you(?: very much)?(?: for watching)?[.!?]*$/i,
+  /^thanks(?: very much)?(?: for watching)?[.!?]*$/i,
+  /^subtitles by\b/i,
+  /^subscribe\b/i,
+  /^bye[.!?]*$/i
+];
 const TRANSCRIPTION_MODELS = {
   "baby-raptor": {
     key: "baby-raptor",
@@ -571,18 +581,6 @@ async function loadTranscriptionModel(modelKey) {
   };
 }
 
-async function loadTranslationModel() {
-  if (!translationModel) {
-    const modernRuntime = await getModernTransformersRuntime();
-    translationModel = await modernRuntime.pipeline(
-      "translation",
-      "Xenova/nllb-200-distilled-600M"
-    );
-  }
-
-  return translationModel;
-}
-
 async function disposePipelineInstance(instance) {
   if (!instance || typeof instance.dispose !== "function") {
     return;
@@ -591,15 +589,10 @@ async function disposePipelineInstance(instance) {
   await instance.dispose();
 }
 
-async function unloadModels(includeTranslation = true) {
+async function unloadModels() {
   await disposePipelineInstance(transcriber);
   transcriber = null;
   activeTranscriptionModelKey = null;
-
-  if (includeTranslation) {
-    await disposePipelineInstance(translationModel);
-    translationModel = null;
-  }
 }
 
 async function buildPromptIds(source, promptText) {
@@ -647,6 +640,140 @@ function createTranscriptionAttemptOptions(baseOptions, progressHandler, overrid
     ...(overrides || {}),
     monitor_progress: progressHandler
   };
+}
+
+function pushUnique(target, value) {
+  if (!value || !Array.isArray(target) || target.includes(value)) {
+    return;
+  }
+
+  target.push(value);
+}
+
+function logWorkerEvent(eventName, payload) {
+  try {
+    console.info("[transcribe-worker]", eventName, payload);
+  } catch (error) {
+  }
+}
+
+function getGenerationConfigHints(model) {
+  const hints = [];
+  const sources = [
+    model && model.generation_config,
+    model && model.model && model.model.generation_config,
+    model && model.model && model.model.config,
+    model && model.config
+  ];
+
+  sources.forEach((source) => {
+    if (!source || typeof source !== "object") {
+      return;
+    }
+
+    if ("no_repeat_ngram_size" in source) {
+      pushUnique(hints, "no_repeat_ngram_size");
+    }
+    if ("repetition_penalty" in source) {
+      pushUnique(hints, "repetition_penalty");
+    }
+  });
+
+  return hints;
+}
+
+function createGenerationControlState(model, modelKey, useLegacyRuntime) {
+  const pathLabel = useLegacyRuntime
+    ? "legacy-whisper"
+    : (modelKey === "baby-raptor" ? "baby-raptor-modern" : "default-whisper");
+  const shouldApplySafeRepetitionControls = useLegacyRuntime || modelKey === "baby-raptor";
+  const state = {
+    modelKey,
+    pathLabel,
+    useLegacyRuntime: !!useLegacyRuntime,
+    runtimeHints: getGenerationConfigHints(model),
+    controlsRejected: false,
+    attemptedControls: shouldApplySafeRepetitionControls,
+    plannedApplied: shouldApplySafeRepetitionControls
+      ? ["no_repeat_ngram_size=3", "repetition_penalty=1.02"]
+      : [],
+    skipped: [],
+    hasLoggedInitialReport: false
+  };
+
+  if (!shouldApplySafeRepetitionControls) {
+    pushUnique(state.skipped, "safe repetition controls reserved for Baby Raptor or legacy path");
+  } else if (!state.runtimeHints.length) {
+    pushUnique(state.skipped, "no explicit runtime hint found; will try conservative built-in options and fallback on unsupported");
+  }
+
+  return state;
+}
+
+function getGenerationControlReport(state) {
+  return {
+    modelKey: state.modelKey,
+    path: state.pathLabel,
+    runtimeHints: state.runtimeHints.slice(),
+    applied: state.controlsRejected ? [] : state.plannedApplied.slice(),
+    skipped: state.skipped.slice(),
+    controlsRejected: state.controlsRejected
+  };
+}
+
+function getGenerationControlOverrides(state) {
+  if (!state || !state.attemptedControls || state.controlsRejected) {
+    return {};
+  }
+
+  return {
+    no_repeat_ngram_size: SAFE_NO_REPEAT_NGRAM_SIZE,
+    repetition_penalty: SAFE_REPETITION_PENALTY
+  };
+}
+
+function isUnsupportedGenerationControlError(error) {
+  const text = getErrorText(error);
+  return /no_repeat_ngram_size|repetition_penalty|unsupported|unexpected|unknown|invalid/i.test(text);
+}
+
+function markGenerationControlsUnsupported(state, error) {
+  if (!state) {
+    return;
+  }
+
+  state.controlsRejected = true;
+  pushUnique(
+    state.skipped,
+    "runtime rejected conservative repetition controls: " + getErrorText(error)
+  );
+}
+
+async function runWhisperTranscriptionAttempt(model, audio, baseOptions, progressHandler, generationState, attemptLabel) {
+  const controlOverrides = getGenerationControlOverrides(generationState);
+
+  if (generationState && !generationState.hasLoggedInitialReport) {
+    generationState.hasLoggedInitialReport = true;
+    logWorkerEvent("generation_controls", {
+      attempt: attemptLabel,
+      ...getGenerationControlReport(generationState)
+    });
+  }
+
+  try {
+    return await model(audio, createTranscriptionAttemptOptions(baseOptions, progressHandler, controlOverrides));
+  } catch (error) {
+    if (!generationState || !Object.keys(controlOverrides).length || !isUnsupportedGenerationControlError(error)) {
+      throw error;
+    }
+
+    markGenerationControlsUnsupported(generationState, error);
+    logWorkerEvent("generation_controls_fallback", {
+      attempt: attemptLabel,
+      ...getGenerationControlReport(generationState)
+    });
+    return await model(audio, createTranscriptionAttemptOptions(baseOptions, progressHandler));
+  }
 }
 
 function normalizeText(text) {
@@ -720,6 +847,95 @@ function hasArabicSyllableLoop(text) {
 
 function hasRepetitionLoop(text) {
   return hasRepeatedPhraseLoop(text) || hasArabicSyllableLoop(text);
+}
+
+function hasRepeatedShortTokenLoop(text) {
+  const normalized = normalizeText(text).toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  const tokens = normalized.split(" ").filter(Boolean);
+  if (tokens.length < 6) {
+    return false;
+  }
+
+  let currentRun = 1;
+  for (let index = 1; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    const previousToken = tokens[index - 1];
+    if (token === previousToken && token.length <= 3) {
+      currentRun += 1;
+      if (currentRun >= 6) {
+        return true;
+      }
+    } else {
+      currentRun = 1;
+    }
+  }
+
+  return false;
+}
+
+function getAudioSignalStats(audio) {
+  if (!audio || !audio.length) {
+    return {
+      rms: 0,
+      peak: 0
+    };
+  }
+
+  let sumSquares = 0;
+  let peak = 0;
+  for (let index = 0; index < audio.length; index += 1) {
+    const sample = Number(audio[index]) || 0;
+    const magnitude = Math.abs(sample);
+    sumSquares += sample * sample;
+    if (magnitude > peak) {
+      peak = magnitude;
+    }
+  }
+
+  return {
+    rms: Math.sqrt(sumSquares / audio.length),
+    peak
+  };
+}
+
+function hasKnownSilenceHallucination(text, audioStats) {
+  const normalized = normalizeText(text);
+  if (!normalized) {
+    return false;
+  }
+
+  const safeStats = audioStats || { rms: 0, peak: 0 };
+  const likelyNearSilence = safeStats.rms < 0.0045 && safeStats.peak < 0.06;
+  if (!likelyNearSilence || normalized.length > 80) {
+    return false;
+  }
+
+  return KNOWN_SILENCE_HALLUCINATION_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function inspectBadTranscriptionOutput(text, audio) {
+  const reasons = [];
+  const audioStats = getAudioSignalStats(audio);
+
+  if (hasRepetitionLoop(text)) {
+    reasons.push("repetition_loop");
+  }
+  if (hasRepeatedShortTokenLoop(text)) {
+    reasons.push("short_token_loop");
+  }
+  if (hasKnownSilenceHallucination(text, audioStats)) {
+    reasons.push("silence_hallucination");
+  }
+
+  return {
+    ok: !reasons.length,
+    reasons,
+    audioStats
+  };
 }
 
 function hasTimestampCollapseAtBoundary(chunks, clipDurationSeconds) {
@@ -1151,6 +1367,7 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
     ...getDefaultTranscriptionOptions(modelLoad.modelKey, !!modelLoad.legacy)
   };
   const warnings = [];
+  const generationControlState = createGenerationControlState(model, modelLoad.modelKey, !!modelLoad.legacy);
 
   if (selectedLanguage && selectedLanguage !== "auto") {
     options.language = selectedLanguage;
@@ -1218,13 +1435,20 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
       }
     };
     const clipDurationSeconds = chunk.audio.length / sampleRate;
-    let result = await model(chunk.audio, createTranscriptionAttemptOptions(options, progressHandler));
+    let result = await runWhisperTranscriptionAttempt(
+      model,
+      chunk.audio,
+      options,
+      progressHandler,
+      generationControlState,
+      "initial"
+    );
     let resultText = normalizeText(result && result.text);
     let resultChunks = sanitizeTimedChunks(result && result.chunks, clipDurationSeconds);
     let timestampCheck = inspectTimestampQuality(result && result.chunks, clipDurationSeconds);
-    let repetitionDetected = hasRepetitionLoop(resultText);
+    let badOutputCheck = inspectBadTranscriptionOutput(resultText, chunk.audio);
 
-    if (!timestampCheck.ok || repetitionDetected) {
+    if (!timestampCheck.ok || !badOutputCheck.ok) {
       const retryOptions = {
         ...options,
         return_timestamps: true
@@ -1234,28 +1458,63 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
         delete retryOptions.prompt_ids;
       }
 
-      const retryReason = !timestampCheck.ok ? timestampCheck.reason : "repetition";
-      const retriedResult = await model(chunk.audio, createTranscriptionAttemptOptions(retryOptions, progressHandler));
+      const retryReason = !timestampCheck.ok
+        ? timestampCheck.reason
+        : badOutputCheck.reasons.join(",") || "bad_output";
+      logWorkerEvent("transcription_retry", {
+        modelKey: modelLoad.modelKey,
+        path: generationControlState.pathLabel,
+        chunkIndex: i,
+        retryReason
+      });
+      const retriedResult = await runWhisperTranscriptionAttempt(
+        model,
+        chunk.audio,
+        retryOptions,
+        progressHandler,
+        generationControlState,
+        "retry"
+      );
       const retriedText = normalizeText(retriedResult && retriedResult.text);
       const retriedChunks = sanitizeTimedChunks(retriedResult && retriedResult.chunks, clipDurationSeconds);
       const retriedTimestampCheck = inspectTimestampQuality(retriedResult && retriedResult.chunks, clipDurationSeconds);
-      const retriedRepetitionDetected = hasRepetitionLoop(retriedText);
+      const retriedBadOutputCheck = inspectBadTranscriptionOutput(retriedText, chunk.audio);
 
-      if (retriedTimestampCheck.ok && !retriedRepetitionDetected) {
+      if (retriedTimestampCheck.ok && retriedBadOutputCheck.ok) {
         result = retriedResult;
         resultText = retriedText;
         resultChunks = retriedChunks;
         timestampCheck = retriedTimestampCheck;
-        repetitionDetected = false;
+        badOutputCheck = retriedBadOutputCheck;
         warnings.push("language_hint");
       } else {
+        logWorkerEvent("transcription_retry_failed", {
+          modelKey: modelLoad.modelKey,
+          path: generationControlState.pathLabel,
+          chunkIndex: i,
+          retryReason,
+          initialBadOutputReasons: badOutputCheck.reasons,
+          retryBadOutputReasons: retriedBadOutputCheck.reasons,
+          initialTimestampReason: timestampCheck.reason,
+          retryTimestampReason: retriedTimestampCheck.reason
+        });
         if (!timestampCheck.ok || !retriedTimestampCheck.ok) {
           warnings.push("weak_audio");
         }
-        if (repetitionDetected || retriedRepetitionDetected) {
+        if (!badOutputCheck.ok || !retriedBadOutputCheck.ok) {
           warnings.push("repetition");
         }
-        if (retryReason === "repetition" && !retriedText && !resultText) {
+        if (
+          badOutputCheck.reasons.includes("silence_hallucination")
+          || retriedBadOutputCheck.reasons.includes("silence_hallucination")
+        ) {
+          warnings.push("silence_hallucination");
+        }
+        if (
+          (badOutputCheck.reasons.length || retriedBadOutputCheck.reasons.length)
+          && !retriedText
+          && !resultText
+        ) {
           continue;
         }
       }
@@ -1277,8 +1536,11 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
       if (!timestampCheck.ok) {
         warnings.push("weak_audio");
       }
-      if (repetitionDetected) {
+      if (!badOutputCheck.ok) {
         warnings.push("repetition");
+        if (badOutputCheck.reasons.includes("silence_hallucination")) {
+          warnings.push("silence_hallucination");
+        }
         continue;
       }
       fullChunks.push({
@@ -1305,6 +1567,18 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
     }];
   }
 
+  if (!fullChunks.length && !fullText) {
+    const error = new Error("Local transcription produced unstable repeated or silent output. Try a shorter clip, clearer speech, or another model.");
+    error.errorCode = "BAD_OUTPUT_RETRY_EXHAUSTED";
+    logWorkerEvent("transcription_rejected", {
+      modelKey: modelLoad.modelKey,
+      path: generationControlState.pathLabel,
+      warnings: Array.from(new Set(warnings)),
+      generationControls: getGenerationControlReport(generationControlState)
+    });
+    throw error;
+  }
+
   postMessage({
     type: "status",
     message: "Finalizing transcript...",
@@ -1315,163 +1589,9 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
     type: "result",
     text: fullText.trim(),
     segments: fullChunks,
-    warnings: Array.from(new Set(warnings))
+    warnings: Array.from(new Set(warnings)),
+    generationControls: getGenerationControlReport(generationControlState)
   });
-}
-
-async function handleTranslation(data) {
-  data.mode = "full";
-  if (!data.sourceLang || !data.targetLang) {
-    throw new Error("Translation requires both source and target languages.");
-  }
-  const model = await loadTranslationModel();
-  let preparedText = improveSpeechStructure(data.text);
-  preparedText = normalizeText(preparedText);
-
-  const sentences = splitSentences(preparedText);
-  const chunkSize = data.mode === "improved" ? 200 : 300;
-  const chunks = buildChunks(sentences, chunkSize);
-  const results = [];
-
-  if (!chunks.length) {
-    throw new Error("Translation could not be completed. Try a shorter or clearer input.");
-  }
-
-  for (let i = 0; i < chunks.length; i += 1) {
-    const chunk = chunks[i];
-
-    if (!chunk || !chunk.trim()) {
-      continue;
-    }
-
-    const output = await model(chunk, {
-      src_lang: data.sourceLang,
-      tgt_lang: data.targetLang
-    });
-
-    results.push(output && output[0] ? output[0].translation_text : "");
-
-    postMessage({
-      type: "translation_progress",
-      progress: Math.round(((i + 1) / chunks.length) * 100)
-    });
-  }
-
-  postMessage({
-    type: "translation_result",
-    text: cleanTranslation(results.join(" "))
-  });
-}
-
-async function handleSubtitleTranslation(data) {
-  data.mode = "subtitle";
-  const texts = Array.isArray(data.texts) ? data.texts : [];
-
-  if (!data.sourceLang || !data.targetLang) {
-    throw new Error("Translation requires both source and target languages.");
-  }
-
-  if (false && data.useWhisperTranslate) {
-    // Use Whisper translation
-    const audioBuffer = data.audio;
-    if (!audioBuffer) {
-      postMessage({
-        type: "translation_result",
-        texts: texts
-      });
-      return;
-    }
-
-    const audio = new Float32Array(audioBuffer);
-    if (!audio.length) {
-      postMessage({
-        type: "translation_result",
-        texts: texts
-      });
-      return;
-    }
-
-    const translationModelKey = data.modelKey || DEFAULT_TRANSCRIPTION_MODEL_KEY;
-    const modelLoad = await loadTranscriptionModel(translationModelKey);
-    const model = modelLoad.model;
-
-    postMessage({
-      type: "model_ready",
-      modelKey: modelLoad.modelKey,
-      loadState: modelLoad.loadState
-    });
-    const sampleRate = 16000;
-    const chunkSize = sampleRate * 25;
-    const chunks = [];
-
-    for (let i = 0; i < audio.length; i += chunkSize) {
-      chunks.push(audio.slice(i, i + chunkSize));
-    }
-
-    let fullText = "";
-    for (let i = 0; i < chunks.length; i += 1) {
-      const chunk = chunks[i];
-      const progress = Math.max(10, Math.round((i / chunks.length) * 100));
-      postMessage({ type: "progress", value: progress, current: progress, total: 100 });
-
-      const result = await model(chunk, {
-        chunk_length_s: DEFAULT_CHUNK_LENGTH_SECONDS,
-        stride_length_s: 5,
-        return_timestamps: true,
-        task: "translate",
-        force_full_sequences: false,
-        top_k: 0,
-        do_sample: false
-      });
-
-      if (result && result.text) {
-        fullText += (fullText ? " " : "") + normalizeText(result.text);
-      }
-    }
-
-    const translatedTexts = fullText ? fullText.split(/\r?\n/) : texts;
-    postMessage({
-      type: "translation_result",
-      texts: translatedTexts
-    });
-  } else {
-    const model = await loadTranslationModel();
-    const translatedTexts = [];
-
-    for (let i = 0; i < texts.length; i++) {
-      const text = texts[i];
-
-      try {
-        const result = await model(text, {
-          src_lang: data.sourceLang,
-          tgt_lang: data.targetLang
-        });
-
-        const outputText = result && result[0]
-          ? normalizeText(result[0].translation_text)
-          : "";
-
-        let refined = cleanTranslation(outputText);
-        const prev = translatedTexts[translatedTexts.length - 1] || "";
-        refined = smoothWithContext(prev, refined);
-
-        translatedTexts.push(refined);
-
-      } catch (err) {
-        translatedTexts.push(text);
-      }
-
-      postMessage({
-        type: "translation_progress",
-        progress: Math.round(((i + 1) / texts.length) * 100)
-      });
-    }
-
-    postMessage({
-      type: "translation_result",
-      texts: translatedTexts
-    });
-  }
 }
 
 self.onmessage = async (e) => {
@@ -1514,7 +1634,7 @@ self.onmessage = async (e) => {
 
     try {
       const unloadedModelKey = activeTranscriptionModelKey;
-      await unloadModels(data.includeTranslation !== false);
+      await unloadModels();
       postMessage({ type: "unloaded", modelKey: unloadedModelKey });
     } catch (err) {
       postMessage({
@@ -1527,7 +1647,7 @@ self.onmessage = async (e) => {
 
   if (isBusy) {
     postMessage({
-      type: requestType === "transcribe" ? "error" : "translation_error",
+      type: "error",
       message: "Worker is busy"
     });
     return;
@@ -1541,20 +1661,10 @@ self.onmessage = async (e) => {
       return;
     }
 
-    if (requestType === "translate") {
-      await handleTranslation(data);
-      return;
-    }
-
-    if (requestType === "translate_subtitles") {
-      await handleSubtitleTranslation(data);
-      return;
-    }
-
     throw new Error("Unsupported worker message");
   } catch (err) {
     postMessage({
-      type: requestType === "transcribe" ? "error" : "translation_error",
+      type: "error",
       message: err && err.message ? err.message : "Worker request failed",
       errorCode: requestType === "transcribe" && err && err.errorCode ? err.errorCode : "",
       failedModelKey: requestType === "transcribe" && err && err.failedModelKey ? err.failedModelKey : modelConfig.key,

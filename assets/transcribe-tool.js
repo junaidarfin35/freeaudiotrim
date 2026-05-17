@@ -4,14 +4,11 @@
   var srtContent = "";
   var vttContent = "";
   var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-13-1";
-  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-14-2";
+  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-17-20";
   var worker = null;
   var workerGeneration = 0;
-  var translationWorker = null;
-  var translationWorkerGeneration = 0;
   var processingLocked = false;
   var activeTranscriptionContext = null;
-  var activeTranslationContext = null;
   var modelWarmState = "idle";
   var modelUnloadPending = false;
   var activePreparedModelKey = "";
@@ -472,14 +469,6 @@
       type: "module"
     });
     return workerGeneration;
-  }
-
-  function createTranslationWorker() {
-    translationWorkerGeneration += 1;
-    translationWorker = new Worker(DESKTOP_TRANSCRIBE_WORKER_URL, {
-      type: "module"
-    });
-    return translationWorkerGeneration;
   }
 
   function getTranscriptionModeByKey(modelKey) {
@@ -1734,21 +1723,6 @@
       || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
   }
 
-  function buildGoogleTranslateUrl(sourceCode, targetCode, transcriptViewUrl) {
-    var normalizedSource = getLangCode(sourceCode || "") || "auto";
-    var normalizedTarget = getLangCode(targetCode || "") || "";
-    var uiLanguage = getTranslationViewUiLanguage() === "ar" ? "ar" : "en";
-    var params = new URLSearchParams();
-
-    params.set("sl", normalizedSource);
-    params.set("tl", normalizedTarget);
-    params.set("hl", uiLanguage);
-    params.set("u", transcriptViewUrl);
-    params.set("anno", "2");
-
-    return "https://translate.google.com/website?" + params.toString();
-  }
-
   function openEditedTranscriptTranslationView(options) {
     var config = options || {};
     var sourceCode = getLangCode(config.sourceCode || "");
@@ -1972,6 +1946,15 @@
       };
     }
 
+    if (hasWarning("unstable_output")) {
+      return {
+        message: language === "auto"
+          ? "Transcript ready in mobile test mode. Review the text carefully and choose the language manually if needed."
+          : "Transcript ready in mobile test mode. Review the text carefully before exporting.",
+        state: "warning"
+      };
+    }
+
     if (hasWarning("language_hint")) {
       return {
         message: "Transcript ready. Picking the spoken language manually can improve difficult files.",
@@ -2136,39 +2119,6 @@
     }
     var generation = createTranscribeWorker();
     attachWorkerListeners(worker, generation);
-  }
-
-  function rebuildTranslationWorker() {
-    if (translationWorker) {
-      try {
-        translationWorker.terminate();
-      } catch (error) {
-      }
-    }
-    var generation = createTranslationWorker();
-    attachTranslationWorkerListeners(translationWorker, generation);
-  }
-
-  function ensureTranslationWorker() {
-    if (!translationWorker) {
-      rebuildTranslationWorker();
-    }
-
-    return translationWorker;
-  }
-
-  function requestTranslationWorkerUnload(reason) {
-    if (!translationWorker || activeTranslationContext) {
-      return;
-    }
-
-    try {
-      translationWorker.postMessage({
-        type: "unload",
-        reason: reason || "idle"
-      });
-    } catch (error) {
-    }
   }
 
   function scheduleWarmupRetry() {
@@ -4190,124 +4140,6 @@ function generateVTT(segments) {
     refreshTranscribeLayout();
   }
 
-  function handleTranslationResult(text, texts) {
-    var context = activeTranslationContext;
-    var translatedPayload = Array.isArray(texts) ? texts : [];
-    var translatedLines = [];
-    var rawTranslation = "";
-    var translatedText = "";
-
-    if (!context) {
-      return;
-    }
-
-    if (translatedPayload.length) {
-      rawTranslation = translatedPayload.length === 1
-        ? String(translatedPayload[0] || "")
-        : translatedPayload.map(function (chunk) {
-          return String(chunk || "");
-        }).join("\n");
-      translatedLines = translatedPayload.map(function (chunk) {
-        return String(chunk || "");
-      });
-    } else {
-      rawTranslation = String(text || "");
-      translatedLines = rawTranslation ? rawTranslation.split(/\r?\n/) : [];
-    }
-
-    if (translatedLines.length !== (window.currentSegments || []).length) {
-      (window.currentSegments || []).forEach(function (segment) {
-        segment.translatedText = segment.editedText || segment.originalText || "";
-      });
-      translatedText = getSegmentsParagraphText(window.currentSegments, true);
-      window.translatedSubtitles = [];
-      window.translatedTranscript = translatedText;
-      window.translatedTranscriptLanguage = "";
-      window.currentTab = "translated";
-      setTranslationButtonsState(context.translateBtn, null, null, null, true);
-      updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
-      updateExportLabels(context.txtBtn, context.srtBtn, context.vttBtn);
-      syncTranslationReadyState();
-      if (context.transcriptEl) {
-        context.transcriptEl.scrollIntoView({
-          behavior: "smooth",
-          block: "start"
-        });
-      }
-      setProgress(100);
-      setProgressMessage("");
-      setStatus(context.statusEl, "Translation line count mismatch. Showing original text.", "error");
-      processingLocked = false;
-      if (typeof context.afterRunCleanup === "function") {
-        context.afterRunCleanup({
-          keepResults: true
-        });
-      }
-      activeTranslationContext = null;
-      return;
-    }
-
-    if (!cleanTranslation(rawTranslation)) {
-      window.translatedTranscript = "";
-      window.translatedTitle = "";
-      window.translatedSubtitles = [];
-      window.translatedTranscriptLanguage = "";
-      (window.currentSegments || []).forEach(function (segment) {
-        segment.translatedText = "";
-      });
-      updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
-      updateExportLabels(context.txtBtn, context.srtBtn, context.vttBtn);
-      setProgressMessage("");
-      setProgress(0);
-      setStatus(context.statusEl, "Translation could not be completed. Try a shorter or clearer input.", "error");
-      processingLocked = false;
-      if (typeof context.afterRunCleanup === "function") {
-        context.afterRunCleanup({
-          keepResults: true
-        });
-      }
-      activeTranslationContext = null;
-      return;
-    }
-
-    setStatus(context.statusEl, "Finalizing translation...", "processing");
-    setProgressMessage("Finalizing translation...");
-    setProgress(95);
-    window.translatedTitle = "Translated (" + context.selectedLanguageName + " - AI Generated)";
-
-    (window.currentSegments || []).forEach(function (segment, index) {
-      var line = translatedLines[index] || "";
-      var cleaned = cleanText(String(line || "").replace(/^\s*\[\d+\]\s*/, "").replace(/^\s*\d+\s*/, ""));
-      segment.translatedText = cleaned || segment.originalText || "";
-    });
-
-    translatedText = getSegmentsParagraphText(window.currentSegments, true);
-    window.translatedSubtitles = [];
-    window.translatedTranscript = translatedText;
-    window.translatedTranscriptLanguage = getLangCode(context.targetLanguageCode || "");
-    window.currentTab = "translated";
-    setTranslationButtonsState(context.translateBtn, null, null, null, true);
-    updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
-    updateExportLabels(context.txtBtn, context.srtBtn, context.vttBtn);
-    syncTranslationReadyState();
-    if (context.transcriptEl) {
-      context.transcriptEl.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    }
-    setProgress(100);
-    setProgressMessage("Translation complete");
-    setStatus(context.statusEl, "Translation complete", "ready");
-    processingLocked = false;
-    if (typeof context.afterRunCleanup === "function") {
-      context.afterRunCleanup({
-        keepResults: true
-      });
-    }
-    activeTranslationContext = null;
-  }
-
   function attachWorkerListeners(targetWorker, generation) {
     if (!targetWorker) {
       return;
@@ -4576,126 +4408,6 @@ function generateVTT(segments) {
 
     };
   }
-
-  function attachTranslationWorkerListeners(targetWorker, generation) {
-    targetWorker.onerror = function () {
-      if (generation !== translationWorkerGeneration) {
-        return;
-      }
-
-      if (activeTranslationContext) {
-        processingLocked = false;
-        stopProgressMessages();
-        setProgress(0);
-        setProgressMessage("");
-        setTranslationButtonsState(activeTranslationContext.translateBtn, null, null, null, !!window.currentTranscript);
-        updateTranscriptView(activeTranslationContext.transcriptEl, activeTranslationContext.originalTabBtn, activeTranslationContext.translatedTabBtn, activeTranslationContext.editBtn);
-        updateExportLabels(activeTranslationContext.txtBtn, activeTranslationContext.srtBtn, activeTranslationContext.vttBtn);
-        setStatus(activeTranslationContext.statusEl, "Translation worker stopped unexpectedly. Transcript is still available.", "error");
-        if (typeof activeTranslationContext.afterRunCleanup === "function") {
-          activeTranslationContext.afterRunCleanup({
-            keepResults: true
-          });
-        }
-      }
-
-      activeTranslationContext = null;
-      processingLocked = false;
-      syncTranslationReadyState();
-      refreshTranscribeLayout();
-    };
-
-    targetWorker.onmessageerror = function () {
-      if (generation !== translationWorkerGeneration) {
-        return;
-      }
-
-      if (activeTranslationContext) {
-        processingLocked = false;
-        stopProgressMessages();
-        setProgress(0);
-        setProgressMessage("");
-        setTranslationButtonsState(activeTranslationContext.translateBtn, null, null, null, !!window.currentTranscript);
-        updateTranscriptView(activeTranslationContext.transcriptEl, activeTranslationContext.originalTabBtn, activeTranslationContext.translatedTabBtn, activeTranslationContext.editBtn);
-        updateExportLabels(activeTranslationContext.txtBtn, activeTranslationContext.srtBtn, activeTranslationContext.vttBtn);
-        setStatus(activeTranslationContext.statusEl, "Translation worker communication failed. Transcript is still available.", "error");
-        if (typeof activeTranslationContext.afterRunCleanup === "function") {
-          activeTranslationContext.afterRunCleanup({
-            keepResults: true
-          });
-        }
-      }
-
-      activeTranslationContext = null;
-      processingLocked = false;
-      syncTranslationReadyState();
-      refreshTranscribeLayout();
-    };
-
-    targetWorker.onmessage = function (e) {
-      if (generation !== translationWorkerGeneration) {
-        return;
-      }
-
-      var type = e.data.type;
-      var text = normalizeIncomingText(e.data.text);
-      var message = normalizeIncomingText(e.data.message);
-      var progress = e.data.progress;
-
-      if (type === "loading") {
-        if (activeTranslationContext && e.data.phase === "translation_loading") {
-          setStatus(activeTranslationContext.statusEl, message || "Preparing translation model...", "processing");
-          setProgressMessage(message || "Preparing translation model...");
-        }
-        return;
-      }
-
-      if (type === "translation_progress") {
-        if (activeTranslationContext) {
-          setStatus(activeTranslationContext.statusEl, "Translating transcript...", "processing");
-          setProgress(50 + progress * 0.4);
-        }
-        return;
-      }
-
-      if (type === "translation_result") {
-        stopProgressMessages(false);
-        handleTranslationResult(text, e.data.texts);
-        srtContent = e.data.srt || "";
-        vttContent = e.data.vtt || "";
-        var downloadSRTBtn = document.getElementById("downloadSRT");
-        var downloadVTTBtn = document.getElementById("downloadVTT");
-        if (downloadSRTBtn) downloadSRTBtn.disabled = false;
-        if (downloadVTTBtn) downloadVTTBtn.disabled = false;
-        requestTranslationWorkerUnload("translation_complete");
-        return;
-      }
-
-      if (type === "translation_error" || type === "model_error" || type === "error") {
-        if (activeTranslationContext) {
-          processingLocked = false;
-          stopProgressMessages();
-          setTranslationButtonsState(activeTranslationContext.translateBtn, null, null, null, !!window.currentTranscript);
-          updateTranscriptView(activeTranslationContext.transcriptEl, activeTranslationContext.originalTabBtn, activeTranslationContext.translatedTabBtn, activeTranslationContext.editBtn);
-          updateExportLabels(activeTranslationContext.txtBtn, activeTranslationContext.srtBtn, activeTranslationContext.vttBtn);
-          syncTranslationReadyState();
-          setProgressMessage("");
-          setProgress(0);
-          setStatus(activeTranslationContext.statusEl, message || "Translation could not be completed. Try a shorter or clearer input.", "error");
-          if (typeof activeTranslationContext.afterRunCleanup === "function") {
-            activeTranslationContext.afterRunCleanup({
-              keepResults: true
-            });
-          }
-        }
-        activeTranslationContext = null;
-        processingLocked = false;
-        requestTranslationWorkerUnload("translation_error");
-        return;
-      }
-    };
-  }
-
   async function startTranscription(modelKey, language, statusEl, transcriptEl, copyBtn, txtBtn, srtBtn, vttBtn, startBtn, translateBtn, originalTabBtn, translatedTabBtn, editBtn, input, audioContext, afterRunCleanup) {
     var audio = window.transcriptionAudio;
     var selectedModel = getTranscriptionModeByKey(modelKey) || getSelectedTranscriptionMode();
@@ -5166,7 +4878,6 @@ function generateVTT(segments) {
       setProgressMessage("");
       processingLocked = false;
       activeTranscriptionContext = null;
-      activeTranslationContext = null;
       input.disabled = false;
       setEnhanceToggleState(root.querySelector("#enhance-audio"), true);
     }
@@ -5225,14 +4936,6 @@ function generateVTT(segments) {
         } catch (error) {
         }
         worker = null;
-      }
-
-      if (translationWorker) {
-        try {
-          translationWorker.terminate();
-        } catch (error) {
-        }
-        translationWorker = null;
       }
 
       if (shouldRebuild) {
