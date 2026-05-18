@@ -33,9 +33,9 @@
   <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/converter.webp">
 
 <!-- CSS -->
-<link rel="stylesheet" href="/css/global.css">
-<link rel="stylesheet" href="/assets/layout.css">
-<link rel="stylesheet" href="/assets/upload.css">
+<link rel="stylesheet" href="/css/global.css?v=2026-05-18-1">
+<link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
+<link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-1">
 
 <!-- Structured Data -->
 <script type="application/ld+json">
@@ -87,9 +87,57 @@
   "offers": {
     "@type": "Offer",
     "price": "0",
-    "priceCurrency": "USD",
-    "priceValidUntil": "2027-12-31"
+    "priceCurrency": "USD"
   }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I convert MP3 to M4R online without uploading?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. This tool processes files locally in your browser, so your audio never leaves your device."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I upload a video file too?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. This page only accepts MP3 input. Use the extract-audio workflow first if your source is a video file."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which format does this tool create?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "This tool creates M4R output only. It is designed specifically for MP3-to-M4R conversion."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is audio conversion safe?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Since everything runs in your browser, your files remain private and are not uploaded to a server."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need to install any software?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. The converter works entirely in your browser without downloads or installation."
+      }
+    }
+  ]
 }
 </script>
 
@@ -509,9 +557,8 @@
   </div>
 </footer>
 
-<script src="/assets/ffmpeg/ffmpeg-compat.js"></script>
-<script src="/assets/upload.js" defer></script>
-<script src="/assets/related-tools.js"></script>
+<script src="/assets/upload.js?v=2026-05-18-1" defer></script>
+<script src="/assets/related-tools.js?v=2026-05-18-1" defer></script>
 
 <script>
 let currentFile = null;
@@ -519,6 +566,34 @@ let convertedBlob = null;
 let ffmpeg = null;
 let ffmpegLoaded = false;
 let ffmpegLoadPromise = null;
+let ffmpegCompatPromise = null;
+
+async function loadFFmpegCompat() {
+  if (window.FFmpeg && typeof window.FFmpeg.createFFmpeg === 'function') {
+    return window.FFmpeg;
+  }
+  if (ffmpegCompatPromise) return ffmpegCompatPromise;
+
+  ffmpegCompatPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = '/assets/ffmpeg/ffmpeg-compat.js?v=2026-05-18-1';
+    script.async = true;
+    script.onload = () => {
+      if (window.FFmpeg && typeof window.FFmpeg.createFFmpeg === 'function') {
+        resolve(window.FFmpeg);
+        return;
+      }
+      reject(new Error('FFmpeg loader unavailable.'));
+    };
+    script.onerror = () => reject(new Error('FFmpeg loader unavailable.'));
+    document.head.appendChild(script);
+  }).catch((error) => {
+    ffmpegCompatPromise = null;
+    throw error;
+  });
+
+  return ffmpegCompatPromise;
+}
 
 async function loadFFmpeg() {
   if (ffmpegLoaded) return ffmpeg;
@@ -530,6 +605,7 @@ async function loadFFmpeg() {
   }
 
   ffmpegLoadPromise = (async function() {
+    await loadFFmpegCompat();
     const { createFFmpeg } = FFmpeg;
     const base = `${window.location.origin}/assets/ffmpeg`;
 
@@ -715,8 +791,8 @@ document.addEventListener('click', function(e) {
   a.click();
 });
 </script>
-<script src="/assets/mobile-menu.js"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
+<script src="/assets/mobile-menu.js?v=2026-05-18-1" defer></script>
+<script src="https://unpkg.com/lucide@0.544.0"></script>
 <script>
   lucide.createIcons();
 </script>

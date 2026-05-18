@@ -30,9 +30,9 @@
 <meta name="twitter:description" content="Change audio pitch online instantly. Raise or lower MP3, WAV, M4A, AAC, FLAC, and OGG in your browser with real-time preview and no upload required.">
   <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
 
-<link rel="stylesheet" href="/css/global.css">
-<link rel="stylesheet" href="/assets/layout.css">
-<link rel="stylesheet" href="/assets/upload.css">
+<link rel="stylesheet" href="/css/global.css?v=2026-05-18-1">
+<link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
+<link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-1">
 
 
 <script type="application/ld+json">
@@ -83,8 +83,7 @@
   "offers": {
     "@type": "Offer",
     "price": "0",
-    "priceCurrency": "USD",
-    "priceValidUntil": "2027-12-31"
+    "priceCurrency": "USD"
   },
   "aggregateRating": {
     "@type": "AggregateRating",
@@ -94,6 +93,71 @@
 }
 </script>
 
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is an audio pitch changer?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "An audio pitch changer adjusts tonal frequency so a file sounds higher or lower in key. It is commonly used for music practice, vocal work, remixing, and creative sound design."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can pitch be changed without altering speed?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Modern pitch-shifting methods let you adjust pitch separately from playback speed, which helps when you want a key change without changing timing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do musicians change pitch?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Musicians adjust pitch to change the key of songs, match vocals to instruments, or create creative sound effects without recording a new take."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can MP3 files have their pitch changed?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. This tool supports MP3 and other common formats including WAV, M4A, AAC, FLAC, and OGG, so you can change pitch without converting most files first."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does pitch shifting reduce audio quality?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Small pitch adjustments usually maintain good audio quality. Larger shifts can introduce some natural artifacts, which is why previewing the result before export is useful."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I change the key of a song online?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Upload the track, move the pitch control by semitones until the song sits in the key you want, preview the result, and export the updated version."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I change speed instead of pitch?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Use the Audio Speed Changer when you want to adjust playback rate instead of tonal pitch."
+      }
+    }
+  ]
+}
+</script>
 </head>
 <body data-page="pitch-changer">
 <header>
@@ -562,10 +626,10 @@
   </div>
 </footer>
 
-<script src="/assets/audio-engine.js" defer></script>
-<script src="/assets/pitch-tool.js" defer></script>
-<script src="/assets/upload.js" defer></script>
-<script src="/assets/related-tools.js"></script>
+<script src="/assets/audio-engine.js?v=2026-05-18-1" defer></script>
+<script src="/assets/pitch-tool.js?v=2026-05-18-1" defer></script>
+<script src="/assets/upload.js?v=2026-05-18-1" defer></script>
+<script src="/assets/related-tools.js?v=2026-05-18-1"></script>
 <script>
 document.addEventListener('file:selected', function(e) {
   const file = e.detail.file;
@@ -638,8 +702,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 </script>
-<script src="/assets/mobile-menu.js"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
+<script src="/assets/mobile-menu.js?v=2026-05-18-1"></script>
+<script src="https://unpkg.com/lucide@0.544.0"></script>
 <script>
   lucide.createIcons();
 </script>

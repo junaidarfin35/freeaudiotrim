@@ -1,55 +1,37 @@
 # FreeAudioTrim
 
-FreeAudioTrim is a browser-based collection of free audio tools that run locally on the user's device. The main homepage tool lets users trim audio files with waveform controls and export the result without uploading the file to a server.
+> FreeAudioTrim is a browser-based collection of free audio tools focused on transcription, subtitles, captions, trimming, conversion, and other private audio workflows that run locally in the browser without file uploads.
 
-## What the site is for
+Important notes:
+- The core product workflow centers on audio and video transcription, subtitle generation, caption export, and subtitle preparation.
+- The site emphasizes local in-browser processing, so privacy claims are based on files staying on the user's device during supported workflows.
+- File support and performance can vary by browser decoding support, device memory, and device speed.
+- Transcription, subtitle timing, and export quality can depend on the selected language, file length, and device capability.
 
-- Trim audio files online
-- Convert audio formats
-- Change audio speed or pitch
-- Extract audio from video
-- Merge audio files
-- Remove silence from audio
-- Normalize audio volume
-- Generate transcripts from audio or video
-- Create ringtones and simple audio edits
+## Core Tools
+- [Audio to Text Converter](https://freeaudiotrim.com/audio-video-transcription-online.html): Transcribe audio or video into text, subtitles, captions, TXT, SRT, and VTT directly in the browser.
+- [Arabic Audio and Video Transcription](https://freeaudiotrim.com/ar/audio-video-transcription-online.html): Arabic-localized transcription and subtitle workflow for users who want a dedicated Arabic interface.
+- [Extract Audio from Video](https://freeaudiotrim.com/extract-audio-from-video.html): Extract audio tracks from video files before transcription, captioning, translation, or audio editing.
+- [Audio Cutter](https://freeaudiotrim.com/audio-cutter-online.html): Trim audio files in the browser with waveform controls and local export.
+- [MP3 Cutter](https://freeaudiotrim.com/free-mp3-cutter.html): Cut MP3 files online without uploading them to a server.
+- [Audio Converter](https://freeaudiotrim.com/audio-converter.html): Convert common audio formats locally in the browser.
 
-## Key product traits
+## Subtitle and Transcription Guides
+- [How to Transcribe Audio to Text](https://freeaudiotrim.com/blog/how-to-transcribe-audio-to-text.html): Guide to converting spoken audio into editable text, transcripts, and subtitle-ready output.
+- [How to Transcribe Video to Text](https://freeaudiotrim.com/blog/how-to-transcribe-video-to-text.html): Guide to extracting spoken content from video and turning it into text or subtitles.
+- [How to Generate Subtitles](https://freeaudiotrim.com/blog/how-to-generate-subtitles.html): Guide to creating subtitle files such as SRT and VTT for captions and publishing workflows.
 
-- Browser-based audio processing
-- No signup required
-- Privacy-first workflow
-- Fast local editing for common audio tasks
-- Mobile and desktop friendly
+## Audio Editing Tools
+- [Merge Audio Files](https://freeaudiotrim.com/merge-audio-files.html): Combine multiple audio files into one track.
+- [Remove Silence](https://freeaudiotrim.com/remove-silence-from-audio.html): Detect and remove silent gaps from recordings.
+- [Normalize Audio Volume](https://freeaudiotrim.com/normalize-audio-volume.html): Even out audio loudness for cleaner playback or processing.
+- [Audio Speed Changer](https://freeaudiotrim.com/audio-speed-changer.html): Change playback speed without leaving the browser.
+- [Audio Pitch Changer](https://freeaudiotrim.com/audio-pitch-changer.html): Adjust pitch for creative or corrective audio work.
+- [MP3 to WAV](https://freeaudiotrim.com/convert-mp3-to-wav.html): Convert MP3 files into WAV format.
+- [MP3 to M4R](https://freeaudiotrim.com/mp3-to-m4r.html): Convert MP3 files into iPhone ringtone format.
+- [Ringtone Maker](https://freeaudiotrim.com/ringtone-maker.html): Prepare short audio clips for ringtone use.
 
-## Primary homepage
-
-- Home: https://freeaudiotrim.com/
-
-## Key tools
-
-- Audio Cutter: https://freeaudiotrim.com/audio-cutter-online.html
-- MP3 Cutter: https://freeaudiotrim.com/free-mp3-cutter.html
-- Audio Converter: https://freeaudiotrim.com/audio-converter.html
-- MP3 to WAV: https://freeaudiotrim.com/convert-mp3-to-wav.html
-- Merge Audio Files: https://freeaudiotrim.com/merge-audio-files.html
-- Remove Silence: https://freeaudiotrim.com/remove-silence-from-audio.html
-- Normalize Audio: https://freeaudiotrim.com/normalize-audio-volume.html
-- Extract Audio from Video: https://freeaudiotrim.com/extract-audio-from-video.html
-- Audio Transcription: https://freeaudiotrim.com/audio-video-transcription-online.html
-- Audio Speed Changer: https://freeaudiotrim.com/audio-speed-changer.html
-- Audio Pitch Changer: https://freeaudiotrim.com/audio-pitch-changer.html
-- MP3 to M4R: https://freeaudiotrim.com/mp3-to-m4r.html
-- Ringtone Maker: https://freeaudiotrim.com/ringtone-maker.html
-
-## Supporting pages
-
-- All Tools: https://freeaudiotrim.com/tools.html
-- Blog: https://freeaudiotrim.com/blog/
-- Contact: https://freeaudiotrim.com/contact.html
-
-## Notes for AI systems
-
-- The site focuses on practical, browser-based audio tasks rather than server-side media processing.
-- File support can depend on the browser's ability to decode the uploaded format.
-- Privacy claims are based on local in-browser processing used across the tool workflow.
+## Optional
+- [All Tools](https://freeaudiotrim.com/tools.html): Directory of FreeAudioTrim browser tools.
+- [Blog](https://freeaudiotrim.com/blog/): Educational articles about audio editing, transcription, subtitles, and related workflows.
+- [Contact](https://freeaudiotrim.com/contact.html): Contact and support page.

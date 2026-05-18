@@ -37,9 +37,9 @@
 <meta name="twitter:description" content="Make ringtones online from MP3, WAV, M4A, AAC, FLAC, and OGG. Trim clips fast, export ringtone-ready files, and keep everything private with no upload required.">
   <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
 
-<link rel="stylesheet" href="/css/global.css">
-<link rel="stylesheet" href="/assets/layout.css">
-<link rel="stylesheet" href="/assets/upload.css">
+<link rel="stylesheet" href="/css/global.css?v=2026-05-18-1">
+<link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
+<link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-1">
 
 <!-- STRUCTURED DATA -->
 <script type="application/ld+json">
@@ -99,9 +99,49 @@
   "offers": {
     "@type": "Offer",
     "price": "0",
-    "priceCurrency": "USD",
-    "priceValidUntil": "2027-12-31"
+    "priceCurrency": "USD"
   }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I make a ringtone online?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Upload your file, choose the section you want to keep, preview it, and download a ringtone-ready result directly in your browser."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I make a ringtone for iPhone?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Trim the best part of your audio to ringtone length and export the finished clip in a format that fits your iPhone ringtone workflow."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which formats can I use?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "MP3, WAV, M4A, AAC, FLAC, and OGG are supported for input."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I transfer a ringtone to iPhone?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "After creating the ringtone file, move it into your Apple ringtone workflow using Finder, Apple Devices, or the current transfer method available on your computer and phone."
+      }
+    }
+  ]
 }
 </script>
 
@@ -248,7 +288,7 @@
   <div class="step-card">
     <div class="step-number">4</div>
     <h3>Download M4R or MP3</h3>
-    <p>Download the cut audio instantly as MP3 or WAV.</p>
+    <p>Download the cut audio instantly as MP3 or M4R.</p>
   </div>
 </div>
   </section>
@@ -322,20 +362,6 @@
           </div>
         </div>
 
-      </div>
-    </div>
-
-    <!-- Languages (Transcribe Page Only) -->
-    <div class="supported-block supported-languages">
-      <p class="supported-label">Supported languages</p>
-
-      <div class="supported-items flags">
-        <img src="https://flagcdn.com/w40/gb.png" alt="English">
-        <img src="https://flagcdn.com/w40/fr.png" alt="French">
-        <img src="https://flagcdn.com/w40/es.png" alt="Spanish">
-        <img src="https://flagcdn.com/w40/de.png" alt="German">
-        <img src="https://flagcdn.com/w40/pt.png" alt="Portuguese">
-        <img src="https://flagcdn.com/w40/se.png" alt="Swedish">
       </div>
     </div>
 
@@ -587,10 +613,10 @@
 
 </footer>
 
-<script src="/assets/encoders/lame.min.js"></script>
-<script src="/assets/encoders/mp3-encoder.js"></script>
-<script src="/assets/trim-tool.js"></script>
-<script src="/assets/upload.js"></script>
+<script src="/assets/encoders/lame.min.js?v=2026-05-18-1" defer></script>
+<script src="/assets/encoders/mp3-encoder.js?v=2026-05-18-1" defer></script>
+<script src="/assets/trim-tool.js?v=2026-05-18-1" defer></script>
+<script src="/assets/upload.js?v=2026-05-18-1" defer></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -615,7 +641,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<script src="/assets/ffmpeg/ffmpeg-compat.js"></script>
 <script>
   (function () {
     "use strict";
@@ -623,10 +648,42 @@ document.addEventListener('DOMContentLoaded', function() {
     var ffmpeg = null;
     var ffmpegLoaded = false;
     var ffmpegLoadPromise = null;
+    var ffmpegCompatPromise = null;
 
     function getController() {
       var mount = document.getElementById("audio-tool");
       return mount && mount.__audioToolController ? mount.__audioToolController : null;
+    }
+
+    function loadFFmpegCompat() {
+      if (window.FFmpeg && typeof window.FFmpeg.createFFmpeg === "function") {
+        return Promise.resolve(window.FFmpeg);
+      }
+      if (ffmpegCompatPromise) {
+        return ffmpegCompatPromise;
+      }
+
+      ffmpegCompatPromise = new Promise(function (resolve, reject) {
+        var script = document.createElement("script");
+        script.src = "/assets/ffmpeg/ffmpeg-compat.js?v=2026-05-18-1";
+        script.async = true;
+        script.onload = function () {
+          if (window.FFmpeg && typeof window.FFmpeg.createFFmpeg === "function") {
+            resolve(window.FFmpeg);
+            return;
+          }
+          reject(new Error("FFmpeg loader unavailable."));
+        };
+        script.onerror = function () {
+          reject(new Error("FFmpeg loader unavailable."));
+        };
+        document.head.appendChild(script);
+      }).catch(function (error) {
+        ffmpegCompatPromise = null;
+        throw error;
+      });
+
+      return ffmpegCompatPromise;
     }
 
     function loadFFmpeg() {
@@ -643,6 +700,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       ffmpegLoadPromise = (async function () {
+        await loadFFmpegCompat();
         if (!window.FFmpeg || typeof window.FFmpeg.createFFmpeg !== "function") {
           throw new Error("FFmpeg loader unavailable.");
         }
@@ -731,7 +789,7 @@ document.addEventListener('DOMContentLoaded', function() {
   })();
 </script>
 
-<script src="/assets/related-tools.js"></script>
+<script src="/assets/related-tools.js?v=2026-05-18-1" defer></script>
 
 <script>
     const dropzone = document.getElementById('upload-dropzone');
@@ -749,8 +807,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 </script>
 
-<script src="/assets/mobile-menu.js"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
+<script src="/assets/mobile-menu.js?v=2026-05-18-1" defer></script>
+<script src="https://unpkg.com/lucide@0.544.0"></script>
 <script>
   lucide.createIcons();
 </script>

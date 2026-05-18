@@ -14,9 +14,9 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
 <link rel="manifest" href="/assets/brand/site.webmanifest">
 
-<link rel="stylesheet" href="/css/global.css">
-<link rel="stylesheet" href="/assets/layout.css">
-<link rel="stylesheet" href="/assets/upload.css">
+<link rel="stylesheet" href="/css/global.css?v=2026-05-18-1">
+<link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
+<link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-1">
 
 <title>Change Audio Speed Online Free (No Upload Required)</title>
 <meta name="description" content="Speed up or slow down audio in your browser. Change playback speed of MP3, WAV, M4A, AAC, FLAC, and more with real-time preview and no upload required.">
@@ -60,6 +60,71 @@
 <meta name="twitter:title" content="Change Audio Speed Online Free (No Upload Required)">
 <meta name="twitter:description" content="Speed up or slow down audio in your browser. Change playback speed of MP3, WAV, M4A, AAC, FLAC, and more with real-time preview and no upload required.">
   <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I speed up or slow down audio online?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Upload your file and adjust the playback speed slider. Preview the change in real time, then export when it sounds right."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does changing speed affect pitch?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "By default, pitch is preserved when you change speed. Enable \"Also adjust pitch\" if you want speed and pitch to change together."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I slow down audio without distorting it?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Modern audio processing can slow audio while maintaining natural sound quality within reasonable speed ranges, especially when changes are moderate."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I speed up a song online?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Upload the song, move the speed slider upward until the timing feels right, preview the result, and export the new version once it sounds natural."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does speeding up audio reduce quality?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Small speed adjustments usually maintain good audio quality. Extreme changes may introduce artifacts depending on the processing algorithm."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I change pitch instead of speed?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Use the Audio Pitch Changer to adjust tonal pitch without affecting playback speed."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What formats are supported?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "MP3, WAV, M4A, AAC, FLAC, and OGG are supported in most modern browsers."
+      }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 <header>
@@ -499,10 +564,10 @@
   </div>
 </footer>
 
-<script src="/assets/audio-engine.js" defer></script>
-<script src="/assets/speed-tool.js" defer></script>
-<script src="/assets/upload.js" defer></script>
-<script src="/assets/related-tools.js"></script>
+<script src="/assets/audio-engine.js?v=2026-05-18-1" defer></script>
+<script src="/assets/speed-tool.js?v=2026-05-18-1" defer></script>
+<script src="/assets/upload.js?v=2026-05-18-1" defer></script>
+<script src="/assets/related-tools.js?v=2026-05-18-1"></script>
 <script>
 document.addEventListener('file:selected', function(e) {
   const file = e.detail.file;
@@ -558,8 +623,8 @@ document.addEventListener('converter:empty', () => {
   if (input) input.value = '';
 });
 </script>
-<script src="/assets/mobile-menu.js"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
+<script src="/assets/mobile-menu.js?v=2026-05-18-1"></script>
+<script src="https://unpkg.com/lucide@0.544.0"></script>
 <script>
   lucide.createIcons();
 </script>
