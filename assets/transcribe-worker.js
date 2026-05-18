@@ -1177,7 +1177,7 @@ function getPercentile(values, percentile) {
   return sorted[index] || 0;
 }
 
-function buildArabicSpeechAwareChunks(audio, sampleRate) {
+function buildSpeechAwareChunks(audio, sampleRate) {
   if (!audio || !audio.length || audio.length <= sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS) {
     return [{
       audio: audio,
@@ -1383,7 +1383,7 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
   let fullText = "";
   let fullChunks = [];
   const useSpeechAwareChunks = audio.length > sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS;
-  const chunkPlan = useSpeechAwareChunks ? buildArabicSpeechAwareChunks(audio, sampleRate) : [{
+  const chunkPlan = useSpeechAwareChunks ? buildSpeechAwareChunks(audio, sampleRate) : [{
     audio: audio,
     startSample: 0,
     endSample: audio.length

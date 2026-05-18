@@ -2672,6 +2672,31 @@ body.audio-converter-page #audio-tool .at-tools {
   font-size: 12px;
 }
 
+#audio-tool [data-role="processingInfo"] {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+#audio-tool [data-role="extractAudioCta"] {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: 100%;
+  max-width: 100%;
+  justify-content: center;
+  text-align: center;
+}
+
+#audio-tool .at-status[data-status-variant="phone-guidance"] {
+  gap: 0;
+  border-color: rgba(180, 132, 44, 0.18);
+  background: #fffaf0;
+  color: #7c5a21;
+}
+
+#audio-tool .at-status[data-status-variant="phone-guidance"]::before {
+  display: none;
+}
+
 #audio-tool .at-checkbox {
   display: inline-flex;
   gap: 6px;
@@ -3959,6 +3984,12 @@ body.audio-converter-page #audio-tool .at-tools {
   #audio-tool .at-status::before {
     width: 8px;
     height: 8px;
+  }
+
+  #audio-tool [data-role="extractAudioCta"] {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
   }
 
   #normalize-tool .normalize-grid {

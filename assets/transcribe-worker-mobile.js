@@ -534,7 +534,7 @@ function getPercentile(values, percentile) {
   return sorted[index] || 0;
 }
 
-function buildArabicSpeechAwareChunks(audio, sampleRate, chunkLengthSeconds, strideLengthSeconds) {
+function buildSpeechAwareChunks(audio, sampleRate, chunkLengthSeconds, strideLengthSeconds) {
   if (!audio || !audio.length || audio.length <= sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS) {
     return [{
       audio,
@@ -1178,9 +1178,9 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
     const generationControlState = createGenerationControlState(activeModel, activeRuntimeProfile);
     const options = await createTranscriptionOptions(activeModel, activeRuntimeProfile);
     const timestampsEnabled = !activeRuntimeProfile || activeRuntimeProfile.timestampsEnabled !== false;
-    const useSpeechAwareChunks = shouldUseArabicPrompt(selectedLanguage) && audio.length > sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS;
+    const useSpeechAwareChunks = audio.length > sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS;
     const chunkPlan = useSpeechAwareChunks
-      ? buildArabicSpeechAwareChunks(audio, sampleRate, activeRuntimeProfile.chunkLengthSeconds, activeRuntimeProfile.strideLengthSeconds)
+      ? buildSpeechAwareChunks(audio, sampleRate, activeRuntimeProfile.chunkLengthSeconds, activeRuntimeProfile.strideLengthSeconds)
       : [{
           audio,
           startSample: 0,

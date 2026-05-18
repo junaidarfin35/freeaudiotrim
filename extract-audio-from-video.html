@@ -14,13 +14,13 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
 <link rel="manifest" href="/assets/brand/site.webmanifest">
 
-<link rel="stylesheet" href="/css/global.css">
-<link rel="stylesheet" href="/assets/layout.css">
-<link rel="stylesheet" href="/assets/upload.css">
-<link rel="stylesheet" href="/assets/extract-audio-from-video.css">
+<link rel="stylesheet" href="/css/global.css?v=2026-05-18-2">
+<link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-2">
+<link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-2">
+<link rel="stylesheet" href="/assets/extract-audio-from-video.css?v=2026-05-18-2">
 
-<title>Extract Audio from Video Online Free (MP4 to WAV)</title>
-<meta name="description" content="Extract audio from video instantly in your browser. Convert MP4, MOV, and more to WAV with private local processing and no upload required.">
+<title>Extract Audio from Video Online Free (MP4, MOV, MKV to WAV)</title>
+<meta name="description" content="Extract audio from MP4, MOV, WebM, MKV, HEVC, H.264, and other common video files in your browser with private local processing and no upload required.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://freeaudiotrim.com/extract-audio-from-video.html">
 
@@ -28,9 +28,9 @@
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "Extract Audio from Video Online Free (MP4 to WAV)",
+  "name": "Extract Audio from Video Online Free (MP4, MOV, MKV to WAV)",
   "url": "https://freeaudiotrim.com/extract-audio-from-video.html",
-  "description": "Extract audio from video instantly in your browser. Convert MP4, MOV, and more to WAV with private local processing and no upload required."
+  "description": "Extract audio from MP4, MOV, WebM, MKV, HEVC, H.264, and other common video files in your browser with private local processing and no upload required."
 }
 </script>
 
@@ -51,15 +51,15 @@
 }
 </script>
 
-<meta property="og:title" content="Extract Audio from Video Online Free (MP4 to WAV)">
-<meta property="og:description" content="Extract audio from video instantly in your browser. Convert MP4, MOV, and more to WAV with private local processing and no upload required.">
+<meta property="og:title" content="Extract Audio from Video Online Free (MP4, MOV, MKV to WAV)">
+<meta property="og:description" content="Extract audio from MP4, MOV, WebM, MKV, HEVC, H.264, and other common video files in your browser with private local processing and no upload required.">
 <meta property="og:url" content="https://freeaudiotrim.com/extract-audio-from-video.html">
 <meta property="og:type" content="website">
   <meta property="og:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
 <meta property="og:site_name" content="FreeAudioTrim">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Extract Audio from Video Online Free (MP4 to WAV)">
-<meta name="twitter:description" content="Extract audio from video instantly in your browser. Convert MP4, MOV, and more to WAV with private local processing and no upload required.">
+<meta name="twitter:title" content="Extract Audio from Video Online Free (MP4, MOV, MKV to WAV)">
+<meta name="twitter:description" content="Extract audio from MP4, MOV, WebM, MKV, HEVC, H.264, and other common video files in your browser with private local processing and no upload required.">
   <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
 </head>
 <body class="audio-converter-page">
@@ -79,12 +79,12 @@
 
   <section class="content-section section-intro hero">
     <h1>Extract Audio from Video Online<span class="hero-highlight">Get Audio Files from Video</span></h1>
-    <p>Extract audio from video files directly in your browser. Pull the sound track from MP4, MOV, WebM, and more to WAV without uploading, so the workflow stays fast, private, and local to your device.</p>
+    <p>Extract audio from video files directly in your browser. Pull the sound track from MP4, MOV, WebM, MKV, AVI, MPEG, 3GP, TS, WMV, MXF, and more to WAV without uploading, so the workflow stays fast, private, and local to your device.</p>
   </section>
 
   <section class="content-section tool-section">
     <div class="tool-ui">
-      <input id="audioFileInput" class="is-hidden" type="file" accept=".mp4,.m4v,.mov,.webm,.avi,.ogv,.mpeg,.mpg,.3gp,video/mp4,video/x-m4v,video/quicktime,video/webm,video/x-msvideo,video/ogg,video/mpeg,video/3gpp,video/*">
+      <input id="audioFileInput" class="is-hidden" type="file" accept=".mp4,.m4v,.mov,.webm,.mkv,.avi,.ogv,.mpeg,.mpg,.3gp,.3g2,.ts,.m2ts,.mts,.wmv,.asf,.mxf,.flv,.f4v,.vob,video/mp4,video/x-m4v,video/quicktime,video/webm,video/x-matroska,video/x-msvideo,video/ogg,video/mpeg,video/3gpp,video/3gpp2,video/mp2t,video/x-ms-wmv,video/x-ms-asf,application/mxf,video/x-flv,video/*">
       <div class="upload-shell" id="upload-shell">
         <div class="upload-box" id="upload-dropzone" data-upload-dropzone data-upload-input="audioFileInput" role="button" tabindex="0" aria-label="Drop video file here or click to upload">
           <div class="upload-content">
@@ -130,7 +130,7 @@
             <div class="at-row at-tools">
               <a href="/audio-cutter-online.html" class="at-pill">Trim Audio</a>
               <a href="/audio-converter.html" class="at-pill">Convert Audio</a>
-              <a href="/normalize-audio-volume.html" class="at-pill">Normalize</a>
+              <a href="/audio-video-transcription-online.html" class="at-pill">Transcribe Audio</a>
             </div>
           </div>
         </div>
@@ -153,7 +153,7 @@
       <div class="step-card">
         <div class="step-number">2</div>
         <h3>Decode the audio track</h3>
-        <p>Your browser reads and decodes the embedded audio track locally in memory without sending the source file to a remote service.</p>
+        <p>The in-browser FFmpeg extractor reads the embedded audio track locally without sending the source file to a remote service.</p>
       </div>
       <div class="step-card">
         <div class="step-number">3</div>
@@ -172,14 +172,20 @@
     <h2>Supported Video Formats</h2>
     <div class="supported-wrapper">
       <div class="supported-block supported-formats">
-        <p class="supported-label">Supported formats</p>
+        <p class="supported-label">Supported containers and codecs</p>
         <div class="supported-items">
           <span>MP4</span>
           <span>MOV</span>
-          <span>MP3</span>
-          <span>WAV</span>
-          <span>M4A</span>
+          <span>WebM</span>
+          <span>MKV</span>
           <span>AVI</span>
+          <span>MPEG / MPG</span>
+          <span>3GP / 3G2</span>
+          <span>TS / M2TS / MTS</span>
+          <span>WMV / ASF</span>
+          <span>MXF / FLV / VOB</span>
+          <span>H.264 / AVC</span>
+          <span>H.265 / HEVC</span>
         </div>
       </div>
       <div class="supported-divider"></div>
@@ -236,7 +242,7 @@
 
   <section class="content-section ai-section">
     <h2>Powered by Advanced Browser Technology</h2>
-    <p>This tool uses browser audio processing to decode video audio tracks directly on your device. The file stays local, the audio is extracted in memory, and the final result exports as WAV without touching a server.</p>
+    <p>This tool uses in-browser FFmpeg processing to read video containers and extract audio tracks directly on your device. The file stays local, the audio is extracted in memory, and the final result exports as WAV without touching a server.</p>
   </section>
 
   <section class="content-section section-surface">
@@ -368,11 +374,11 @@
     <h2>Frequently Asked Questions</h2>
     <details>
       <summary>Will my video be uploaded?</summary>
-      <p>No — the file stays in your browser. Extraction runs entirely in memory using the Web Audio API.</p>
+      <p>No — the file stays in your browser. Extraction runs entirely in memory using in-browser FFmpeg processing.</p>
     </details>
     <details>
       <summary>What formats can I extract audio from?</summary>
-      <p>Most browsers support MP4, MOV, and AVI containers with H.264 + AAC audio tracks. Support varies by browser.</p>
+      <p>This extractor accepts many real-world containers, including MP4, MOV, WebM, MKV, AVI, MPEG, 3GP, TS, WMV, MXF, FLV, and VOB. Files using common video codecs such as H.264/AVC or H.265/HEVC are supported when the video includes an audio track that can be read locally.</p>
     </details>
     <details>
       <summary>What output format do I get?</summary>
@@ -443,9 +449,10 @@
   </div>
 </footer>
 
-<script src="/assets/extract-audio-from-video.js" defer></script>
-<script src="/assets/upload.js" defer></script>
-<script src="/assets/related-tools.js"></script>
+<script src="/assets/ffmpeg/ffmpeg-compat.js?v=2026-05-18-2" defer></script>
+<script src="/assets/extract-audio-from-video.js?v=2026-05-18-2" defer></script>
+<script src="/assets/upload.js?v=2026-05-18-2" defer></script>
+<script src="/assets/related-tools.js?v=2026-05-18-2"></script>
 <script>
 document.addEventListener('file:selected', function(e) {
   const file = e.detail && e.detail.file;
@@ -483,7 +490,7 @@ document.addEventListener('converter:empty', function(e) {
   toolShell.classList.add('is-hidden');
 });
 </script>
-<script src="/assets/mobile-menu.js"></script>
+<script src="/assets/mobile-menu.js?v=2026-05-18-2"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script>
   lucide.createIcons();
