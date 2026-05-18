@@ -19,6 +19,17 @@ const WEAK_WEBGPU_TREX_PATTERNS = [
   "WebGPU validation",
   "previous error"
 ];
+const UNSTABLE_TREX_RUNTIME_PATTERNS = [
+  "out of memory",
+  "device lost",
+  "device was lost",
+  "context lost",
+  "webgpu",
+  "gpu",
+  "aborted",
+  "memory access out of bounds",
+  "internal error"
+];
 const DEFAULT_TRANSCRIPTION_MODEL_KEY = "triceratop";
 const DEFAULT_CHUNK_LENGTH_SECONDS = 29;
 const DEFAULT_STRIDE_LENGTH_SECONDS = 5;
@@ -37,8 +48,13 @@ const KNOWN_SILENCE_HALLUCINATION_PATTERNS = [
   /^thank you(?: very much)?(?: for watching)?[.!?]*$/i,
   /^thanks(?: very much)?(?: for watching)?[.!?]*$/i,
   /^subtitles by\b/i,
-  /^subscribe\b/i,
   /^bye[.!?]*$/i
+];
+const KNOWN_TRANSCRIPTION_ARTIFACT_PATTERNS = [
+  /^subscribe\b/i,
+  /^subscribe to (?:the )?channel[.!?]*$/i,
+  /^اشترك(?:وا)?(?: في)?(?: ال)?قناة[.!؟?]*$/i,
+  /^لا تنس(?:وا)? الاشتراك(?: في القناة)?[.!؟?]*$/i
 ];
 const TRANSCRIPTION_MODELS = {
   "baby-raptor": {
@@ -291,6 +307,26 @@ function classifyTranscriptionModelLoadFailure(error, modelKey) {
     failedModelKey: "t-rex",
     fallbackModelKey: "triceratop",
     userMessage: "T-Rex could not start its WebGPU backend on this device. Switching to Triceratops for a safer local run. If needed, try Baby Raptor next."
+  };
+}
+
+function classifyTranscriptionRuntimeFailure(error, modelKey) {
+  if (getTranscriptionModelConfig(modelKey).key !== "t-rex") {
+    return null;
+  }
+
+  const text = getErrorText(error).toLowerCase();
+  const matchesUnstableRuntime = UNSTABLE_TREX_RUNTIME_PATTERNS.some((pattern) => text.includes(pattern));
+
+  if (!matchesUnstableRuntime) {
+    return null;
+  }
+
+  return {
+    errorCode: "TREX_RUNTIME_UNSTABLE",
+    failedModelKey: "t-rex",
+    fallbackModelKey: "triceratop",
+    userMessage: "T-Rex became unstable on this device during transcription. Switching to Triceratops for a safer local run."
   };
 }
 
@@ -917,6 +953,15 @@ function hasKnownSilenceHallucination(text, audioStats) {
   return KNOWN_SILENCE_HALLUCINATION_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
+function hasKnownTranscriptArtifact(text) {
+  const normalized = normalizeText(text);
+  if (!normalized) {
+    return false;
+  }
+
+  return KNOWN_TRANSCRIPTION_ARTIFACT_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
 function inspectBadTranscriptionOutput(text, audio) {
   const reasons = [];
   const audioStats = getAudioSignalStats(audio);
@@ -929,6 +974,9 @@ function inspectBadTranscriptionOutput(text, audio) {
   }
   if (hasKnownSilenceHallucination(text, audioStats)) {
     reasons.push("silence_hallucination");
+  }
+  if (hasKnownTranscriptArtifact(text)) {
+    reasons.push("known_artifact");
   }
 
   return {
@@ -1663,12 +1711,23 @@ self.onmessage = async (e) => {
 
     throw new Error("Unsupported worker message");
   } catch (err) {
+    const runtimeFailureMeta = requestType === "transcribe"
+      ? classifyTranscriptionRuntimeFailure(err, modelConfig.key)
+      : null;
     postMessage({
       type: "error",
-      message: err && err.message ? err.message : "Worker request failed",
-      errorCode: requestType === "transcribe" && err && err.errorCode ? err.errorCode : "",
-      failedModelKey: requestType === "transcribe" && err && err.failedModelKey ? err.failedModelKey : modelConfig.key,
-      fallbackModelKey: requestType === "transcribe" && err && err.fallbackModelKey ? err.fallbackModelKey : ""
+      message: runtimeFailureMeta
+        ? runtimeFailureMeta.userMessage
+        : (err && err.message ? err.message : "Worker request failed"),
+      errorCode: runtimeFailureMeta
+        ? runtimeFailureMeta.errorCode
+        : (requestType === "transcribe" && err && err.errorCode ? err.errorCode : ""),
+      failedModelKey: runtimeFailureMeta
+        ? runtimeFailureMeta.failedModelKey
+        : (requestType === "transcribe" && err && err.failedModelKey ? err.failedModelKey : modelConfig.key),
+      fallbackModelKey: runtimeFailureMeta
+        ? runtimeFailureMeta.fallbackModelKey
+        : (requestType === "transcribe" && err && err.fallbackModelKey ? err.fallbackModelKey : "")
     });
   } finally {
     isBusy = false;

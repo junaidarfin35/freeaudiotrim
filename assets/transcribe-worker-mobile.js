@@ -29,8 +29,13 @@ const KNOWN_SILENCE_HALLUCINATION_PATTERNS = [
   /^thank you(?: very much)?(?: for watching)?[.!?]*$/i,
   /^thanks(?: very much)?(?: for watching)?[.!?]*$/i,
   /^subtitles by\b/i,
-  /^subscribe\b/i,
   /^bye[.!?]*$/i
+];
+const KNOWN_TRANSCRIPTION_ARTIFACT_PATTERNS = [
+  /^subscribe\b/i,
+  /^subscribe to (?:the )?channel[.!?]*$/i,
+  /^اشترك(?:وا)?(?: في)?(?: ال)?قناة[.!؟?]*$/i,
+  /^لا تنس(?:وا)? الاشتراك(?: في القناة)?[.!؟?]*$/i
 ];
 const ARABIC_TRANSCRIPTION_PROMPT = "\u0642\u0645 \u0628\u062a\u0641\u0631\u064a\u063a \u0627\u0644\u0646\u0635 \u0628\u062f\u0642\u0629 \u0645\u062b\u0644 \u0645\u0627 \u064a\u0646\u0642\u0627\u0644\u060c \u0628\u062f\u0648\u0646 \u062a\u0631\u062c\u0645\u0629 \u0623\u0648 \u062a\u0644\u062e\u064a\u0635\u060c \u0645\u0639 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0639\u0644\u0627\u0645\u0627\u062a \u0627\u0644\u062a\u0631\u0642\u064a\u0645 \u0639\u0646\u062f \u0627\u0644\u062d\u0627\u062c\u0629. \u0627\u0643\u062a\u0628 \u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a \u0643\u0645\u0627 \u0647\u0648\u060c \u0648\u0625\u0630\u0627 \u0641\u064a\u0647 \u0645\u0648\u0633\u064a\u0642\u0649 \u0627\u0643\u062a\u0628: (\u0645\u0648\u0633\u064a\u0642\u0649)";
 const ARABIC_TRANSCRIPTION_PROMPT_TEXT = "\u0642\u0645 \u0628\u062a\u0641\u0631\u064a\u063a \u0627\u0644\u0646\u0635 \u0628\u062f\u0642\u0629 \u0645\u062b\u0644 \u0645\u0627 \u064a\u0646\u0642\u0627\u0644\u060c \u0628\u062f\u0648\u0646 \u062a\u0631\u062c\u0645\u0629 \u0623\u0648 \u062a\u0644\u062e\u064a\u0635\u060c \u0645\u0639 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0639\u0644\u0627\u0645\u0627\u062a \u0627\u0644\u062a\u0631\u0642\u064a\u0645 \u0639\u0646\u062f \u0627\u0644\u062d\u0627\u062c\u0629. \u0627\u0643\u062a\u0628 \u0627\u0644\u0625\u0646\u062c\u0644\u064a\u0632\u064a \u0643\u0645\u0627 \u0647\u0648\u060c \u0648\u0625\u0630\u0627 \u0641\u064a\u0647 \u0645\u0648\u0633\u064a\u0642\u0649 \u0627\u0643\u062a\u0628: (\u0645\u0648\u0633\u064a\u0642\u0649)";
@@ -448,6 +453,15 @@ function hasKnownSilenceHallucination(text, audioStats) {
   return KNOWN_SILENCE_HALLUCINATION_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
+function hasKnownTranscriptArtifact(text) {
+  const normalized = normalizeText(text);
+  if (!normalized) {
+    return false;
+  }
+
+  return KNOWN_TRANSCRIPTION_ARTIFACT_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
 function inspectBadTranscriptionOutput(text, audio, language) {
   const reasons = [];
   const audioStats = getAudioSignalStats(audio);
@@ -461,6 +475,9 @@ function inspectBadTranscriptionOutput(text, audio, language) {
   }
   if (hasKnownSilenceHallucination(text, audioStats)) {
     reasons.push("silence_hallucination");
+  }
+  if (hasKnownTranscriptArtifact(text)) {
+    reasons.push("known_artifact");
   }
 
   return {

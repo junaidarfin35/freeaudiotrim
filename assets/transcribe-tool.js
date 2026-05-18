@@ -3,8 +3,8 @@
 
   var srtContent = "";
   var vttContent = "";
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-13-1";
-  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-18-1";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-18-3";
+  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-18-2";
   var worker = null;
   var workerGeneration = 0;
   var processingLocked = false;
@@ -76,7 +76,13 @@
   var TRANSCRIPTION_RECOVERY_MAX_AGE_MS = 10 * 60 * 1000;
   var TRANSLATION_VIEW_STORAGE_PREFIX = "fat:translation-view:v1:";
   var TRANSLATION_VIEW_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+  var TREX_WEBGPU_VERIFYING_REASON = "Checking whether this device can safely run T-Rex before enabling it.";
+  var TREX_WEBGPU_DESKTOP_REASON = "T-Rex is not recommended on this device. Triceratops will be used instead for a safer local run.";
+  var TREX_MIN_RECOMMENDED_MEMORY_GB = 12;
+  var TREX_MIN_RECOMMENDED_CPU_THREADS = 10;
   var transcriptionCapabilityProfile = null;
+  var tRexWebGpuAssessment = null;
+  var tRexWebGpuAssessmentPromise = null;
   var selectedTranscriptionModelKey = DEFAULT_TRANSCRIPTION_MODEL_KEY;
   var transcriptionModelStates = Object.create(null);
   var progressMessages = [
@@ -712,6 +718,191 @@
     return new AudioContextCtor();
   }
 
+  function createDefaultTyrannosaurWebGpuAssessment() {
+    var hasGpuApi = !!(typeof navigator !== "undefined" && navigator.gpu);
+    return {
+      status: hasGpuApi ? "checking" : "unsupported",
+      eligible: false,
+      reason: hasGpuApi ? TREX_WEBGPU_VERIFYING_REASON : TREX_WEBGPU_DESKTOP_REASON,
+      score: 0,
+      adapterSummary: "",
+      maxBufferSize: 0,
+      maxStorageBufferBindingSize: 0
+    };
+  }
+
+  function getCachedTyrannosaurWebGpuAssessment() {
+    return tRexWebGpuAssessment || createDefaultTyrannosaurWebGpuAssessment();
+  }
+
+  function readGpuAdapterInfo(adapter) {
+    if (!adapter) {
+      return Promise.resolve(null);
+    }
+
+    if (adapter.info) {
+      return Promise.resolve(adapter.info);
+    }
+
+    if (typeof adapter.requestAdapterInfo === "function") {
+      return adapter.requestAdapterInfo().catch(function () {
+        return null;
+      });
+    }
+
+    return Promise.resolve(null);
+  }
+
+  function readGpuLimit(limits, key) {
+    var value = limits && typeof limits[key] === "number"
+      ? limits[key]
+      : 0;
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  function getGpuAdapterSummary(adapterInfo) {
+    if (!adapterInfo) {
+      return "";
+    }
+
+    return String(
+      adapterInfo.description
+      || adapterInfo.device
+      || adapterInfo.vendor
+      || adapterInfo.architecture
+      || ""
+    ).trim();
+  }
+
+  function buildTyrannosaurAssessmentReason(parts, fallbackReason) {
+    if (!parts || !parts.length) {
+      return fallbackReason || TREX_WEBGPU_DESKTOP_REASON;
+    }
+
+    return parts[0] + " Triceratops will be used instead for a safer local run.";
+  }
+
+  function requestTranscriptionCapabilityRefresh() {
+    if (
+      tRexWebGpuAssessmentPromise
+      || !hasWebGPUAcceleration()
+      || isPhoneOptimizedTranscriptionDevice()
+    ) {
+      return;
+    }
+
+    tRexWebGpuAssessmentPromise = (async function () {
+      var assessment = createDefaultTyrannosaurWebGpuAssessment();
+
+      try {
+        var adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
+        if (!adapter) {
+          assessment.status = "unsupported";
+          assessment.reason = TREX_WEBGPU_DESKTOP_REASON;
+          return assessment;
+        }
+
+        var adapterInfo = await readGpuAdapterInfo(adapter);
+        var adapterSummary = getGpuAdapterSummary(adapterInfo).toLowerCase();
+        var maxBufferSize = readGpuLimit(adapter.limits, "maxBufferSize");
+        var maxStorageBufferBindingSize = readGpuLimit(adapter.limits, "maxStorageBufferBindingSize");
+        var score = 0;
+        var reasonParts = [];
+        var deviceMemory = typeof navigator !== "undefined" ? Number(navigator.deviceMemory) : NaN;
+        var hardwareConcurrency = typeof navigator !== "undefined" ? Number(navigator.hardwareConcurrency) : NaN;
+        var fallbackAdapter = !!(
+          (adapterInfo
+            && (
+              adapterInfo.isFallbackAdapter === true
+              || adapterInfo.fallback === true
+            ))
+          || adapter.isFallbackAdapter === true
+        );
+        var softwareLikeAdapter = /swiftshader|software|basic render|llvmpipe|fallback/i.test(adapterSummary);
+
+        assessment.adapterSummary = adapterSummary;
+        assessment.maxBufferSize = maxBufferSize;
+        assessment.maxStorageBufferBindingSize = maxStorageBufferBindingSize;
+
+        if (fallbackAdapter || softwareLikeAdapter) {
+          assessment.status = "verified";
+          assessment.eligible = false;
+          assessment.reason = "T-Rex is disabled because this browser is exposing a fallback or software-style WebGPU adapter. Triceratops will be used instead for a safer local run.";
+          return assessment;
+        }
+
+        if (Number.isFinite(deviceMemory)) {
+          if (deviceMemory >= 16) {
+            score += 2;
+          } else if (deviceMemory >= TREX_MIN_RECOMMENDED_MEMORY_GB) {
+            score += 1;
+          } else {
+            reasonParts.push("T-Rex needs more working memory for a stable local run on this device.");
+          }
+        }
+
+        if (Number.isFinite(hardwareConcurrency)) {
+          if (hardwareConcurrency >= 12) {
+            score += 2;
+          } else if (hardwareConcurrency >= TREX_MIN_RECOMMENDED_CPU_THREADS) {
+            score += 1;
+          } else {
+            reasonParts.push("T-Rex needs a stronger CPU for comfortable local transcription on this machine.");
+          }
+        }
+
+        if (maxBufferSize >= 512 * 1024 * 1024) {
+          score += 2;
+        } else if (maxBufferSize >= 256 * 1024 * 1024) {
+          score += 1;
+        } else {
+          reasonParts.push("This WebGPU adapter reports limited buffer capacity for a safer T-Rex run.");
+        }
+
+        if (maxStorageBufferBindingSize >= 256 * 1024 * 1024) {
+          score += 2;
+        } else if (maxStorageBufferBindingSize >= 128 * 1024 * 1024) {
+          score += 1;
+        } else {
+          reasonParts.push("This WebGPU adapter reports limited storage bandwidth for T-Rex.");
+        }
+
+        if (adapterSummary && /intel\(r\)\s+hd graphics|uhd graphics 6|uhd graphics 5/i.test(adapterSummary)) {
+          score -= 1;
+          reasonParts.push("This older integrated GPU looks better suited to the lighter transcription modes.");
+        }
+
+        assessment.status = "verified";
+        assessment.score = score;
+        assessment.eligible = score >= 6;
+        assessment.reason = assessment.eligible
+          ? ""
+          : buildTyrannosaurAssessmentReason(reasonParts, TREX_WEBGPU_DESKTOP_REASON);
+      } catch (error) {
+        assessment.status = "unsupported";
+        assessment.eligible = false;
+        assessment.reason = "This browser exposed WebGPU, but the stronger T-Rex check did not pass safely on this device. Triceratops will be used instead for a safer local run.";
+      }
+
+      return assessment;
+    })()
+      .then(function (assessment) {
+        tRexWebGpuAssessment = assessment;
+        applyTranscriptionCapabilityProfile(probeTranscriptionCapabilities());
+        var primaryRoot = getPrimaryTranscribeRoot();
+        if (primaryRoot) {
+          refreshTranscriptionModelUi(primaryRoot);
+          updateRuntimeMessaging(primaryRoot);
+          refreshTranscribeLayout();
+        }
+        syncTranscribeReadyState();
+        return assessment;
+      })
+      .finally(function () {
+        tRexWebGpuAssessmentPromise = null;
+      });
+  }
+
   function probeTranscriptionCapabilities() {
     var hasWorkers = typeof Worker !== "undefined";
     var hasWasm = typeof WebAssembly !== "undefined";
@@ -727,8 +918,9 @@
     var browserReason = "This browser cannot run local transcription models";
     var phoneDesktopReason = "For more powerful models, switch to a desktop or laptop for the full transcription experience.";
     var balancedReason = "Needs a bit more memory or CPU for comfortable local use";
-    var desktopReason = "Reserved for stronger desktops with WebGPU";
+    var desktopReason = TREX_WEBGPU_DESKTOP_REASON;
     var modes = Object.create(null);
+    var webGpuAssessment = getCachedTyrannosaurWebGpuAssessment();
 
     if (!baselineOk) {
       TRANSCRIPTION_MODELS.forEach(function (model) {
@@ -768,11 +960,23 @@
     }
 
     var hasWebGPU = hasWebGPUAcceleration();
-    var hasTyrannosaurMemory = hasKnownMemory && deviceMemory >= 8;
-    var hasTyrannosaurCpu = hasKnownCpu && hardwareConcurrency >= 8;
+    var hasTyrannosaurMemory = hasKnownMemory && deviceMemory >= TREX_MIN_RECOMMENDED_MEMORY_GB;
+    var hasTyrannosaurCpu = hasKnownCpu && hardwareConcurrency >= TREX_MIN_RECOMMENDED_CPU_THREADS;
+    var tRexReason = desktopReason;
+    if (webGpuAssessment.status === "checking") {
+      tRexReason = webGpuAssessment.reason;
+    } else if (webGpuAssessment.status === "verified" && webGpuAssessment.reason) {
+      tRexReason = webGpuAssessment.reason;
+    }
     modes["t-rex"] = createCapabilityDecision(
-      baselineOk && hasWebGPU && !isCoarsePointer && hasTyrannosaurMemory && hasTyrannosaurCpu,
-      desktopReason
+      baselineOk
+        && hasWebGPU
+        && !isCoarsePointer
+        && hasTyrannosaurMemory
+        && hasTyrannosaurCpu
+        && webGpuAssessment.status === "verified"
+        && webGpuAssessment.eligible,
+      tRexReason
     );
 
     return {
@@ -787,6 +991,7 @@
 
   function applyTranscriptionCapabilityProfile(profile) {
     transcriptionCapabilityProfile = profile || probeTranscriptionCapabilities();
+    var previouslySelectedModelKey = selectedTranscriptionModelKey;
 
     TRANSCRIPTION_MODELS.forEach(function (model) {
       var state = ensureTranscriptionModelState(model.key);
@@ -806,7 +1011,9 @@
       return ensureTranscriptionModelState(model.key).enabled;
     });
 
-    if (ensureTranscriptionModelState(DEFAULT_TRANSCRIPTION_MODEL_KEY).enabled) {
+    if (previouslySelectedModelKey && ensureTranscriptionModelState(previouslySelectedModelKey).enabled) {
+      selectedTranscriptionModelKey = previouslySelectedModelKey;
+    } else if (ensureTranscriptionModelState(DEFAULT_TRANSCRIPTION_MODEL_KEY).enabled) {
       selectedTranscriptionModelKey = DEFAULT_TRANSCRIPTION_MODEL_KEY;
     } else if (firstEnabledModel) {
       selectedTranscriptionModelKey = firstEnabledModel.key;
@@ -820,6 +1027,9 @@
   function getModelAvailabilityLabel(modelKey) {
     var state = ensureTranscriptionModelState(modelKey);
     if (!state.enabled) {
+      if (modelKey === "t-rex" && getCachedTyrannosaurWebGpuAssessment().status === "checking") {
+        return "Checking";
+      }
       return "Disabled";
     }
     if (state.status === "ready") {
@@ -920,8 +1130,12 @@
       return "Phone-optimized local AI available";
     }
 
+    if (getCachedTyrannosaurWebGpuAssessment().eligible) {
+      return "High-performance local AI available";
+    }
+
     return hasWebGPUAcceleration()
-      ? "High-performance local AI available"
+      ? "Local AI available with safer desktop limits"
       : "Local AI available in compatibility mode";
   }
 
@@ -1005,7 +1219,7 @@
     var memory = safeProfile && Number.isFinite(safeProfile.deviceMemory) ? safeProfile.deviceMemory : 0;
     var cpu = safeProfile && Number.isFinite(safeProfile.hardwareConcurrency) ? safeProfile.hardwareConcurrency : 0;
     var coarsePointer = !!(safeProfile && safeProfile.isCoarsePointer);
-    var hasWebGPU = hasWebGPUAcceleration();
+    var hasStrongWebGPU = getCachedTyrannosaurWebGpuAssessment().eligible;
     var safariPenalty = isSafariLikeBrowser() ? 1 : 0;
     var score = 0;
 
@@ -1029,7 +1243,7 @@
       score += 1;
     }
 
-    if (hasWebGPU) {
+    if (hasStrongWebGPU) {
       score += 1;
     }
 
@@ -2661,7 +2875,12 @@
       ? workerData.message
       : "The selected model is not stable on this device. Switching to a safer transcription mode.";
 
-    if (!context || workerData.errorCode !== "WEBGPU_TREX_UNSUPPORTED" || !fallbackModelKey || !fallbackModel) {
+    if (
+      !context
+      || (workerData.errorCode !== "WEBGPU_TREX_UNSUPPORTED" && workerData.errorCode !== "TREX_RUNTIME_UNSTABLE")
+      || !fallbackModelKey
+      || !fallbackModel
+    ) {
       return false;
     }
 
@@ -3415,6 +3634,34 @@
       .trim();
   }
 
+  function containsArabicScript(text) {
+    return /[\u0600-\u06FF]/.test(String(text || ""));
+  }
+
+  function isKnownTranscriptArtifact(text, language) {
+    var cleaned = cleanText(text);
+    var useArabicRules = isArabicLanguage(language) || containsArabicScript(cleaned);
+    if (!cleaned) {
+      return false;
+    }
+
+    if (useArabicRules) {
+      return /^(?:اشترك(?:وا)?(?: في)?(?: ال)?قناة|لا تنس(?:وا)? الاشتراك(?: في القناة)?)[.!؟?]*$/i.test(cleaned);
+    }
+
+    return /^(?:subscribe(?: to (?:the )?channel)?|subtitles by\b.*)[.!?]*$/i.test(cleaned);
+  }
+
+  function finalizeTranscriptSegmentText(text, language, isLastSegment) {
+    var cleaned = fixPunctuation(cleanText(text));
+
+    if (!cleaned || isKnownTranscriptArtifact(cleaned, language)) {
+      return "";
+    }
+
+    return cleaned;
+  }
+
   function normalizeTranscriptTextForDisplay(text, language) {
     var incoming = normalizeIncomingText(text);
     return isArabicLanguage(language) ? normalizeArabicText(incoming) : incoming;
@@ -3642,15 +3889,16 @@ function generateVTT(segments) {
   }
 
   function normalizePreviewSegments(segments) {
-    return (segments || []).reduce(function (result, segment) {
+    var normalized = (segments || []).reduce(function (result, segment, index, source) {
       var timestamp = Array.isArray(segment && segment.timestamp)
         ? [segment.timestamp[0], segment.timestamp[1]]
         : (Number.isFinite(segment && segment.start) && Number.isFinite(segment && segment.end)
           ? [segment.start, segment.end]
           : null);
-      var originalText = cleanText((segment && (segment.originalText || segment.text)) || "");
-      var editedText = cleanText((segment && segment.editedText) || "");
-      var translatedText = cleanText((segment && segment.translatedText) || "");
+      var detectedLanguage = detectTranscriptLanguage((segment && (segment.originalText || segment.text || segment.editedText || segment.translatedText)) || "");
+      var originalText = finalizeTranscriptSegmentText((segment && (segment.originalText || segment.text)) || "", detectedLanguage, index === source.length - 1);
+      var editedText = finalizeTranscriptSegmentText((segment && segment.editedText) || "", detectedLanguage, index === source.length - 1);
+      var translatedText = finalizeTranscriptSegmentText((segment && segment.translatedText) || "", detectedLanguage, index === source.length - 1);
 
       if (!timestamp || !Number.isFinite(timestamp[0]) || !Number.isFinite(timestamp[1]) || timestamp[1] <= timestamp[0] || !originalText) {
         return result;
@@ -3665,6 +3913,18 @@ function generateVTT(segments) {
 
       return result;
     }, []);
+
+    if (normalized.length) {
+      normalized[normalized.length - 1].originalText = finalizeTranscriptSegmentText(normalized[normalized.length - 1].originalText, detectTranscriptLanguage(normalized[normalized.length - 1].originalText), true);
+      if (normalized[normalized.length - 1].editedText) {
+        normalized[normalized.length - 1].editedText = finalizeTranscriptSegmentText(normalized[normalized.length - 1].editedText, detectTranscriptLanguage(normalized[normalized.length - 1].editedText), true);
+      }
+      if (normalized[normalized.length - 1].translatedText) {
+        normalized[normalized.length - 1].translatedText = finalizeTranscriptSegmentText(normalized[normalized.length - 1].translatedText, detectTranscriptLanguage(normalized[normalized.length - 1].translatedText), true);
+      }
+    }
+
+    return normalized;
   }
 
   function formatTime(seconds) {
@@ -3730,11 +3990,11 @@ function generateVTT(segments) {
         duration > MAX_LINE_DURATION;
     }
 
-    return normalizeIncomingSegments(chunks).reduce(function (result, chunk) {
+    var combined = normalizeIncomingSegments(chunks).reduce(function (result, chunk) {
       var text = normalizeSegmentText(chunk && chunk.text);
       var timestamp = chunk && chunk.timestamp;
 
-      if (!text || !isValidTimestamp(timestamp)) {
+      if (!text || isKnownTranscriptArtifact(text, language) || !isValidTimestamp(timestamp)) {
         return result;
       }
 
@@ -3757,6 +4017,19 @@ function generateVTT(segments) {
 
       current.text = joinTexts(current.text, text);
       current.timestamp[1] = Math.max(current.timestamp[1], timestamp[1]);
+      return result;
+    }, []);
+
+    return combined.reduce(function (result, segment, index) {
+      var finalizedText = finalizeTranscriptSegmentText(segment && segment.text, language, index === combined.length - 1);
+      if (!finalizedText) {
+        return result;
+      }
+
+      result.push({
+        text: finalizedText,
+        timestamp: segment.timestamp
+      });
       return result;
     }, []);
   }
@@ -3895,15 +4168,15 @@ function generateVTT(segments) {
       textEl.setAttribute("data-index", String(index));
       textEl.contentEditable = previewEditMode ? "true" : "false";
       textEl.spellcheck = false;
-      textEl.textContent = lineText;
-      wrapper.appendChild(textEl);
-
       if (showTimestamps && start !== null) {
         var timeEl = document.createElement("span");
         timeEl.className = "ts-time-inline";
         timeEl.textContent = "[" + formatTime(start) + "]";
         wrapper.appendChild(timeEl);
       }
+
+      textEl.textContent = lineText;
+      wrapper.appendChild(textEl);
 
       paragraphEl.appendChild(wrapper);
       paragraphEl.appendChild(document.createTextNode(" "));
@@ -5184,6 +5457,7 @@ function generateVTT(segments) {
 
     initializeTranscriptionModelStates();
     applyTranscriptionCapabilityProfile(probeTranscriptionCapabilities());
+    requestTranscriptionCapabilityRefresh();
     rebuildTranscribeWorker();
     setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, false);
     setTranscribeButtonState(startBtn, false);
