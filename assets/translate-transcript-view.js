@@ -281,6 +281,287 @@
     return Math.max(tokens.length, Math.ceil(normalized.length / 12), 1);
   }
 
+  function isRtlLanguage(lang) {
+    return RTL_LANGS.has(getLangCode(lang));
+  }
+
+  function getSubtitleShapeConfig(lang) {
+    var rtl = isRtlLanguage(lang);
+    return {
+      maxCharsPerLine: rtl ? 30 : 38,
+      maxCueChars: rtl ? 60 : 76,
+      maxWordsPerCue: rtl ? 10 : 14,
+      maxCueDuration: rtl ? 5.5 : 6
+    };
+  }
+
+  function countTextWords(text) {
+    var normalized = normalizeTextSpacing(text);
+    return normalized ? normalized.split(" ").filter(Boolean).length : 0;
+  }
+
+  function isStrongSubtitleBreakToken(token) {
+    return /[.!?؟。]["')\]]*$/.test(String(token || ""));
+  }
+
+  function isSoftSubtitleBreakToken(token) {
+    return /[،,؛;:]["')\]]*$/.test(String(token || ""));
+  }
+
+  function startsWithSubtitleConnector(token) {
+    return /^(?:لكن|بس|ثم|و|أو|because|but|and|so|or)\b/i.test(String(token || ""));
+  }
+
+  function chooseBestSubtitleSplitIndex(tokens) {
+    var safeTokens = Array.isArray(tokens) ? tokens : [];
+    var total = safeTokens.length;
+    var midpoint = total / 2;
+    var bestIndex = Math.ceil(midpoint);
+    var bestScore = -Infinity;
+    var index;
+
+    if (total <= 3) {
+      return Math.max(1, total - 1);
+    }
+
+    for (index = 1; index < total; index += 1) {
+      var leftCount = index;
+      var rightCount = total - index;
+      var prevToken = safeTokens[index - 1] || "";
+      var nextToken = safeTokens[index] || "";
+      var score = 0;
+
+      if (leftCount < 2 || rightCount < 2) {
+        score -= 4;
+      }
+      score -= Math.abs(index - midpoint);
+      if (isStrongSubtitleBreakToken(prevToken)) {
+        score += 8;
+      } else if (isSoftSubtitleBreakToken(prevToken)) {
+        score += 5;
+      } else if (startsWithSubtitleConnector(nextToken)) {
+        score += 2;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    }
+
+    return Math.max(1, Math.min(total - 1, bestIndex));
+  }
+
+  function breakSubtitleLine(text, config) {
+    var normalized = normalizeTextSpacing(text);
+    var safeConfig = config || getSubtitleShapeConfig("");
+    var tokens = normalized ? normalized.split(" ").filter(Boolean) : [];
+    var bestIndex = -1;
+    var bestScore = -Infinity;
+    var midpoint;
+    var index;
+
+    if (!normalized || normalized.length <= safeConfig.maxCharsPerLine || tokens.length < 2) {
+      return normalized;
+    }
+
+    midpoint = normalized.length / 2;
+    for (index = 1; index < tokens.length; index += 1) {
+      var left = tokens.slice(0, index).join(" ");
+      var right = tokens.slice(index).join(" ");
+      var prevToken = tokens[index - 1] || "";
+      var score;
+
+      if (!left || !right) {
+        continue;
+      }
+      if (left.length > safeConfig.maxCharsPerLine || right.length > safeConfig.maxCharsPerLine) {
+        continue;
+      }
+
+      score = -Math.abs(left.length - midpoint);
+      if (isStrongSubtitleBreakToken(prevToken)) {
+        score += 4;
+      } else if (isSoftSubtitleBreakToken(prevToken)) {
+        score += 2;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    }
+
+    if (bestIndex === -1) {
+      return normalized;
+    }
+
+    return tokens.slice(0, bestIndex).join(" ") + "\n" + tokens.slice(bestIndex).join(" ");
+  }
+
+  function splitTextBySubtitleHardLimits(text, lang) {
+    var normalized = normalizeTextSpacing(text);
+    var config = getSubtitleShapeConfig(lang);
+    var tokens = normalized ? normalized.split(" ").filter(Boolean) : [];
+    var chunks = [];
+    var start = 0;
+
+    if (!tokens.length) {
+      return [];
+    }
+
+    while (start < tokens.length) {
+      var bestEnd = start + 1;
+      var bestBoundaryEnd = 0;
+      var end;
+
+      for (end = start; end < tokens.length; end += 1) {
+        var candidateTokens = tokens.slice(start, end + 1);
+        var candidateText = candidateTokens.join(" ");
+        var candidateWords = candidateTokens.length;
+
+        if (candidateWords > config.maxWordsPerCue || candidateText.length > config.maxCueChars) {
+          break;
+        }
+
+        bestEnd = end + 1;
+        if (
+          isStrongSubtitleBreakToken(tokens[end])
+          || isSoftSubtitleBreakToken(tokens[end])
+          || startsWithSubtitleConnector(tokens[end + 1] || "")
+        ) {
+          bestBoundaryEnd = end + 1;
+        }
+      }
+
+      if (bestBoundaryEnd > start) {
+        bestEnd = bestBoundaryEnd;
+      }
+
+      if (bestEnd <= start) {
+        bestEnd = Math.min(tokens.length, start + 1);
+      }
+
+      chunks.push(tokens.slice(start, bestEnd).join(" "));
+      start = bestEnd;
+    }
+
+    return chunks;
+  }
+
+  function expandSubtitleChunksToTargetCount(chunks, targetCount) {
+    var safeChunks = Array.isArray(chunks) ? chunks.slice() : [];
+
+    while (safeChunks.length < targetCount) {
+      var splitIndex = -1;
+      var splitScore = -Infinity;
+      var i;
+
+      for (i = 0; i < safeChunks.length; i += 1) {
+        var words = countTextWords(safeChunks[i]);
+        if (words < 4) {
+          continue;
+        }
+        if (words > splitScore) {
+          splitScore = words;
+          splitIndex = i;
+        }
+      }
+
+      if (splitIndex === -1) {
+        break;
+      }
+
+      var tokens = normalizeTextSpacing(safeChunks[splitIndex]).split(" ").filter(Boolean);
+      var midpoint = chooseBestSubtitleSplitIndex(tokens);
+      var left = tokens.slice(0, midpoint).join(" ");
+      var right = tokens.slice(midpoint).join(" ");
+
+      if (!left || !right) {
+        break;
+      }
+
+      safeChunks.splice(splitIndex, 1, left, right);
+    }
+
+    return safeChunks;
+  }
+
+  function splitTranslatedCueTextForSubtitles(text, lang, durationSeconds) {
+    var normalized = normalizeTextSpacing(text);
+    var config = getSubtitleShapeConfig(lang);
+    var textBasedChunks = splitTextBySubtitleHardLimits(normalized, lang);
+    var wordCount = countTextWords(normalized);
+    var duration = Math.max(0, Number(durationSeconds) || 0);
+    var desiredCount;
+
+    if (!normalized) {
+      return [];
+    }
+
+    desiredCount = Math.max(
+      1,
+      Math.ceil(normalized.length / config.maxCueChars),
+      Math.ceil(wordCount / config.maxWordsPerCue),
+      duration > 0 ? Math.ceil(duration / config.maxCueDuration) : 1
+    );
+
+    textBasedChunks = expandSubtitleChunksToTargetCount(textBasedChunks, desiredCount).map(function (chunk) {
+      return breakSubtitleLine(chunk, config);
+    }).filter(Boolean);
+
+    return textBasedChunks.length ? textBasedChunks : [breakSubtitleLine(normalized, config)];
+  }
+
+  function rebalanceTranslatedSubtitleCues(cues, lang) {
+    var shaped = [];
+
+    (cues || []).forEach(function (cue) {
+      var text = normalizeTextSpacing(cue && cue.text);
+      var timestamp = cue && Array.isArray(cue.timestamp) ? cue.timestamp : null;
+      var start = timestamp && Number.isFinite(timestamp[0]) ? Number(timestamp[0]) : 0;
+      var end = timestamp && Number.isFinite(timestamp[1]) ? Number(timestamp[1]) : start;
+      var duration = Math.max(0, end - start);
+      var chunks = splitTranslatedCueTextForSubtitles(text, lang, duration);
+      var weights = chunks.map(getWordWeight);
+      var runningStart = start;
+
+      if (!chunks.length) {
+        return;
+      }
+
+      if (chunks.length === 1 || duration <= 0.001) {
+        shaped.push({
+          text: chunks[0],
+          timestamp: [start, end]
+        });
+        return;
+      }
+
+      chunks.forEach(function (chunkText, index) {
+        var weight = weights[index] || 1;
+        var remainingWeight = weights.slice(index).reduce(function (sum, value) {
+          return sum + value;
+        }, 0) || weight;
+        var remainingDuration = Math.max(0, end - runningStart);
+        var span = index === chunks.length - 1
+          ? remainingDuration
+          : Math.max(0.2, remainingDuration * (weight / remainingWeight));
+        var chunkEnd = index === chunks.length - 1
+          ? end
+          : Math.min(end, runningStart + span);
+
+        shaped.push({
+          text: chunkText,
+          timestamp: [runningStart, chunkEnd]
+        });
+        runningStart = chunkEnd;
+      });
+    });
+
+    return shaped;
+  }
+
   function allocateWeightedCounts(totalUnits, weights, requireOneEach) {
     var activeIndexes = [];
     var baseCounts = [];
@@ -430,6 +711,7 @@
   function buildSentenceAwareTranslatedCues(payload) {
     var translatedSentences = splitTextIntoSentences(buildTranslatedTxt(payload));
     var sourceGroups = buildSourceSentenceGroups(payload.segments || []);
+    var targetLang = payload.targetLanguageCode || payload.sourceLanguageCode || "";
     var sentenceWeights;
     var groupCounts;
     var cursor;
@@ -445,10 +727,10 @@
     }
 
     if (translatedSentences.length === 1) {
-      return [{
+      return rebalanceTranslatedSubtitleCues([{
         text: translatedSentences[0],
         timestamp: [sourceGroups[0].start, sourceGroups[sourceGroups.length - 1].end]
-      }];
+      }], targetLang);
     }
 
     sentenceWeights = translatedSentences.map(getWordWeight);
@@ -475,7 +757,7 @@
       });
 
       if (cues.length) {
-        return cues;
+        return rebalanceTranslatedSubtitleCues(cues, targetLang);
       }
     }
 
@@ -506,7 +788,7 @@
       runningStart = end;
     });
 
-    return cues;
+    return rebalanceTranslatedSubtitleCues(cues, targetLang);
   }
 
   function getResolvedTimedTranslationCues(payload) {
