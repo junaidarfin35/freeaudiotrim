@@ -3,7 +3,7 @@
 
   const DROPZONE_SELECTOR = '[data-upload-dropzone], .upload-dropzone, .upload-box';
   const PROCESSED_FLAG = 'uploadComponentBound';
-  const DEFAULT_PRIMARY_TEXT = 'Drop media file here or click to upload';
+  const DEFAULT_PRIMARY_TEXT = 'Drop file here or click to choose a file';
   const DEFAULT_FORMAT_TEXT = 'MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WEBM';
   const DEFAULT_META_TEXT = 'Max file size: 200MB';
   const DEFAULT_PRIVACY_TEXT = 'Files processed locally in your browser';
