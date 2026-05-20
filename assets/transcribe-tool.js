@@ -3,8 +3,8 @@
 
   var srtContent = "";
   var vttContent = "";
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-18-3";
-  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-18-2";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-20-6";
+  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-20-3";
   var worker = null;
   var workerGeneration = 0;
   var processingLocked = false;
@@ -2603,7 +2603,6 @@
       '      <div class="at-file-name" data-role="fileName">No file selected</div>',
       "    </div>",
       '    <div data-role="fileActions">',
-      '      <button class="at-btn at-btn-soft is-hidden" type="button" data-role="changeFileBtn">Change file</button>',
       '      <button class="at-btn at-btn-soft is-hidden" type="button" data-role="restartBtn">Start over</button>',
       "    </div>",
       "  </div>",
@@ -2661,6 +2660,21 @@
       "  </div>",
       '  <div class="at-row is-hidden" data-role="transcriptRow">',
       '    <div class="at-transcript-box" data-role="transcript">Transcription will appear here after processing.</div>',
+      "  </div>",
+      '  <div class="at-row is-hidden" data-role="transcriptPlayerRow">',
+      '    <div class="at-transcript-player" data-role="transcriptPlayer">',
+      '      <button class="at-transcript-player-toggle" type="button" data-role="transcriptPlaybackToggle" aria-pressed="false" aria-label="Play audio">',
+      '        <span class="at-transcript-player-toggle-icon" aria-hidden="true"></span>',
+      "      </button>",
+      '      <div class="at-transcript-player-progress">',
+      '        <input class="at-transcript-player-progress-slider" type="range" min="0" max="1000" step="1" value="0" data-role="transcriptPlaybackProgress" aria-label="Playback position">',
+      "      </div>",
+      '      <div class="at-transcript-player-time" data-role="transcriptPlaybackTime">0:00</div>',
+      '      <div class="at-transcript-player-volume">',
+      '        <i class="at-transcript-player-volume-icon" data-lucide="volume-2" aria-hidden="true"></i>',
+      '        <input class="at-transcript-player-volume-slider" type="range" min="0" max="100" step="1" value="100" data-role="transcriptPlaybackVolume" aria-label="Playback volume">',
+      "      </div>",
+      "    </div>",
       "  </div>",
       '  <div class="at-row transcribe-controls is-hidden" data-role="translateEntryRow">',
       '    <button class="at-btn" type="button" data-role="toggleTranslateSetup" disabled>Translate transcript</button>',
@@ -3000,6 +3014,7 @@
     }
 
     var toolCard = root.querySelector(".at-root");
+    var audioPlayer = getTranscriptAudioPlayer();
     var hasAudioReady = hasLoadedTranscriptionFile(window.transcriptionAudio);
     var hasRecoveryState = !!(window.transcriptionAudio && window.transcriptionAudio.recoveryOnly);
     var hasResults = hasTranscriptResults();
@@ -3015,6 +3030,7 @@
     var builtInTranslationAllowed = isBuiltInTranslationAllowed();
     var showTranslateEntry = showResults && builtInTranslationAllowed;
     var showChatgptEntry = showResults;
+    var hasTranscriptPlayback = !!(audioPlayer && audioPlayer.getAttribute("src"));
 
     if (!showResults) {
       root.__translationSetupOpen = false;
@@ -3028,11 +3044,11 @@
     setElementVisible(root.querySelector('[data-role="transcribeRow"]'), showSetup);
     setElementVisible(root.querySelector('[data-role="viewControlsRow"]'), showResults);
     setElementVisible(root.querySelector('[data-role="transcriptRow"]'), showResults);
+    setElementVisible(root.querySelector('[data-role="transcriptPlayerRow"]'), showResults && hasTranscriptPlayback);
     setElementVisible(root.querySelector('[data-role="translateEntryRow"]'), showTranslateEntry || showChatgptEntry);
     setElementVisible(translateEntryBtn, showTranslateEntry);
     setElementVisible(chatgptEntryBtn, showChatgptEntry);
     setElementVisible(root.querySelector('[data-role="exportRow"]'), showResults);
-    setElementVisible(root.querySelector('[data-role="changeFileBtn"]'), hasAudioReady || hasRecoveryState || showResults);
     setElementVisible(root.querySelector('[data-role="restartBtn"]'), hasAudioReady || hasRecoveryState || isPreparing || isProcessing || showResults);
     setElementVisible(translationPanel, showResults && builtInTranslationAllowed && !!root.__translationSetupOpen && !isProcessing);
     updateTranslateEntryButton(translateEntryBtn, root, hasResults, hasTranslation, isProcessing);
@@ -3041,6 +3057,7 @@
     }
     updateRuntimeMessaging(root);
     syncTranscriptionModelCards(root);
+    syncTranscriptPlaybackUi(root);
   }
 
   function setExportButtonsState(copyBtn, txtBtn, srtBtn, vttBtn, enabled) {
@@ -3853,6 +3870,349 @@ function generateVTT(segments) {
     return window.currentSegments || [];
   }
 
+  function getTranscriptAudioPlayer() {
+    return document.getElementById("audio-player");
+  }
+
+  function getTranscriptSegmentTimeRange(segment) {
+    var timestamp = segment && Array.isArray(segment.timestamp) ? segment.timestamp : null;
+    var start = timestamp && Number.isFinite(timestamp[0])
+      ? timestamp[0]
+      : (segment && Number.isFinite(segment.start) ? segment.start : null);
+    var end = timestamp && Number.isFinite(timestamp[1])
+      ? timestamp[1]
+      : (segment && Number.isFinite(segment.end) ? segment.end : start);
+
+    if (!Number.isFinite(start)) {
+      return null;
+    }
+
+    if (!Number.isFinite(end) || end < start) {
+      end = start;
+    }
+
+    return {
+      start: start,
+      end: end
+    };
+  }
+
+  function getActiveTranscriptPlaybackSegmentIndex(timeSeconds) {
+    var segments = getActiveSegments();
+    var time = Number(timeSeconds);
+    var fallbackIndex = -1;
+    var i;
+
+    if (!Number.isFinite(time) || !segments.length) {
+      return -1;
+    }
+
+    for (i = 0; i < segments.length; i++) {
+      var range = getTranscriptSegmentTimeRange(segments[i]);
+      var nextRange = i + 1 < segments.length ? getTranscriptSegmentTimeRange(segments[i + 1]) : null;
+
+      if (!range) {
+        continue;
+      }
+
+      if (time + 0.02 < range.start) {
+        break;
+      }
+
+      fallbackIndex = i;
+
+      if (time >= range.start && time <= range.end + 0.02) {
+        return i;
+      }
+
+      if (nextRange && time >= range.start && time < nextRange.start) {
+        return i;
+      }
+    }
+
+    return fallbackIndex;
+  }
+
+  function setTranscriptPlaybackButtonState(root, isPlaying) {
+    var toggleBtn = root ? root.querySelector('[data-role="transcriptPlaybackToggle"]') : null;
+    if (!toggleBtn) {
+      return;
+    }
+
+    toggleBtn.setAttribute("aria-pressed", isPlaying ? "true" : "false");
+    toggleBtn.setAttribute("aria-label", isPlaying ? "Pause audio" : "Play audio");
+    toggleBtn.classList.toggle("is-playing", !!isPlaying);
+  }
+
+  function formatTranscriptPlaybackClock(timeSeconds) {
+    var totalSeconds = Math.max(0, Math.floor(Number(timeSeconds) || 0));
+    var minutes = Math.floor(totalSeconds / 60);
+    var seconds = totalSeconds % 60;
+
+    return String(minutes) + ":" + String(seconds).padStart(2, "0");
+  }
+
+  function setActiveTranscriptPlaybackSegment(root, nextIndex) {
+    var previousIndex;
+    var previousEl;
+    var nextEl;
+
+    if (!root) {
+      return;
+    }
+
+    previousIndex = Number.isInteger(root.__activeTranscriptPlaybackIndex)
+      ? root.__activeTranscriptPlaybackIndex
+      : -1;
+
+    if (previousIndex === nextIndex) {
+      return;
+    }
+
+    if (previousIndex >= 0) {
+      previousEl = root.querySelector('.ts-sentence[data-segment-index="' + previousIndex + '"]');
+      if (previousEl) {
+        previousEl.classList.remove("is-active");
+      }
+    }
+
+    if (Number.isInteger(nextIndex) && nextIndex >= 0) {
+      nextEl = root.querySelector('.ts-sentence[data-segment-index="' + nextIndex + '"]');
+      if (nextEl) {
+        nextEl.classList.add("is-active");
+      }
+    } else {
+      nextIndex = -1;
+    }
+
+    root.__activeTranscriptPlaybackIndex = nextIndex;
+  }
+
+  function syncTranscriptPlaybackHighlight(root) {
+    var audioPlayer;
+
+    if (!root) {
+      return;
+    }
+
+    audioPlayer = getTranscriptAudioPlayer();
+    if (!audioPlayer || !audioPlayer.getAttribute("src")) {
+      setActiveTranscriptPlaybackSegment(root, -1);
+      return;
+    }
+
+    if (audioPlayer.ended || (audioPlayer.paused && !root.__transcriptPlaybackHasStarted)) {
+      setActiveTranscriptPlaybackSegment(root, -1);
+      return;
+    }
+
+    setActiveTranscriptPlaybackSegment(
+      root,
+      getActiveTranscriptPlaybackSegmentIndex(audioPlayer.currentTime)
+    );
+  }
+
+  function syncTranscriptPlaybackUi(root) {
+    var audioPlayer;
+    var playerRow;
+    var toggleBtn;
+    var progressSlider;
+    var timeLabel;
+    var volumeSlider;
+    var showPlayback;
+    var activeVolume;
+    var duration;
+    var currentTime;
+
+    if (!root) {
+      return;
+    }
+
+    audioPlayer = getTranscriptAudioPlayer();
+    playerRow = root.querySelector('[data-role="transcriptPlayerRow"]');
+    toggleBtn = root.querySelector('[data-role="transcriptPlaybackToggle"]');
+    progressSlider = root.querySelector('[data-role="transcriptPlaybackProgress"]');
+    timeLabel = root.querySelector('[data-role="transcriptPlaybackTime"]');
+    volumeSlider = root.querySelector('[data-role="transcriptPlaybackVolume"]');
+    showPlayback = !!(
+      audioPlayer
+      && audioPlayer.getAttribute("src")
+      && (hasTranscriptResults() || hasTranslatedSegments())
+    );
+
+    if (playerRow) {
+      playerRow.classList.toggle("is-hidden", !showPlayback);
+    }
+
+    if (toggleBtn) {
+      toggleBtn.disabled = !showPlayback;
+    }
+
+    if (progressSlider) {
+      progressSlider.disabled = !showPlayback;
+    }
+
+    if (volumeSlider) {
+      volumeSlider.disabled = !showPlayback;
+    }
+
+    if (!audioPlayer) {
+      if (progressSlider) {
+        progressSlider.value = "0";
+      }
+      if (timeLabel) {
+        timeLabel.textContent = "0:00";
+      }
+      setActiveTranscriptPlaybackSegment(root, -1);
+      setTranscriptPlaybackButtonState(root, false);
+      return;
+    }
+
+    audioPlayer.controls = false;
+    audioPlayer.style.display = "none";
+    duration = Number.isFinite(audioPlayer.duration) && audioPlayer.duration > 0 ? audioPlayer.duration : 0;
+    currentTime = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0;
+    activeVolume = Number.isFinite(audioPlayer.volume) ? audioPlayer.volume : 1;
+    if (volumeSlider && root.__transcriptPlaybackVolumeSync !== activeVolume) {
+      volumeSlider.value = String(Math.round(activeVolume * 100));
+      root.__transcriptPlaybackVolumeSync = activeVolume;
+    }
+
+    if (progressSlider) {
+      progressSlider.value = duration > 0
+        ? String(Math.max(0, Math.min(1000, Math.round((currentTime / duration) * 1000))))
+        : "0";
+    }
+
+    if (timeLabel) {
+      timeLabel.textContent = formatTranscriptPlaybackClock(duration > 0 ? currentTime : 0);
+    }
+
+    if (!showPlayback) {
+      if (progressSlider) {
+        progressSlider.value = "0";
+      }
+      if (timeLabel) {
+        timeLabel.textContent = "0:00";
+      }
+      root.__transcriptPlaybackHasStarted = false;
+      setActiveTranscriptPlaybackSegment(root, -1);
+      setTranscriptPlaybackButtonState(root, false);
+      return;
+    }
+
+    setTranscriptPlaybackButtonState(root, !audioPlayer.paused && !audioPlayer.ended);
+    syncTranscriptPlaybackHighlight(root);
+  }
+
+  function bindTranscriptPlaybackUi(root) {
+    var audioPlayer;
+    var toggleBtn;
+    var progressSlider;
+    var volumeSlider;
+
+    if (!root || root.__transcriptPlaybackBound) {
+      return;
+    }
+
+    audioPlayer = getTranscriptAudioPlayer();
+    if (!audioPlayer) {
+      return;
+    }
+
+    toggleBtn = root.querySelector('[data-role="transcriptPlaybackToggle"]');
+    progressSlider = root.querySelector('[data-role="transcriptPlaybackProgress"]');
+    volumeSlider = root.querySelector('[data-role="transcriptPlaybackVolume"]');
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", function () {
+        if (!audioPlayer.getAttribute("src")) {
+          return;
+        }
+
+        if (audioPlayer.paused || audioPlayer.ended) {
+          if (audioPlayer.ended) {
+            audioPlayer.currentTime = 0;
+          }
+          audioPlayer.play().catch(function () {
+          });
+        } else {
+          audioPlayer.pause();
+        }
+      });
+    }
+
+    if (progressSlider) {
+      progressSlider.addEventListener("input", function () {
+        var duration = Number.isFinite(audioPlayer.duration) && audioPlayer.duration > 0 ? audioPlayer.duration : 0;
+        var nextTime;
+
+        if (!duration) {
+          progressSlider.value = "0";
+          return;
+        }
+
+        nextTime = (Math.max(0, Math.min(1000, Number(progressSlider.value) || 0)) / 1000) * duration;
+        audioPlayer.currentTime = nextTime;
+        root.__transcriptPlaybackHasStarted = true;
+        syncTranscriptPlaybackUi(root);
+      });
+    }
+
+    if (volumeSlider) {
+      volumeSlider.addEventListener("input", function () {
+        var nextVolume = Math.max(0, Math.min(1, Number(volumeSlider.value) / 100));
+        if (!Number.isFinite(nextVolume)) {
+          nextVolume = 1;
+        }
+        audioPlayer.volume = nextVolume;
+        root.__transcriptPlaybackVolumeSync = nextVolume;
+        if (audioPlayer.muted && nextVolume > 0) {
+          audioPlayer.muted = false;
+        }
+      });
+    }
+
+    audioPlayer.addEventListener("play", function () {
+      root.__transcriptPlaybackHasStarted = true;
+      setTranscriptPlaybackButtonState(root, true);
+      syncTranscriptPlaybackHighlight(root);
+    });
+
+    audioPlayer.addEventListener("pause", function () {
+      setTranscriptPlaybackButtonState(root, false);
+      syncTranscriptPlaybackHighlight(root);
+    });
+
+    audioPlayer.addEventListener("timeupdate", function () {
+      syncTranscriptPlaybackUi(root);
+      syncTranscriptPlaybackHighlight(root);
+    });
+
+    audioPlayer.addEventListener("seeking", function () {
+      root.__transcriptPlaybackHasStarted = true;
+      syncTranscriptPlaybackUi(root);
+      syncTranscriptPlaybackHighlight(root);
+    });
+
+    audioPlayer.addEventListener("ended", function () {
+      root.__transcriptPlaybackHasStarted = false;
+      setTranscriptPlaybackButtonState(root, false);
+      setActiveTranscriptPlaybackSegment(root, -1);
+      syncTranscriptPlaybackUi(root);
+    });
+
+    audioPlayer.addEventListener("loadedmetadata", function () {
+      syncTranscriptPlaybackUi(root);
+    });
+
+    audioPlayer.addEventListener("durationchange", function () {
+      syncTranscriptPlaybackUi(root);
+    });
+
+    root.__transcriptPlaybackBound = true;
+  }
+
   function getSegmentText(segment, useTranslatedText) {
     var translated = cleanText(segment && segment.translatedText);
     var edited = cleanText(segment && segment.editedText);
@@ -3928,18 +4288,13 @@ function generateVTT(segments) {
   }
 
   function formatTime(seconds) {
-    var m = Math.floor((seconds || 0) / 60);
-    var s = Math.floor((seconds || 0) % 60);
+    var totalSeconds = Math.max(0, Math.round(Number(seconds) || 0));
+    var m = Math.floor(totalSeconds / 60);
+    var s = totalSeconds % 60;
     return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
   }
 
   function buildSubtitles(chunks, language) {
-    var isArabic = isArabicLanguage(language);
-    var MAX_CHARS_PER_LINE = isArabic ? 46 : 42;
-    var MAX_WORDS_PER_LINE = isArabic ? 8 : 7;
-    var MAX_LINE_DURATION = isArabic ? 6 : 5.5;
-    var MAX_GAP_SECONDS = isArabic ? 0.6 : 0.75;
-
     function isValidTimestamp(timestamp) {
       return Array.isArray(timestamp) &&
         timestamp.length >= 2 &&
@@ -3952,45 +4307,7 @@ function generateVTT(segments) {
       return fixPunctuation(cleanText(text));
     }
 
-    function getWordCount(text) {
-      var matches = String(text || "").trim().match(/\S+/g);
-      return matches ? matches.length : 0;
-    }
-
-    function endsSentence(text) {
-      return /[.\u061F!?]$/.test(normalizeSegmentText(text));
-    }
-
-    function shouldAttachWithoutSpace(text) {
-      return /^[)\]}.,!\u061F\u060C:;]+/.test(text);
-    }
-
-    function joinTexts(left, right) {
-      var safeLeft = normalizeSegmentText(left);
-      var safeRight = normalizeSegmentText(right);
-
-      if (!safeLeft) return safeRight;
-      if (!safeRight) return safeLeft;
-      if (shouldAttachWithoutSpace(safeRight)) {
-        return safeLeft + safeRight;
-      }
-
-      return safeLeft + " " + safeRight;
-    }
-
-    function shouldStartNewSubtitle(current, nextText, nextTimestamp) {
-      var candidateText = joinTexts(current.text, nextText);
-      var gap = Math.max(0, nextTimestamp[0] - current.timestamp[1]);
-      var duration = nextTimestamp[1] - current.timestamp[0];
-
-      return gap > MAX_GAP_SECONDS ||
-        endsSentence(current.text) ||
-        candidateText.length > MAX_CHARS_PER_LINE ||
-        getWordCount(candidateText) > MAX_WORDS_PER_LINE ||
-        duration > MAX_LINE_DURATION;
-    }
-
-    var combined = normalizeIncomingSegments(chunks).reduce(function (result, chunk) {
+    return normalizeIncomingSegments(chunks).reduce(function (result, chunk, index, source) {
       var text = normalizeSegmentText(chunk && chunk.text);
       var timestamp = chunk && chunk.timestamp;
 
@@ -3998,37 +4315,14 @@ function generateVTT(segments) {
         return result;
       }
 
-      var current = result[result.length - 1];
-      if (!current) {
-        result.push({
-          text: text,
-          timestamp: [timestamp[0], timestamp[1]]
-        });
-        return result;
-      }
-
-      if (shouldStartNewSubtitle(current, text, timestamp)) {
-        result.push({
-          text: text,
-          timestamp: [timestamp[0], timestamp[1]]
-        });
-        return result;
-      }
-
-      current.text = joinTexts(current.text, text);
-      current.timestamp[1] = Math.max(current.timestamp[1], timestamp[1]);
-      return result;
-    }, []);
-
-    return combined.reduce(function (result, segment, index) {
-      var finalizedText = finalizeTranscriptSegmentText(segment && segment.text, language, index === combined.length - 1);
+      var finalizedText = finalizeTranscriptSegmentText(text, language, index === source.length - 1);
       if (!finalizedText) {
         return result;
       }
 
       result.push({
         text: finalizedText,
-        timestamp: segment.timestamp
+        timestamp: [timestamp[0], timestamp[1]]
       });
       return result;
     }, []);
@@ -4160,6 +4454,7 @@ function generateVTT(segments) {
 
       wrapper = document.createElement("span");
       wrapper.className = "ts-sentence";
+      wrapper.setAttribute("data-segment-index", String(index));
 
       textEl = document.createElement("span");
       textEl.className = "ts-segment-text";
@@ -4952,15 +5247,44 @@ function generateVTT(segments) {
     var translatedTabBtn = root.querySelector('.tab[data-tab="translated"]');
     var editBtn = root.querySelector('[data-role="toggleEdit"]');
     var modelGrid = root.querySelector('[data-role="modelGrid"]');
-    var changeFileBtn = root.querySelector('[data-role="changeFileBtn"]');
     var restartBtn = root.querySelector('[data-role="restartBtn"]');
     var extractAudioCta = root.querySelector('[data-role="extractAudioCta"]');
+    var transcriptPlayerRow = root.querySelector('[data-role="transcriptPlayerRow"]');
+    var transcriptPlaybackToggle = root.querySelector('[data-role="transcriptPlaybackToggle"]');
+    var transcriptPlaybackProgress = root.querySelector('[data-role="transcriptPlaybackProgress"]');
+    var transcriptPlaybackTime = root.querySelector('[data-role="transcriptPlaybackTime"]');
+    var transcriptPlaybackVolume = root.querySelector('[data-role="transcriptPlaybackVolume"]');
     var timestampCheckbox = root.querySelector('#show-timestamps');
     var modeSelect = root.querySelector('#modeSelect');
     var polishToggle = root.querySelector('#polishToggle');
     var audioPlayer = document.getElementById("audio-player");
     if (!input || input.dataset.transcribeToolBound === "1") {
       return;
+    }
+
+    bindTranscriptPlaybackUi(root);
+    if (audioPlayer) {
+      audioPlayer.controls = false;
+      audioPlayer.style.display = "none";
+    }
+    if (transcriptPlayerRow) {
+      transcriptPlayerRow.classList.add("is-hidden");
+    }
+    if (transcriptPlaybackToggle) {
+      transcriptPlaybackToggle.disabled = true;
+    }
+    if (transcriptPlaybackProgress) {
+      transcriptPlaybackProgress.disabled = true;
+      transcriptPlaybackProgress.value = "0";
+    }
+    if (transcriptPlaybackTime) {
+      transcriptPlaybackTime.textContent = "0:00";
+    }
+    if (transcriptPlaybackVolume) {
+      transcriptPlaybackVolume.disabled = true;
+    }
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons();
     }
 
     function renderLanguagePickerOptions(query) {
@@ -5283,6 +5607,10 @@ function generateVTT(segments) {
         audioPlayer.load();
         audioPlayer.style.display = "none";
       }
+      root.__transcriptPlaybackHasStarted = false;
+      root.__transcriptPlaybackVolumeSync = 1;
+      setActiveTranscriptPlaybackSegment(root, -1);
+      setTranscriptPlaybackButtonState(root, false);
       updateFileIcon(root, null);
       if (toolRoot) {
         toolRoot.classList.remove("is-active");
@@ -5301,6 +5629,18 @@ function generateVTT(segments) {
 
       if (toolShell) {
         toolShell.classList.toggle("is-hidden", !showTool);
+      }
+    }
+
+    function showPrimaryTranscriptionUploadShell() {
+      if (typeof document.dispatchEvent === "function") {
+        document.dispatchEvent(new Event("converter:empty"));
+        return;
+      }
+
+      setPrimaryTranscriptionShellVisible(false);
+      if (input) {
+        input.value = "";
       }
     }
 
@@ -5367,10 +5707,7 @@ function generateVTT(segments) {
         resetStatusText: resetStatusText,
         rebuildWorker: rebuildWorker
       });
-      setPrimaryTranscriptionShellVisible(false);
-      if (input) {
-        input.value = "";
-      }
+      showPrimaryTranscriptionUploadShell();
       if (!worker && rebuildWorker) {
         rebuildTranscribeWorker();
       }
@@ -5507,18 +5844,7 @@ function generateVTT(segments) {
           resetStatusText: true,
           preserveInputValue: false
         });
-        setPrimaryTranscriptionShellVisible(false);
-      });
-    }
-    if (changeFileBtn) {
-      changeFileBtn.addEventListener("click", function () {
-        if (!processingLocked) {
-          softResetTranscriptionShell({
-            resetStatusText: true,
-            preserveInputValue: false
-          });
-          input.click();
-        }
+        showPrimaryTranscriptionUploadShell();
       });
     }
     if (extractAudioCta) {
@@ -5838,7 +6164,7 @@ function generateVTT(segments) {
           resetStatusText: true,
           preserveInputValue: false
         });
-        setPrimaryTranscriptionShellVisible(false);
+        showPrimaryTranscriptionUploadShell();
         setStatus(statusEl, "Unsupported or corrupted file", "error");
         return;
       }
@@ -5861,6 +6187,10 @@ function generateVTT(segments) {
         }
         root.__audioPreviewUrl = URL.createObjectURL(file);
         audioPlayer.src = root.__audioPreviewUrl;
+        audioPlayer.currentTime = 0;
+        audioPlayer.volume = 1;
+        root.__transcriptPlaybackHasStarted = false;
+        root.__transcriptPlaybackVolumeSync = 1;
         audioPlayer.style.display = "none";
       }
       resetTranscriptState();

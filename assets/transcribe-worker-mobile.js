@@ -466,7 +466,6 @@ function inspectBadTranscriptionOutput(text, audio, language) {
   const reasons = [];
   const audioStats = getAudioSignalStats(audio);
   const useRepetitionGuards = !shouldUseArabicPrompt(language);
-
   if (useRepetitionGuards && hasRepetitionLoop(text, language)) {
     reasons.push("repetition_loop");
   }
@@ -496,8 +495,6 @@ function inspectTimestampQuality(chunks, clipDurationSeconds) {
   }
 
   let validCount = 0;
-  let overlapCount = 0;
-  let lastEnd = -Infinity;
   let collapsedCount = 0;
 
   for (const chunk of chunks) {
@@ -519,20 +516,13 @@ function inspectTimestampQuality(chunks, clipDurationSeconds) {
     if (end <= start) {
       return { ok: false, reason: "timestamps_invalid_order" };
     }
-    if (lastEnd > -Infinity && start < lastEnd - BAD_OVERLAP_EPSILON) {
-      overlapCount += 1;
-    }
     if (Math.abs(end - TIMESTAMP_COLLAPSE_SECONDS) <= TIMESTAMP_COLLAPSE_EPSILON) {
       collapsedCount += 1;
     }
-    lastEnd = Math.max(lastEnd, end);
   }
 
   if (!validCount) {
     return { ok: false, reason: "missing_timestamps" };
-  }
-  if (overlapCount >= Math.max(2, Math.floor(validCount * 0.25))) {
-    return { ok: false, reason: "timestamps_overlap_badly" };
   }
   if (validCount >= 3 && collapsedCount >= Math.max(3, Math.floor(validCount * 0.5)) && clipDurationSeconds >= 10) {
     return { ok: false, reason: "timestamps_collapsed_29_98" };
@@ -678,8 +668,6 @@ function appendTimedChunks(target, sourceChunks, offsetSeconds) {
     return;
   }
 
-  let lastEnd = target.length ? target[target.length - 1].timestamp[1] : -Infinity;
-
   sourceChunks.forEach((chunkResult) => {
     let start = Number(chunkResult && chunkResult.timestamp && chunkResult.timestamp[0]);
     const end = Number(chunkResult && chunkResult.timestamp && chunkResult.timestamp[1]);
@@ -692,14 +680,6 @@ function appendTimedChunks(target, sourceChunks, offsetSeconds) {
     start += offsetSeconds;
     const absoluteEnd = end + offsetSeconds;
 
-    if (absoluteEnd <= lastEnd + 0.02) {
-      return;
-    }
-
-    if (start < lastEnd && absoluteEnd > lastEnd) {
-      start = lastEnd;
-    }
-
     if (absoluteEnd <= start) {
       return;
     }
@@ -708,7 +688,6 @@ function appendTimedChunks(target, sourceChunks, offsetSeconds) {
       text,
       timestamp: [start, absoluteEnd]
     });
-    lastEnd = absoluteEnd;
   });
 }
 
@@ -719,7 +698,6 @@ function sanitizeTimedChunks(chunks, clipDurationSeconds) {
 
   const safeDuration = Math.max(0, Number(clipDurationSeconds) || 0);
   const result = [];
-  let lastEnd = 0;
 
   chunks.forEach((chunk) => {
     const text = normalizeText(chunk && chunk.text);
@@ -737,10 +715,6 @@ function sanitizeTimedChunks(chunks, clipDurationSeconds) {
     start = Math.max(0, Math.min(safeDuration, start));
     end = Math.max(0, Math.min(safeDuration, end));
 
-    if (start < lastEnd) {
-      start = lastEnd;
-    }
-
     if (end <= start) {
       return;
     }
@@ -749,7 +723,6 @@ function sanitizeTimedChunks(chunks, clipDurationSeconds) {
       text,
       timestamp: [start, end]
     });
-    lastEnd = end;
   });
 
   return result;

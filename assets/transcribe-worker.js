@@ -36,6 +36,7 @@ const DEFAULT_STRIDE_LENGTH_SECONDS = 5;
 const PHONE_CHUNK_LENGTH_SECONDS = 15;
 const PHONE_STRIDE_LENGTH_SECONDS = 3;
 const MIN_SPEECH_REGION_CLIP_SECONDS = 12;
+const ENABLE_DESKTOP_SPEECH_AWARE_CHUNKING = false;
 const TIMESTAMP_COLLAPSE_SECONDS = 29.98;
 const TIMESTAMP_COLLAPSE_EPSILON = 0.18;
 const TIMESTAMP_OVERRUN_EPSILON = 0.35;
@@ -340,7 +341,7 @@ function getDefaultTranscriptionOptions(modelKey, useLegacyRuntime = false) {
   return {
     chunk_length_s: useConservativeLegacyDefaults ? PHONE_CHUNK_LENGTH_SECONDS : DEFAULT_CHUNK_LENGTH_SECONDS,
     stride_length_s: useConservativeLegacyDefaults ? PHONE_STRIDE_LENGTH_SECONDS : DEFAULT_STRIDE_LENGTH_SECONDS,
-    return_timestamps: useLegacyRuntime ? true : "word",
+    return_timestamps: true,
     task: "transcribe",
     force_full_sequences: false,
     top_k: 0,
@@ -722,26 +723,19 @@ function createGenerationControlState(model, modelKey, useLegacyRuntime) {
   const pathLabel = useLegacyRuntime
     ? "legacy-whisper"
     : (modelKey === "baby-raptor" ? "baby-raptor-modern" : "default-whisper");
-  const shouldApplySafeRepetitionControls = useLegacyRuntime || modelKey === "baby-raptor";
   const state = {
     modelKey,
     pathLabel,
     useLegacyRuntime: !!useLegacyRuntime,
     runtimeHints: getGenerationConfigHints(model),
     controlsRejected: false,
-    attemptedControls: shouldApplySafeRepetitionControls,
-    plannedApplied: shouldApplySafeRepetitionControls
-      ? ["no_repeat_ngram_size=3", "repetition_penalty=1.02"]
-      : [],
+    attemptedControls: false,
+    plannedApplied: [],
     skipped: [],
     hasLoggedInitialReport: false
   };
 
-  if (!shouldApplySafeRepetitionControls) {
-    pushUnique(state.skipped, "safe repetition controls reserved for Baby Raptor or legacy path");
-  } else if (!state.runtimeHints.length) {
-    pushUnique(state.skipped, "no explicit runtime hint found; will try conservative built-in options and fallback on unsupported");
-  }
+  pushUnique(state.skipped, "desktop repetition controls disabled for accuracy testing");
 
   return state;
 }
@@ -758,14 +752,7 @@ function getGenerationControlReport(state) {
 }
 
 function getGenerationControlOverrides(state) {
-  if (!state || !state.attemptedControls || state.controlsRejected) {
-    return {};
-  }
-
-  return {
-    no_repeat_ngram_size: SAFE_NO_REPEAT_NGRAM_SIZE,
-    repetition_penalty: SAFE_REPETITION_PENALTY
-  };
+  return {};
 }
 
 function isUnsupportedGenerationControlError(error) {
@@ -1017,8 +1004,6 @@ function inspectTimestampQuality(chunks, clipDurationSeconds) {
   }
 
   let validCount = 0;
-  let lastEnd = -Infinity;
-  let overlapCount = 0;
 
   for (const chunk of chunks) {
     const timestamp = chunk && chunk.timestamp;
@@ -1047,24 +1032,12 @@ function inspectTimestampQuality(chunks, clipDurationSeconds) {
       };
     }
 
-    if (lastEnd > -Infinity && start < lastEnd - BAD_OVERLAP_EPSILON) {
-      overlapCount += 1;
-    }
-
-    lastEnd = Math.max(lastEnd, end);
   }
 
   if (!validCount) {
     return {
       ok: false,
       reason: "missing_timestamps"
-    };
-  }
-
-  if (overlapCount >= Math.max(2, Math.floor(validCount * 0.25))) {
-    return {
-      ok: false,
-      reason: "timestamps_overlap_badly"
     };
   }
 
@@ -1088,7 +1061,6 @@ function sanitizeTimedChunks(chunks, clipDurationSeconds) {
 
   const safeDuration = Math.max(0, Number(clipDurationSeconds) || 0);
   const result = [];
-  let lastEnd = 0;
 
   chunks.forEach((chunk) => {
     const text = normalizeText(chunk && chunk.text);
@@ -1106,10 +1078,6 @@ function sanitizeTimedChunks(chunks, clipDurationSeconds) {
     start = Math.max(0, Math.min(safeDuration, start));
     end = Math.max(0, Math.min(safeDuration, end));
 
-    if (start < lastEnd) {
-      start = lastEnd;
-    }
-
     if (end <= start) {
       return;
     }
@@ -1118,7 +1086,6 @@ function sanitizeTimedChunks(chunks, clipDurationSeconds) {
       text,
       timestamp: [start, end]
     });
-    lastEnd = end;
   });
 
   return result;
@@ -1352,8 +1319,6 @@ function appendTimedChunks(target, sourceChunks, offsetSeconds) {
     return;
   }
 
-  let lastEnd = target.length ? target[target.length - 1].timestamp[1] : -Infinity;
-
   sourceChunks.forEach((chunkResult) => {
     let start = Number(chunkResult && chunkResult.timestamp && chunkResult.timestamp[0]);
     const end = Number(chunkResult && chunkResult.timestamp && chunkResult.timestamp[1]);
@@ -1366,14 +1331,6 @@ function appendTimedChunks(target, sourceChunks, offsetSeconds) {
     start += offsetSeconds;
     const absoluteEnd = end + offsetSeconds;
 
-    if (absoluteEnd <= lastEnd + 0.02) {
-      return;
-    }
-
-    if (start < lastEnd && absoluteEnd > lastEnd) {
-      start = lastEnd;
-    }
-
     if (absoluteEnd <= start) {
       return;
     }
@@ -1382,7 +1339,6 @@ function appendTimedChunks(target, sourceChunks, offsetSeconds) {
       text,
       timestamp: [start, absoluteEnd]
     });
-    lastEnd = absoluteEnd;
   });
 }
 
@@ -1430,7 +1386,8 @@ async function handleTranscription(audioBuffer, selectedLanguage, timelineOffset
 
   let fullText = "";
   let fullChunks = [];
-  const useSpeechAwareChunks = audio.length > sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS;
+  const useSpeechAwareChunks = ENABLE_DESKTOP_SPEECH_AWARE_CHUNKING
+    && audio.length > sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS;
   const chunkPlan = useSpeechAwareChunks ? buildSpeechAwareChunks(audio, sampleRate) : [{
     audio: audio,
     startSample: 0,
