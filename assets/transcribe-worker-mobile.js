@@ -213,14 +213,12 @@ function createGenerationControlState(model, runtimeProfile) {
       : (runtimeProfile && runtimeProfile.quantized ? "mobile-safari-legacy" : "mobile-browser-legacy"),
     runtimeHints: getGenerationConfigHints(model),
     controlsRejected: false,
-    plannedApplied: ["no_repeat_ngram_size=3", "repetition_penalty=1.02"],
+    plannedApplied: [],
     skipped: [],
     hasLoggedInitialReport: false
   };
 
-  if (!state.runtimeHints.length) {
-    pushUnique(state.skipped, "no explicit runtime hint found; will try conservative built-in options and fallback on unsupported");
-  }
+  pushUnique(state.skipped, "mobile repetition controls disabled for accuracy testing");
 
   return state;
 }
@@ -278,14 +276,7 @@ async function getArabicPromptIds(model, modelKey) {
 }
 
 function getGenerationControlOverrides(state) {
-  if (!state || state.controlsRejected) {
-    return {};
-  }
-
-  return {
-    no_repeat_ngram_size: SAFE_NO_REPEAT_NGRAM_SIZE,
-    repetition_penalty: SAFE_REPETITION_PENALTY
-  };
+  return {};
 }
 
 function isUnsupportedGenerationControlError(error) {
@@ -1217,8 +1208,9 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
         : { ok: true, reason: "timestamps_disabled" };
       let badOutputCheck = inspectBadTranscriptionOutput(resultText, chunk.audio, selectedLanguage);
       const mobileWarnings = [];
+      const hasUsableTimestampedSegments = timestampsEnabled && timestampCheck.ok && resultSegments.length > 0;
 
-      if (!timestampCheck.ok || !badOutputCheck.ok) {
+      if (!timestampCheck.ok || (!badOutputCheck.ok && !hasUsableTimestampedSegments)) {
         const retryOptions = {
           ...options,
           return_timestamps: timestampsEnabled
@@ -1247,11 +1239,16 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
           ? inspectTimestampQuality(retriedRawChunks, clipDurationSeconds)
           : { ok: true, reason: "timestamps_disabled" };
         const retriedBadOutputCheck = inspectBadTranscriptionOutput(retriedText, chunk.audio, selectedLanguage);
+        const retriedHasUsableTimestampedSegments = timestampsEnabled
+          && retriedTimestampCheck.ok
+          && retriedSegments.length > 0;
 
         if (retriedTimestampCheck.ok && retriedBadOutputCheck.ok) {
           result = retriedResult;
           resultText = retriedText;
           resultSegments = retriedSegments;
+          timestampCheck = retriedTimestampCheck;
+          badOutputCheck = retriedBadOutputCheck;
           pushUnique(mobileWarnings, "language_hint");
         } else {
           logWorkerEvent("transcription_retry_failed", {
@@ -1264,7 +1261,13 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
             initialTimestampReason: timestampCheck.reason,
             retryTimestampReason: retriedTimestampCheck.reason
           });
-          if (
+          if (retriedHasUsableTimestampedSegments) {
+            result = retriedResult;
+            resultText = retriedText;
+            resultSegments = retriedSegments;
+            timestampCheck = retriedTimestampCheck;
+            badOutputCheck = retriedBadOutputCheck;
+          } else if (
             retriedBadOutputCheck.ok
             && retriedText
             && retriedText.trim()
@@ -1305,6 +1308,12 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
 
       if (resultText) {
         combinedTextParts.push(resultText);
+      }
+      if (timestampsEnabled && resultSegments.length && !badOutputCheck.ok) {
+        pushUnique(mobileWarnings, "repetition");
+        if (badOutputCheck.reasons.includes("silence_hallucination")) {
+          pushUnique(mobileWarnings, "silence_hallucination");
+        }
       }
       mobileWarnings.forEach((warning) => pushUnique(combinedWarnings, warning));
 

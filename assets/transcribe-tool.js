@@ -4,7 +4,7 @@
   var srtContent = "";
   var vttContent = "";
   var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-20-6";
-  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-20-3";
+  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-20-5";
   var worker = null;
   var workerGeneration = 0;
   var processingLocked = false;
@@ -846,6 +846,8 @@
             score += 2;
           } else if (hardwareConcurrency >= TREX_MIN_RECOMMENDED_CPU_THREADS) {
             score += 1;
+          } else if (qualifiesForAppleDesktopTyrannosaurCpuHeuristic(hardwareConcurrency)) {
+            score += 2;
           } else {
             reasonParts.push("T-Rex needs a stronger CPU for comfortable local transcription on this machine.");
           }
@@ -960,8 +962,10 @@
     }
 
     var hasWebGPU = hasWebGPUAcceleration();
-    var hasTyrannosaurMemory = hasKnownMemory && deviceMemory >= TREX_MIN_RECOMMENDED_MEMORY_GB;
-    var hasTyrannosaurCpu = hasKnownCpu && hardwareConcurrency >= TREX_MIN_RECOMMENDED_CPU_THREADS;
+    var hasTyrannosaurMemory = !hasKnownMemory || deviceMemory >= TREX_MIN_RECOMMENDED_MEMORY_GB;
+    var hasTyrannosaurCpu = !hasKnownCpu
+      || hardwareConcurrency >= TREX_MIN_RECOMMENDED_CPU_THREADS
+      || qualifiesForAppleDesktopTyrannosaurCpuHeuristic(hardwareConcurrency);
     var tRexReason = desktopReason;
     if (webGpuAssessment.status === "checking") {
       tRexReason = webGpuAssessment.reason;
@@ -1119,6 +1123,21 @@
     return /Safari/i.test(userAgent)
       && /Apple/i.test(vendor)
       && !/CriOS|FxiOS|EdgiOS|Chrome|Chromium|Android/i.test(userAgent);
+  }
+
+  function isAppleDesktopBrowserEngine() {
+    var userAgent = typeof navigator !== "undefined" ? String(navigator.userAgent || "") : "";
+    var platform = typeof navigator !== "undefined" ? String(navigator.platform || "") : "";
+
+    return !isAppleMobileBrowserEngine()
+      && isSafariLikeBrowser()
+      && /Mac/i.test(userAgent + " " + platform);
+  }
+
+  function qualifiesForAppleDesktopTyrannosaurCpuHeuristic(hardwareConcurrency) {
+    return isAppleDesktopBrowserEngine()
+      && Number.isFinite(hardwareConcurrency)
+      && hardwareConcurrency >= 8;
   }
 
   function getDeviceSupportLabel() {
@@ -6300,4 +6319,3 @@ function generateVTT(segments) {
 
   window.initTranscribeTool = initTranscribeTool;
 })();
-
