@@ -31,7 +31,7 @@
     "Original": "النص الأصلي",
     "Translated": "الترجمة",
     "Edit transcript": "تحرير النص",
-    "Show Timestamps": "إظهار التوقيت",
+    "Timestamp": "التوقيت",
     "Transcription will appear here after processing.": "سيظهر النص هنا بعد انتهاء المعالجة.",
     "Translate transcript": "ترجمة النص",
     "Refine with ChatGPT": "تحسين عبر ChatGPT",

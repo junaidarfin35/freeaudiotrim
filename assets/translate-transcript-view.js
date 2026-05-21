@@ -24,7 +24,7 @@
       subtitle: "Translation View",
       copy: "Copy source transcript",
       copied: "Source transcript copied.",
-      timestamps: "Show timestamps",
+      timestamps: "Timestamp",
       expiredTitle: "Translation session expired",
       expiredBody: "Return to the transcription tool, then open translation again from your edited transcript.",
       source: "Source",

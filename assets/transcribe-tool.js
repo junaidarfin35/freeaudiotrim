@@ -3,8 +3,8 @@
 
   var srtContent = "";
   var vttContent = "";
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-20-6";
-  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-20-5";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-21-1";
+  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-21-1";
   var worker = null;
   var workerGeneration = 0;
   var processingLocked = false;
@@ -2667,14 +2667,10 @@
       '    <button class="at-btn at-btn-primary" id="start-transcribe" data-role="startTranscribe" disabled>Transcribe</button>',
       "  </div>",
       '  <div class="at-row transcribe-controls is-hidden" data-role="viewControlsRow">',
-      '    <div class="tab-switch">',
-      '      <button class="tab active" data-tab="original">Original</button>',
-      '      <button class="tab" data-tab="translated">Translated</button>',
-      "    </div>",
       '    <button class="at-btn at-btn-soft" type="button" data-role="toggleEdit" disabled>Edit transcript</button>',
       '    <label class="enhance-label">',
       '      <input type="checkbox" id="show-timestamps" checked>',
-      '      <span>Show Timestamps</span>',
+      '      <span>Timestamp</span>',
       '    </label>',
       "  </div>",
       '  <div class="at-row is-hidden" data-role="transcriptRow">',
@@ -5323,11 +5319,49 @@ function generateVTT(segments) {
       renderLanguagePickerOptions(languagePickerSearch ? languagePickerSearch.value : "");
     }
 
+    function updatePickerPanelPlacement(panel, pickerRoot) {
+      if (!panel || !pickerRoot || panel.classList.contains("is-hidden")) {
+        return;
+      }
+
+      panel.classList.remove("is-open-up");
+
+      var viewportHeight = window.visualViewport && Number.isFinite(window.visualViewport.height)
+        ? window.visualViewport.height
+        : window.innerHeight;
+      var pickerRect = pickerRoot.getBoundingClientRect();
+      var panelRect = panel.getBoundingClientRect();
+      var spaceBelow = viewportHeight - pickerRect.bottom;
+      var spaceAbove = pickerRect.top;
+      var panelHeight = panelRect.height || 0;
+      var neededSpace = Math.min(Math.max(220, panelHeight + 12), viewportHeight * 0.9);
+      var shouldOpenUp = spaceBelow < neededSpace && spaceAbove > spaceBelow;
+
+      panel.classList.toggle("is-open-up", shouldOpenUp);
+    }
+
+    function schedulePickerPanelPlacement(panel, pickerRoot) {
+      if (!panel || !pickerRoot) {
+        return;
+      }
+
+      window.requestAnimationFrame(function () {
+        updatePickerPanelPlacement(panel, pickerRoot);
+      });
+    }
+
+    function refreshOpenPickerPlacements() {
+      updatePickerPanelPlacement(languagePickerPanel, languagePicker);
+      updatePickerPanelPlacement(translateSourcePickerPanel, translateSourcePicker);
+      updatePickerPanelPlacement(translateTargetPickerPanel, translateTargetPicker);
+    }
+
     function closeLanguagePicker() {
       if (!languagePickerPanel || !languagePickerToggle) {
         return;
       }
       languagePickerPanel.classList.add("is-hidden");
+      languagePickerPanel.classList.remove("is-open-up");
       languagePickerToggle.setAttribute("aria-expanded", "false");
     }
 
@@ -5338,6 +5372,7 @@ function generateVTT(segments) {
       renderLanguagePickerOptions(languagePickerSearch ? languagePickerSearch.value : "");
       languagePickerPanel.classList.remove("is-hidden");
       languagePickerToggle.setAttribute("aria-expanded", "true");
+      schedulePickerPanelPlacement(languagePickerPanel, languagePicker);
       if (languagePickerSearch) {
         window.requestAnimationFrame(function () {
           languagePickerSearch.focus();
@@ -5424,6 +5459,7 @@ function generateVTT(segments) {
         return;
       }
       translateSourcePickerPanel.classList.add("is-hidden");
+      translateSourcePickerPanel.classList.remove("is-open-up");
       translateSourcePickerToggle.setAttribute("aria-expanded", "false");
     }
 
@@ -5434,6 +5470,7 @@ function generateVTT(segments) {
       syncTranslationPickerSelections();
       translateSourcePickerPanel.classList.remove("is-hidden");
       translateSourcePickerToggle.setAttribute("aria-expanded", "true");
+      schedulePickerPanelPlacement(translateSourcePickerPanel, translateSourcePicker);
       if (translateSourcePickerSearch) {
         window.requestAnimationFrame(function () {
           translateSourcePickerSearch.focus();
@@ -5479,6 +5516,7 @@ function generateVTT(segments) {
         return;
       }
       translateTargetPickerPanel.classList.add("is-hidden");
+      translateTargetPickerPanel.classList.remove("is-open-up");
       translateTargetPickerToggle.setAttribute("aria-expanded", "false");
     }
 
@@ -5489,6 +5527,7 @@ function generateVTT(segments) {
       syncTranslationPickerSelections();
       translateTargetPickerPanel.classList.remove("is-hidden");
       translateTargetPickerToggle.setAttribute("aria-expanded", "true");
+      schedulePickerPanelPlacement(translateTargetPickerPanel, translateTargetPicker);
       if (translateTargetPickerSearch) {
         window.requestAnimationFrame(function () {
           translateTargetPickerSearch.focus();
@@ -5909,6 +5948,7 @@ function generateVTT(segments) {
     if (languagePickerSearch) {
       languagePickerSearch.addEventListener("input", function () {
         renderLanguagePickerOptions(languagePickerSearch.value);
+        schedulePickerPanelPlacement(languagePickerPanel, languagePicker);
       });
       languagePickerSearch.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
@@ -5934,6 +5974,7 @@ function generateVTT(segments) {
     if (translateSourcePickerSearch) {
       translateSourcePickerSearch.addEventListener("input", function () {
         syncTranslationPickerSelections();
+        schedulePickerPanelPlacement(translateSourcePickerPanel, translateSourcePicker);
       });
       translateSourcePickerSearch.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
@@ -5959,6 +6000,7 @@ function generateVTT(segments) {
     if (translateTargetPickerSearch) {
       translateTargetPickerSearch.addEventListener("input", function () {
         syncTranslationPickerSelections();
+        schedulePickerPanelPlacement(translateTargetPickerPanel, translateTargetPicker);
       });
       translateTargetPickerSearch.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
@@ -5987,6 +6029,13 @@ function generateVTT(segments) {
         closeTranslationTargetPicker();
       }
     });
+
+    window.addEventListener("resize", refreshOpenPickerPlacements, { passive: true });
+    window.addEventListener("scroll", refreshOpenPickerPlacements, { passive: true });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", refreshOpenPickerPlacements, { passive: true });
+      window.visualViewport.addEventListener("scroll", refreshOpenPickerPlacements, { passive: true });
+    }
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {
         closeLanguagePicker();

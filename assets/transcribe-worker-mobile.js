@@ -543,10 +543,10 @@ function buildSpeechAwareChunks(audio, sampleRate, chunkLengthSeconds, strideLen
 
   const frameMs = 30;
   const frameSize = Math.max(160, Math.floor(sampleRate * (frameMs / 1000)));
-  const minSpeechFrames = Math.max(4, Math.round(180 / frameMs));
-  const mergePauseFrames = Math.max(4, Math.round(240 / frameMs));
-  const packPauseFrames = Math.max(10, Math.round(480 / frameMs));
-  const paddingFrames = Math.max(4, Math.round(180 / frameMs));
+  const minSpeechFrames = Math.max(3, Math.round(120 / frameMs));
+  const mergePauseFrames = Math.max(6, Math.round(420 / frameMs));
+  const packPauseFrames = Math.max(14, Math.round(900 / frameMs));
+  const paddingFrames = Math.max(9, Math.round(320 / frameMs));
   const maxChunkFrames = Math.max(
     1,
     Math.round(((chunkLengthSeconds - strideLengthSeconds) * 1000) / frameMs)
@@ -572,7 +572,7 @@ function buildSpeechAwareChunks(audio, sampleRate, chunkLengthSeconds, strideLen
 
   const globalRms = Math.sqrt(totalEnergy / Math.max(1, totalCount));
   const noiseFloor = getPercentile(rms, 0.2);
-  const threshold = Math.max(0.006, Math.min(0.03, Math.max(globalRms * 0.45, noiseFloor * 2.2)));
+  const threshold = Math.max(0.0045, Math.min(0.025, Math.max(globalRms * 0.4, noiseFloor * 2.0)));
   const speechRegions = [];
   let idx = 0;
 
