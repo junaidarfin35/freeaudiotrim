@@ -1,75 +1,10 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 234.63 234.63">
-  <defs>
-    <style>
-      .cls-1 {
-        opacity: .6;
-      }
-
-      .cls-2 {
-        fill: #fff;
-      }
-
-      .cls-3 {
-        fill: #ffc757;
-      }
-
-      .cls-4 {
-        fill: #5b6cef;
-      }
-
-      .cls-5 {
-        opacity: .8;
-      }
-
-      .cls-6 {
-        opacity: .45;
-      }
-
-      .cls-7 {
-        fill: #031536;
-      }
-
-      .cls-8 {
-        opacity: .7;
-      }
-    </style>
-  </defs>
-  <g id="Layer_1-2" data-name="Layer 1">
-    <g>
-      <rect class="cls-7" width="234.63" height="234.63" rx="52.58" ry="52.58"/>
-      <g>
-        <rect class="cls-4" x="77.14" y="52.32" width="14.53" height="130" rx="7.26" ry="7.26"/>
-        <rect class="cls-4" x="54.39" y="68.76" width="14.53" height="92.72" rx="7.26" ry="7.26"/>
-        <rect class="cls-4" x="99.89" y="83.15" width="14.53" height="66.46" rx="7.26" ry="7.26"/>
-        <rect class="cls-4" x="20.41" y="102.25" width="9.23" height="25.68" rx="4.62" ry="4.62"/>
-        <rect class="cls-4" x="36.04" y="85.92" width="11.55" height="58.95" rx="5.77" ry="5.77"/>
-        <rect class="cls-4" x="121.64" y="106.19" width="12.89" height="20.27" rx="6.44" ry="6.44"/>
-        <path class="cls-3" d="M188.73,120.05h-28.23c-2.06,0-3.73-1.67-3.73-3.73s1.67-3.73,3.73-3.73h28.23c2.06,0,3.73,1.67,3.73,3.73s-1.67,3.73-3.73,3.73Z"/>
-        <g class="cls-8">
-          <path class="cls-2" d="M210.5,120.11h-9.11c-2.06,0-3.73-1.67-3.73-3.73s1.67-3.73,3.73-3.73h9.11c2.06,0,3.73,1.67,3.73,3.73s-1.67,3.73-3.73,3.73Z"/>
-        </g>
-        <g class="cls-5">
-          <path class="cls-2" d="M200.3,103.98h-39.79c-2.06,0-3.73-1.67-3.73-3.73s1.67-3.73,3.73-3.73h39.79c2.06,0,3.73,1.67,3.73,3.73s-1.67,3.73-3.73,3.73Z"/>
-        </g>
-        <path class="cls-2" d="M188.73,87.91h-28.23c-2.06,0-3.73-1.67-3.73-3.73s1.67-3.73,3.73-3.73h28.23c2.06,0,3.73,1.67,3.73,3.73s-1.67,3.73-3.73,3.73Z"/>
-        <g class="cls-1">
-          <path class="cls-2" d="M200.3,135.67h-39.79c-2.06,0-3.73-1.67-3.73-3.73s1.67-3.73,3.73-3.73h39.79c2.06,0,3.73,1.67,3.73,3.73s-1.67,3.73-3.73,3.73Z"/>
-        </g>
-        <g class="cls-6">
-          <path class="cls-2" d="M175.62,151.29h-15.12c-2.06,0-3.73-1.67-3.73-3.73s1.67-3.73,3.73-3.73h15.12c2.06,0,3.73,1.67,3.73,3.73s-1.67,3.73-3.73,3.73Z"/>
-        </g>
-        <g class="cls-6">
-          <path class="cls-2" d="M160.51,168.27c-.99,0-1.95-.4-2.63-1.09-.7-.69-1.09-1.65-1.09-2.63,0-.24.03-.49.07-.73.04-.23.12-.47.21-.7.1-.22.21-.44.35-.65.13-.2.29-.39.46-.56.69-.7,1.65-1.09,2.63-1.09s1.94.4,2.63,1.09c.7.7,1.09,1.66,1.09,2.63s-.4,1.95-1.09,2.63c-.7.7-1.66,1.09-2.63,1.09Z"/>
-        </g>
-        <g class="cls-6">
-          <path class="cls-2" d="M172.07,168.27c-.98,0-1.94-.4-2.63-1.09-.7-.7-1.09-1.66-1.09-2.63s.4-1.94,1.09-2.63c.7-.7,1.66-1.09,2.63-1.09s1.95.4,2.64,1.09c.69.7,1.08,1.66,1.08,2.63s-.4,1.95-1.09,2.63c-.69.7-1.65,1.09-2.63,1.09Z"/>
-        </g>
-        <g class="cls-6">
-          <path class="cls-2" d="M183.85,168.27c-.99,0-1.95-.4-2.64-1.09s-1.08-1.65-1.08-2.63.4-1.95,1.08-2.63c.7-.7,1.66-1.09,2.64-1.09s1.94.4,2.63,1.09c.17.17.33.36.46.56.13.21.25.42.34.65.1.22.17.46.22.7.05.24.07.49.07.73,0,.98-.4,1.94-1.09,2.63s-1.66,1.09-2.63,1.09Z"/>
-        </g>
-        <path class="cls-3" d="M144.73,158.04v-78.33c3.05-.9,5.28-3.72,5.28-7.05,0-4.05-3.3-7.35-7.35-7.35s-7.35,3.3-7.35,7.35c0,3.33,2.23,6.15,5.28,7.05v78.33c-3.05.9-5.28,3.72-5.28,7.05,0,4.05,3.3,7.35,7.35,7.35s7.35-3.3,7.35-7.35c0-3.33-2.23-6.15-5.28-7.05ZM139.45,72.66c0-1.77,1.44-3.21,3.21-3.21s3.21,1.44,3.21,3.21-1.44,3.21-3.21,3.21-3.21-1.44-3.21-3.21ZM142.66,168.3c-1.77,0-3.21-1.44-3.21-3.21s1.44-3.21,3.21-3.21,3.21,1.44,3.21,3.21-1.44,3.21-3.21,3.21Z"/>
-      </g>
-    </g>
-  </g>
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+	<defs>
+		<image width="512" height="512" id="img1" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgMjU2IDI1NiI+PHBhdGggZmlsbD0iIzAwMDAwMCIgZD0iTTYwIDk2djY0YTEyIDEyIDAgMCAxLTI0IDBWOTZhMTIgMTIgMCAwIDEgMjQgMFptMjgtNzZhMTIgMTIgMCAwIDAtMTIgMTJ2MTkyYTEyIDEyIDAgMCAwIDI0IDBWMzJhMTIgMTIgMCAwIDAtMTItMTJabTQwIDMyYTEyIDEyIDAgMCAwLTEyIDEydjEyOGExMiAxMiAwIDAgMCAyNCAwVjY0YTEyIDEyIDAgMCAwLTEyLTEyWm00MCAzMmExMiAxMiAwIDAgMC0xMiAxMnY2NGExMiAxMiAwIDAgMCAyNCAwVjk2YTEyIDEyIDAgMCAwLTEyLTEyWm00MC0xNmExMiAxMiAwIDAgMC0xMiAxMnY5NmExMiAxMiAwIDAgMCAyNCAwVjgwYTEyIDEyIDAgMCAwLTEyLTEyWiIvPjwvc3ZnPg=="/>
+	</defs>
+	<style>
+		.s0 { fill: #ffffff } 
+	</style>
+	<path id="Background" fill-rule="evenodd" class="s0" d="m53 0h406c29.27 0 53 23.73 53 53v406c0 29.27-23.73 53-53 53h-406c-29.27 0-53-23.73-53-53v-406c0-29.27 23.73-53 53-53z"/>
+	<use id="waveform-bold" href="#img1" transform="matrix(1,0,0,1,0,0)"/>
 </svg>
