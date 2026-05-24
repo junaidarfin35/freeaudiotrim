@@ -55,6 +55,10 @@ document.addEventListener("DOMContentLoaded", () => {
     "audio-video-transcription-online.html": {
       name: "Audio Transcription",
       description: "Convert speech into text automatically"
+    },
+    "ai-voice-studio.html": {
+      name: "AI Voice Studio",
+      description: "Enhance spoken voice with private browser AI"
     }
   };
   const allToolPages = Object.keys(toolMeta);
@@ -117,10 +121,19 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     "audio-video-transcription-online.html": {
       primary: [
+        "ai-voice-studio.html",
         "extract-audio-from-video.html",
         "remove-silence-from-audio.html",
         "audio-cutter-online.html",
         "normalize-audio-volume.html"
+      ]
+    },
+    "ai-voice-studio.html": {
+      primary: [
+        "audio-video-transcription-online.html",
+        "normalize-audio-volume.html",
+        "remove-silence-from-audio.html",
+        "audio-cutter-online.html"
       ]
     },
     "audio-pitch-changer.html": {
@@ -149,6 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     "normalize-audio-volume.html": {
       primary: [
+        "ai-voice-studio.html",
         "remove-silence-from-audio.html",
         "audio-speed-changer.html",
         "merge-audio-files.html",
@@ -157,6 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
     },
     "remove-silence-from-audio.html": {
       primary: [
+        "ai-voice-studio.html",
         "normalize-audio-volume.html",
         "merge-audio-files.html",
         "audio-cutter-online.html",

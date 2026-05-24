@@ -607,10 +607,11 @@
   this.duration = duration || 1;
   };
 
-  function TrimController(canvas, renderer, onChange) {
+  function TrimController(canvas, renderer, onChange, onSeek) {
     this.canvas = canvas;
     this.renderer = renderer;
     this.onChange = onChange;
+    this.onSeek = onSeek;
     this.startRatio = 0;
     this.endRatio = 1;
     this.minGap = 0.002;
@@ -662,7 +663,10 @@
     if (distStart <= hitZone || distEnd <= hitZone) {
       this.dragging = distStart <= distEnd ? "start" : "end";
     } else if (x > startX && x < endX) {
-      this.dragging = Math.abs(x - startX) < Math.abs(x - endX) ? "start" : "end";
+      this.dragging = "seek";
+      if (typeof this.onSeek === "function") {
+        this.onSeek(this.renderer.xToRatio(x));
+      }
     } else {
       this.dragging = x < startX ? "start" : "end";
     }
@@ -678,6 +682,12 @@
     }
     var rect = this.canvas.getBoundingClientRect();
     var ratio = this.renderer.xToRatio(event.clientX - rect.left);
+    if (this.dragging === "seek") {
+      if (typeof this.onSeek === "function") {
+        this.onSeek(ratio);
+      }
+      return;
+    }
     var prevStart = this.startRatio;
     var prevEnd = this.endRatio;
     if (this.dragging === "start") {
@@ -696,9 +706,12 @@
     if (this.pointerId !== event.pointerId) {
       return;
     }
+    var wasSeeking = this.dragging === "seek";
     this.dragging = null;
     this.pointerId = null;
-    this._flushEmit();
+    if (!wasSeeking) {
+      this._flushEmit();
+    }
   };
 
   TrimController.prototype._emit = function () {
@@ -780,7 +793,12 @@
     this.fileNameEl = this.root.querySelector('[data-role="fileName"]');
     this.changeFileBtn = this.root.querySelector('[data-role="changeFile"]');
     this.renderer = new WaveformRenderer(this.canvas);
-    this.trim = new TrimController(this.canvas, this.renderer, this.onTrimChanged.bind(this));
+    this.trim = new TrimController(
+      this.canvas,
+      this.renderer,
+      this.onTrimChanged.bind(this),
+      this.onWaveformSeek.bind(this)
+    );
     this.updateTimeText();
   };
 
@@ -885,6 +903,15 @@
     return { start: start, end: end };
   };
 
+  UIController.prototype._getPlaybackStart = function () {
+    var selection = this._getSelection();
+    var current = this.audio.getCurrentPosition();
+    if (!isFinite(current)) {
+      return selection.start;
+    }
+    return clamp(current, selection.start, selection.end);
+  };
+
   UIController.prototype._setControlsEnabled = function (enabled) {
     this.playPauseBtn.disabled = !enabled;
     this.previewBtn.disabled = !enabled;
@@ -951,9 +978,25 @@
     this.updateFadeOverlay();
     this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
     if (!this.audio.isPlaying) {
-      this.audio.resetPosition(this.trim.startRatio * this.duration);
-      this.renderer.setPlayhead(this.trim.startRatio);
+      var position = this._getPlaybackStart();
+      this.audio.resetPosition(position);
+      this.renderer.setPlayhead(this.duration ? position / this.duration : this.trim.startRatio);
     }
+  };
+
+  UIController.prototype.onWaveformSeek = function (ratio) {
+    if (!this.duration) {
+      return;
+    }
+    if (this.audio.isPlaying) {
+      this.audio.pause();
+      this.stopAnimationLoop();
+      this.playPauseBtn.textContent = "Play";
+    }
+    var selection = this._getSelection();
+    var position = clamp((Number(ratio) || 0) * this.duration, selection.start, selection.end);
+    this.audio.resetPosition(position);
+    this.renderer.setPlayhead(position / this.duration);
   };
 
   UIController.prototype.updateTimeText = function () {
@@ -981,7 +1024,7 @@
       return;
     }
     var selection = this._getSelection();
-    this.audio.resetPosition(selection.start);
+    this.audio.resetPosition(this._getPlaybackStart());
     this.audio.uiFadeIn = this.fadeInDuration;
     this.audio.uiFadeOut = this.fadeOutDuration;
     this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
@@ -997,7 +1040,7 @@
     var selection = this._getSelection();
     this.audio.uiFadeIn = this.fadeInDuration;
     this.audio.uiFadeOut = this.fadeOutDuration;
-    this.audio.resetPosition(selection.start);
+    this.audio.resetPosition(this._getPlaybackStart());
     await this.audio.play(selection.start, selection.end, false);
     this.playPauseBtn.textContent = "Pause";
     this.startAnimationLoop();

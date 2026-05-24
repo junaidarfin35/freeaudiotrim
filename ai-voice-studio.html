@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Raleway:wght@600;700;900&display=swap">
+
+<link rel="icon" type="image/svg+xml" href="/assets/brand/favicon.svg">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
+<link rel="manifest" href="/assets/brand/site.webmanifest">
+
+<link rel="stylesheet" href="/css/global.css?v=2026-05-23-1">
+<link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
+<link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-1">
+
+<title>AI Voice Studio Online Free (Private Voice Enhancement)</title>
+<meta name="description" content="Enhance voice recordings in your browser with private AI noise reduction, studio-style EQ, compression, loudness polish, A/B compare, and WAV export.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://freeaudiotrim.com/ai-voice-studio.html">
+
+<meta property="og:title" content="AI Voice Studio Online Free (Private Voice Enhancement)">
+<meta property="og:description" content="Make voice recordings sound clearer, tighter, louder, and more professional with private browser-based enhancement.">
+<meta property="og:url" content="https://freeaudiotrim.com/ai-voice-studio.html">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
+<meta property="og:site_name" content="FreeAudioTrim.com">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AI Voice Studio Online Free (Private Voice Enhancement)">
+<meta name="twitter:description" content="Private browser-first voice enhancement with AI noise reduction, A/B compare, and WAV export.">
+<meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "AI Voice Studio Online Free",
+  "url": "https://freeaudiotrim.com/ai-voice-studio.html",
+  "description": "Enhance spoken voice recordings in your browser with private AI noise reduction, studio-style polish, compare preview, and WAV export."
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AI Voice Studio",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web Browser",
+  "url": "https://freeaudiotrim.com/ai-voice-studio.html",
+  "description": "Browser-based voice enhancement for creators. Reduce background noise, shape tone, control dynamics, compare before and after, and export enhanced WAV audio privately on your device.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does AI Voice Studio upload my recordings?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Voice enhancement runs locally in your browser, so your recordings stay on your device."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does the AI stage do?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The AI stage focuses on background-noise reduction. After that, the tool applies studio-style voice shaping, dynamics control, limiting, and loudness polish."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What if AI noise reduction cannot load?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The tool still works. It falls back to the non-AI voice mastering chain and tells you clearly that enhancement is running without AI noise reduction."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What kind of recordings is this built for?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Phone voice notes, podcast takes, creator narration, talking-head voiceovers, and speech recorded on laptop or desktop microphones."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body data-page="voice-studio">
+<header>
+  <div class="header-container">
+    <a href="/" class="logo" aria-label="Free Audio Trim home"><img src="/assets/brand/logo.svg" alt="Free Audio Trim" width="207" height="32" decoding="async"></a>
+    <button class="menu-toggle" aria-label="Toggle menu">&#9776;</button>
+    <nav class="nav-links">
+      <a href="/tools.html">All Tools</a>
+      <a href="/blog/">Blog</a>
+      <a href="/contact.html">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <section class="content-section section-intro hero">
+    <h1>AI Voice Studio Online<span class="hero-highlight">Private Voice Enhancement for Creators</span></h1>
+    <p>Make voice recordings sound clearer, tighter, louder, and more professional directly in your browser. AI Voice Studio combines local noise reduction with studio-style voice polish, before/after compare, and WAV export without uploading your files.</p>
+  </section>
+
+  <section class="content-section tool-section">
+    <div class="tool-ui">
+      <input id="audioFileInput" class="is-hidden" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape">
+      <div class="upload-shell" id="upload-shell">
+        <div class="upload-box"
+          id="upload-dropzone"
+          data-upload-dropzone
+          data-upload-input="audioFileInput"
+          role="button"
+          tabindex="0"
+          aria-label="Drop voice recording here or click to upload">
+          <div class="upload-content">
+            <div class="upload-illustration" aria-hidden="true">
+              <img src="/assets/icons/upload-illustration.svg" alt="Illustration of voice recordings being uploaded for local enhancement." />
+            </div>
+            <h2 class="upload-dropzone__primary">Drop voice recording here or click to upload</h2>
+            <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
+          </div>
+        </div>
+      </div>
+
+      <div id="tool-shell" class="tool-shell is-hidden">
+        <div id="audio-tool" class="at-root">
+          <div id="voice-studio-tool"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="trust-line">
+      <i data-lucide="shield-check"></i>
+      <span><strong>100% Private</strong> — Files never leave your device — No upload required</span>
+    </div>
+  </section>
+
+  <section class="content-section section-shell section-surface">
+    <h2>How AI Voice Studio Works</h2>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h3>Upload voice audio</h3>
+        <p>Start with phone recordings, voice notes, podcast takes, or creator narration recorded on laptop or desktop microphones.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h3>Pick studio flavor</h3>
+        <p>Choose Creator, Podcast, or Cinematic, then adjust only the few controls that matter most.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h3>Hold to compare</h3>
+        <p>Preview enhanced voice, then hold to hear the original instantly so you can judge the polish instead of guessing.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <h3>Export WAV</h3>
+        <p>Download the speech-optimized enhanced result as WAV and move straight into publishing, editing, or delivery.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Why Creators Use It</h2>
+    <div class="why-grid">
+      <div class="why-item">
+        <h3>Privacy First</h3>
+        <p>Everything runs in your browser, so recordings stay on your device instead of being sent to a remote processing service.</p>
+      </div>
+      <div class="why-item">
+        <h3>Studio-Like Polish</h3>
+        <p>Noise reduction, tone shaping, dynamics control, limiting, and loudness polish work together to make speech sound more finished.</p>
+      </div>
+      <div class="why-item">
+        <h3>Fast A/B Preview</h3>
+        <p>The compare experience is built for judgment. Hear original and enhanced quickly before export, not after it.</p>
+      </div>
+      <div class="why-item">
+        <h3>Built for Voice</h3>
+        <p>This tool is tuned for speech recordings first, especially creator voice captured in imperfect rooms and everyday environments.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section section-surface">
+    <h2>Supported Audio Formats</h2>
+    <div class="supported-wrapper">
+      <div class="supported-block supported-formats">
+        <p class="supported-label">Supported formats</p>
+        <div class="supported-items">
+          <span>MP3</span>
+          <span>WAV</span>
+          <span>M4A</span>
+          <span>AAC</span>
+          <span>FLAC</span>
+          <span>OGG</span>
+        </div>
+        <p class="supported-note">AI Voice Studio v1 is tuned for mono speech enhancement and exports WAV for maximum compatibility and quality.</p>
+      </div>
+      <div class="supported-divider"></div>
+      <div class="trust-block">
+        <div class="trust-items">
+          <div class="trust-item">
+            <i data-lucide="shield-check"></i>
+            <div><strong>100% Private</strong><span>Files never leave your device</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="cpu"></i>
+            <div><strong>Browser AI</strong><span>Noise reduction runs locally when available</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="volume-2"></i>
+            <div><strong>Speech Focused</strong><span>Built for spoken voice, not full music mastering</span></div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="download"></i>
+            <div><strong>WAV Export</strong><span>Clean handoff into editing and publishing workflows</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section content-flow">
+    <h2>What AI Voice Studio Actually Does</h2>
+    <p>AI Voice Studio is not pretending to be a full remote AI production suite. It uses a local browser-friendly AI noise-reduction stage when available, then follows with speech-focused EQ, compression, limiting, and loudness polish to make voice recordings feel clearer and more controlled.</p>
+    <p>If the AI denoise stage cannot load, the tool still runs the studio voice chain locally and tells you clearly that enhancement is continuing without AI noise reduction.</p>
+  </section>
+
+  <section class="content-section use-cases">
+    <h2>Common Voice Enhancement Use Cases</h2>
+    <div class="use-case-grid">
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="smartphone"></i></div>
+        <h3>Phone Voice Notes</h3>
+        <p>Rescue noisy memo recordings so they feel more controlled, present, and useful for publishing or editing.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="mic"></i></div>
+        <h3>Podcast Intros & Clips</h3>
+        <p>Tighten speech quickly before posting clips, previews, intros, or solo talking segments.</p>
+      </div>
+      <div class="use-case">
+        <div class="use-icon"><i data-lucide="video"></i></div>
+        <h3>Talking-Head Videos</h3>
+        <p>Improve narration captured in untreated rooms before dropping the result into video editing timelines.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-section related-tools"></section>
+</main>
+
+<footer>
+  <div class="footer-container">
+    <p>&copy; 2026 FreeAudioTrim.com</p>
+    <div class="footer-links">
+      <a href="/privacy-policy.html">Privacy Policy</a>
+      <a href="/terms-of-service.html">Terms of Service</a>
+      <a href="/contact.html">Contact</a>
+    </div>
+    <div class="footer-social">
+      <a>LinkedIn</a>
+      <a>X</a>
+      <a>YouTube</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/assets/audio-engine.js?v=2026-05-23-1" defer></script>
+<script src="/assets/voice-enhancer-engine.js?v=2026-05-23-1" defer></script>
+<script src="/assets/voice-studio-tool.js?v=2026-05-23-1" defer></script>
+<script src="/assets/upload.js?v=2026-05-18-1" defer></script>
+<script src="/assets/related-tools.js?v=2026-05-23-1"></script>
+<script>
+document.addEventListener('file:selected', function(e) {
+  const file = e.detail.file;
+  const input = e.detail.input;
+
+  if (!file || (input && input.id !== 'audioFileInput')) return;
+
+  const uploadShell = document.getElementById('upload-shell');
+  const toolShell = document.getElementById('tool-shell');
+
+  if (uploadShell) uploadShell.classList.add('is-hidden');
+  if (toolShell) toolShell.classList.remove('is-hidden');
+
+  const fileRow = document.querySelector('[data-role="fileRow"]');
+  if (fileRow) fileRow.classList.remove('is-hidden');
+
+  const fileNameEl = document.querySelector('[data-role="fileName"]');
+  if (fileNameEl) fileNameEl.textContent = file.name;
+
+  if (window.VoiceStudioTool && typeof window.VoiceStudioTool.addFile === 'function') {
+    window.VoiceStudioTool.addFile(file);
+  }
+
+  if (toolShell) {
+    const offset = 100;
+    const y = toolShell.getBoundingClientRect().top + window.pageYOffset - offset;
+    window.scrollTo({ top: y, behavior: "smooth" });
+  }
+});
+
+document.addEventListener("click", function(e) {
+  const changeBtn = e.target.closest('[data-role="changeFile"]');
+  if (!changeBtn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const input = document.getElementById("audioFileInput");
+  if (!input) return;
+
+  input.value = "";
+  input.click();
+}, true);
+
+document.addEventListener('converter:empty', () => {
+  const uploadShell = document.getElementById('upload-shell');
+  const toolShell = document.getElementById('tool-shell');
+  const input = document.getElementById('audioFileInput');
+
+  if (window.VoiceStudioTool && typeof window.VoiceStudioTool.reset === 'function') {
+    window.VoiceStudioTool.reset();
+  }
+
+  if (uploadShell) uploadShell.classList.remove('is-hidden');
+  if (toolShell) toolShell.classList.add('is-hidden');
+  if (input) input.value = '';
+});
+</script>
+<script src="/assets/mobile-menu.js?v=2026-05-18-1"></script>
+<script src="https://unpkg.com/lucide@0.544.0"></script>
+<script>
+  lucide.createIcons();
+</script>
+</body>
+</html>

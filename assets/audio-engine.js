@@ -6,6 +6,8 @@
   class AudioEngine {
     constructor(options = {}) {
       this.options = options;
+      this.processor = options.processor || null;
+      this.autoPrimeOnSettingsChange = options.autoPrimeOnSettingsChange !== false;
       this.audioContext = null;
       this.originalBuffer = null;
       this.processedBuffer = null;
@@ -38,6 +40,7 @@
     async loadFile(file) {
       try {
         this.stop();
+        this.originalBuffer = null;
         this.clearProcessedCache();
         this.waveformCache = null;
         this.waveformCacheWidth = 0;
@@ -60,9 +63,12 @@
         this.onStatus("File ready. Adjust settings, preview, then export.");
         this.updateState();
         void this.runAnalysis(decoded);
+        return decoded;
       } catch (error) {
         console.error(error);
         this.onStatus(`This audio format is not supported by your browser. ${BROWSER_SUPPORT_MESSAGE}`);
+        this.updateState();
+        return null;
       }
     }
 
@@ -75,7 +81,7 @@
       this.waveformCacheWidth = 0;
       this.waveformCacheHeight = 0; 
       this.clearProcessedCache();
-      if (this.previewMode === "B" && this.originalBuffer) {
+      if (this.autoPrimeOnSettingsChange && this.previewMode === "B" && this.originalBuffer) {
         void this.primeProcessedBuffer();
       } else {
         this.drawWaveform();
@@ -164,7 +170,7 @@
     }
 
     async togglePlayPause() {
-      if (this.isPlaying) {
+      if (this.isPlaybackActive()) {
         this.pause();
         return;
       }
@@ -172,15 +178,15 @@
     }
 
     async play() {
+      const ctx = this.getContext();
+      if (ctx.state === "suspended") {
+        await ctx.resume();
+      }
+
       const buffer = await this.getPlaybackBuffer();
       if (!buffer) {
         this.onStatus("Upload an audio file first.");
         return;
-      }
-
-      const ctx = this.getContext();
-      if (ctx.state === "suspended") {
-        await ctx.resume();
       }
 
       this.startSource(buffer, this.pausedOffset, this.getPlaybackRate());
@@ -189,7 +195,7 @@
     }
 
     pause() {
-      if (!this.isPlaying) {
+      if (!this.isPlaybackActive()) {
         return;
       }
       const buffer = this.getCurrentBufferSync();
@@ -202,6 +208,8 @@
       this.cancelAnimation();
       this.updateTimeDisplays(this.pausedOffset);
       this.drawWaveform();
+      this.suspendPlaybackContext();
+      this.teardownPlaybackContext();
       this.onStatus("Preview paused.");
       this.updateState();
     }
@@ -213,6 +221,8 @@
       this.cancelAnimation();
       this.updateTimeDisplays(0);
       this.drawWaveform();
+      this.suspendPlaybackContext();
+      this.teardownPlaybackContext();
       this.updateState();
     }
 
@@ -240,6 +250,10 @@
         return {
           blob: wavBlob,
           fileName: `${this.fileName}_processed.wav`,
+          duration: buffer.duration,
+          numberOfChannels: buffer.numberOfChannels,
+          sampleRate: buffer.sampleRate,
+          usedProcessedBuffer: buffer !== this.originalBuffer,
         };
       } catch (error) {
         console.error(error);
@@ -272,6 +286,7 @@
     getPlaybackState() {
       return {
         isPlaying: this.isPlaying,
+        isPlaybackActive: this.isPlaybackActive(),
         mode: this.mode,
         previewMode: this.previewMode,
         currentTime: this.getCurrentTime(),
@@ -293,6 +308,26 @@
     clearProcessedCache() {
       this.processedBuffer = null;
       this.processedKey = "";
+    }
+
+    reset() {
+      this.stop();
+      this.originalBuffer = null;
+      this.clearProcessedCache();
+      this.fileName = "audio";
+      this.mode = "modified";
+      this.previewMode = "B";
+      this.waveformCache = null;
+      this.waveformCacheWidth = 0;
+      this.waveformCacheHeight = 0;
+      this.updateTimeDisplays(0);
+      this.drawWaveform();
+      this.onBuffer({
+        originalDuration: 0,
+        processedDuration: 0,
+      });
+      this.onAnalysis(null);
+      this.updateState();
     }
 
     async getActiveBuffer() {
@@ -327,7 +362,26 @@
       return this.getCurrentBufferSync();
     }
 
+    isPlaybackActive() {
+      if (this.isPlaying || !!this.sourceNode) {
+        return true;
+      }
+      const ctx = this.audioContext;
+      const buffer = this.getCurrentBufferSync();
+      if (!ctx || !buffer) {
+        return false;
+      }
+      if (ctx.state !== "running") {
+        return false;
+      }
+      const currentTime = this.getCurrentTime();
+      return currentTime > 0 && currentTime < Math.max(0, buffer.duration - 0.02);
+    }
+
     isSpeedOnlyPreview() {
+      if (this.processor) {
+        return false;
+      }
       return Math.abs(Number(this.settings.pitchSemitones || 0)) < 0.001;
     }
 
@@ -335,13 +389,27 @@
       if (!this.originalBuffer) {
         return null;
       }
-      const key = JSON.stringify(this.settings);
+      const key = this.getProcessedCacheKey();
       if (this.processedBuffer && this.processedKey === key) {
         return this.processedBuffer;
       }
-      this.processedBuffer = await renderProcessedBuffer(this.getContext(), this.originalBuffer, this.settings);
+      this.processedBuffer = await this.renderProcessedBuffer();
       this.processedKey = key;
       return this.processedBuffer;
+    }
+
+    getProcessedCacheKey() {
+      if (this.processor && typeof this.processor.getProcessedCacheKey === "function") {
+        return String(this.processor.getProcessedCacheKey(this.settings, this.originalBuffer) || "");
+      }
+      return JSON.stringify(this.settings);
+    }
+
+    async renderProcessedBuffer() {
+      if (this.processor && typeof this.processor.renderProcessedBuffer === "function") {
+        return this.processor.renderProcessedBuffer(this.getContext(), this.originalBuffer, this.settings);
+      }
+      return renderProcessedBuffer(this.getContext(), this.originalBuffer, this.settings);
     }
 
     startSource(buffer, offsetSeconds, playbackRate = 1) {
@@ -382,6 +450,22 @@
     }
 
     stopSourceOnly() {
+      const ctx = this.audioContext;
+      if (this.gainNode) {
+        try {
+          if (ctx && typeof ctx.currentTime === "number" && this.gainNode.gain) {
+            const now = ctx.currentTime;
+            this.gainNode.gain.cancelScheduledValues(now);
+            this.gainNode.gain.setValueAtTime(this.gainNode.gain.value, now);
+            this.gainNode.gain.linearRampToValueAtTime(0, now + 0.01);
+          } else {
+            this.gainNode.gain.value = 0;
+          }
+        } catch (error) {
+          // Ignore gain ramp issues on inconsistent browser nodes.
+        }
+      }
+
       if (!this.sourceNode) {
         return;
       }
@@ -397,6 +481,30 @@
         this.gainNode.disconnect();
         this.gainNode = null;
       }
+    }
+
+    suspendPlaybackContext() {
+      const ctx = this.audioContext;
+      if (!ctx || ctx.state !== "running") {
+        return;
+      }
+      void ctx.suspend().catch(() => {
+        // Ignore Safari/context race issues during pause.
+      });
+    }
+
+    teardownPlaybackContext() {
+      const ctx = this.audioContext;
+      if (!ctx || typeof ctx.close !== "function") {
+        this.audioContext = null;
+        return;
+      }
+
+      const activeContext = ctx;
+      this.audioContext = null;
+      void activeContext.close().catch(() => {
+        // Ignore Safari/context close races after pause/stop.
+      });
     }
 
     startAnimation() {
@@ -525,7 +633,12 @@
     }
 
     async runAnalysis(buffer) {
-      const analysis = await Promise.resolve().then(() => analyzeBuffer(buffer));
+      const analysis = await Promise.resolve().then(() => {
+        if (this.processor && typeof this.processor.analyzeOriginal === "function") {
+          return this.processor.analyzeOriginal(buffer, this.settings);
+        }
+        return analyzeBuffer(buffer);
+      });
       this.onAnalysis(analysis);
     }
 

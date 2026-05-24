@@ -2839,6 +2839,393 @@ body.audio-converter-page #audio-tool .at-tools {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
+.voice-studio-app {
+  width: 100%;
+}
+
+#voice-studio-tool .voice-studio-card {
+  width: 100%;
+  align-items: stretch;
+  gap: 12px;
+  padding: 18px;
+}
+
+#voice-studio-tool .voice-badge-row,
+#voice-studio-tool .voice-seek-row,
+#voice-studio-tool .voice-section,
+#voice-studio-tool .voice-slider-grid,
+#voice-studio-tool .voice-diagnostics-grid {
+  width: 100%;
+}
+
+#voice-studio-tool .voice-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+#voice-studio-tool .voice-primary-action {
+  display: block;
+}
+
+#voice-studio-tool .voice-enhance-btn {
+  width: 100%;
+  font-size: 1.15rem;
+  font-weight: 800;
+  border-radius: 22px;
+}
+
+#voice-studio-tool .voice-primary-note {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+#voice-studio-tool .voice-controls-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(280px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+#voice-studio-tool .voice-mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-height: 62px;
+  padding: 8px;
+  border-radius: 999px;
+}
+
+#voice-studio-tool .voice-mode-btn[data-selected="true"] {
+  border-color: rgba(79, 95, 224, 0.42);
+  background: linear-gradient(180deg, rgba(238, 242, 255, 0.98), rgba(255, 255, 255, 0.98));
+  color: #3346b5;
+}
+
+#voice-studio-tool .voice-preview-icon-btn {
+  width: 58px;
+  min-width: 58px;
+  min-height: 58px;
+  padding: 0;
+  border-radius: 999px;
+  color: #5d68df;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#voice-studio-tool .voice-preview-icon,
+#voice-studio-tool .voice-preview-icon * {
+  pointer-events: none;
+}
+
+#voice-studio-tool .voice-preview-icon {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#voice-studio-tool .voice-preview-icon__play {
+  width: 0;
+  height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 16px solid currentColor;
+  margin-left: 3px;
+}
+
+#voice-studio-tool .voice-preview-icon__pause {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 18px;
+  height: 18px;
+}
+
+#voice-studio-tool .voice-preview-icon__pause > span {
+  display: block;
+  width: 5px;
+  height: 18px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+#voice-studio-tool .voice-preview-icon-btn[data-playing="true"] .voice-preview-icon__play {
+  display: none;
+}
+
+#voice-studio-tool .voice-preview-icon-btn[data-playing="true"] .voice-preview-icon__pause {
+  display: inline-flex;
+}
+
+#voice-studio-tool .voice-compare-btn.is-active {
+  border-color: rgba(79, 95, 224, 0.42);
+  background: linear-gradient(180deg, rgba(238, 242, 255, 0.98), rgba(255, 255, 255, 0.98));
+  color: #3346b5;
+}
+
+#voice-studio-tool .voice-compare-btn {
+  min-height: 58px;
+  padding-inline: 22px;
+  border-radius: 999px;
+}
+
+#voice-studio-tool .voice-seek-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#voice-studio-tool .voice-seek-row input[type="range"] {
+  flex: 1 1 auto;
+}
+
+#voice-studio-tool .voice-seek-time {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+#voice-studio-tool .voice-meta-note {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(108, 123, 255, 0.16);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(246, 248, 255, 0.96), rgba(255, 255, 255, 0.98));
+  color: #475569;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+#voice-studio-tool .voice-section {
+  display: grid;
+  gap: 12px;
+}
+
+#voice-studio-tool .voice-section--advanced {
+  padding-top: 14px;
+}
+
+#voice-studio-tool .voice-section__header {
+  display: grid;
+  gap: 4px;
+}
+
+#voice-studio-tool .voice-section__header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+#voice-studio-tool .voice-section__header p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+#voice-studio-tool .voice-advanced-note {
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+#voice-studio-tool .voice-preset-card__media {
+  color: var(--color-accent-strong);
+}
+
+#voice-studio-tool .voice-preset-card__media svg {
+  width: 28px;
+  height: 28px;
+}
+
+#voice-studio-tool .voice-slider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#voice-studio-tool .voice-slider-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(108, 123, 255, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.98));
+}
+
+#voice-studio-tool .voice-slider-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+#voice-studio-tool .voice-slider-title {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+#voice-studio-tool .voice-slider-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-primary-strong);
+}
+
+#voice-studio-tool .voice-slider-copy {
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+#voice-studio-tool .voice-slider-card input[type="range"] {
+  width: 100%;
+}
+
+#voice-studio-tool .voice-diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#voice-studio-tool .voice-diagnostic-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(108, 123, 255, 0.14);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 248, 251, 0.98));
+}
+
+#voice-studio-tool .voice-diagnostic-card--hero,
+#voice-studio-tool .voice-diagnostic-card--issues {
+  grid-column: 1 / -1;
+}
+
+#voice-studio-tool .voice-diagnostic-card h4,
+#voice-studio-tool .voice-diagnostic-card p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.36;
+  font-weight: 500;
+  color: #7b869a;
+}
+
+#voice-studio-tool .voice-diagnostic-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 20px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(79, 95, 224, 0.1);
+  color: #3346b5;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+#voice-studio-tool .voice-diagnostic-kicker--issues {
+  background: rgba(251, 146, 60, 0.12);
+  color: #c66a12;
+}
+
+#voice-studio-tool .voice-diagnostic-kicker--heuristic {
+  background: rgba(134, 239, 172, 0.14);
+  color: #3f8a58;
+}
+
+#voice-studio-tool .voice-diagnostic-summary {
+  color: #7b869a;
+  font-size: 0.92rem;
+  line-height: 1.36;
+  font-weight: 500;
+  min-height: 0;
+}
+
+#voice-studio-tool .voice-advanced {
+  width: 100%;
+  border: 1px solid rgba(108, 123, 255, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 248, 251, 0.98));
+}
+
+#voice-studio-tool .voice-advanced summary {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+#voice-studio-tool .voice-section--top,
+#voice-studio-tool .voice-section--status {
+  gap: 0;
+}
+
+#voice-studio-tool .voice-section--preset .voice-section__header h3 {
+  font-size: clamp(2.2rem, 4vw, 4rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  color: #0f172a;
+}
+
+#voice-studio-tool .voice-download-row {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+#voice-studio-tool .voice-download-row #exportBtn,
+#voice-studio-tool #downloadLink {
+  min-height: 52px;
+  min-width: 180px;
+  border-radius: 999px;
+}
+
+@media (max-width: 780px) {
+  #voice-studio-tool .voice-controls-row,
+  #voice-studio-tool .voice-mode-toggle,
+  #voice-studio-tool .voice-slider-grid,
+  #voice-studio-tool .voice-diagnostics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #voice-studio-tool .voice-badge-row {
+    justify-content: flex-start;
+  }
+
+  #voice-studio-tool .voice-download-row {
+    justify-content: stretch;
+  }
+
+  #voice-studio-tool .voice-download-row #exportBtn,
+  #voice-studio-tool #downloadLink {
+    width: 100%;
+  }
+
+  #voice-studio-tool .voice-seek-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #voice-studio-tool .voice-seek-time {
+    text-align: right;
+  }
+}
+
+#voice-studio-tool .voice-issue-list li {
+  margin: 0;
+  line-height: 1.45;
+}
+
 /* =========================
    TRANSCRIBE TOOL SKIN
 ========================= */
