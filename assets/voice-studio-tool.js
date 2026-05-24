@@ -337,7 +337,7 @@
 
   async function loadSelectedFile(file) {
     if (!file) {
-      return;
+      return false;
     }
 
     state.activeFile = file;
@@ -359,8 +359,9 @@
     clearDownload();
     updateRenderMeta();
     updateModeButtons();
+    setStatus("Loading voice recording...", "processing");
 
-    const probedDuration = await probeFileDuration(file);
+    const probedDuration = await probeFileDuration(file, 1800);
     if (Number.isFinite(probedDuration)) {
       info("file metadata detected", {
         fileName: file.name,
@@ -378,7 +379,7 @@
         maxDurationSeconds: MAX_DURATION_SECONDS,
       });
       setStatus("For speed and stability, AI Voice Studio v1 supports voice clips up to 10 minutes.", "error");
-      return;
+      return false;
     }
 
     const loaded = await engine.loadFile(file);
@@ -388,7 +389,16 @@
         sizeBytes: file.size,
       });
       updateActionState();
-      return;
+      return false;
+    }
+
+    if (engine.originalBuffer.duration > MAX_DURATION_SECONDS) {
+      state.tooLong = true;
+      engine.reset();
+      updateRenderMeta();
+      updateActionState();
+      setStatus("For speed and stability, AI Voice Studio v1 supports voice clips up to 10 minutes.", "error");
+      return false;
     }
 
     applySettings({ silent: true });
@@ -401,6 +411,7 @@
       sizeBytes: file.size,
     });
     setStatus("Choose a preset, then click Enhance Voice.", "ready");
+    return true;
   }
 
   async function enhanceCurrentVoice() {
@@ -664,26 +675,39 @@
     }
   }
 
-  function probeFileDuration(file) {
+  function probeFileDuration(file, timeoutMs = 1800) {
     return new Promise((resolve) => {
       const audio = document.createElement("audio");
       const url = URL.createObjectURL(file);
+      let settled = false;
 
-      const cleanup = () => {
+      const finish = (value) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        window.clearTimeout(timerId);
         audio.removeAttribute("src");
         audio.load();
         URL.revokeObjectURL(url);
+        resolve(value);
       };
+
+      const cleanup = () => {
+        finish(NaN);
+      };
+
+      const timerId = window.setTimeout(() => {
+        finish(NaN);
+      }, Math.max(250, timeoutMs));
 
       audio.preload = "metadata";
       audio.onloadedmetadata = () => {
         const duration = Number(audio.duration);
-        cleanup();
-        resolve(Number.isFinite(duration) ? duration : NaN);
+        finish(Number.isFinite(duration) ? duration : NaN);
       };
       audio.onerror = () => {
         cleanup();
-        resolve(NaN);
       };
 
       audio.src = url;
@@ -832,7 +856,7 @@
 
   window.VoiceStudioTool = {
     addFile(file) {
-      void loadSelectedFile(file);
+      return loadSelectedFile(file);
     },
     reset() {
       info("tool reset requested");

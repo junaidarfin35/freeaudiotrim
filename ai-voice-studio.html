@@ -288,20 +288,20 @@
   </div>
 </footer>
 
-<script src="/assets/audio-engine.js?v=2026-05-23-1" defer></script>
-<script src="/assets/voice-enhancer-engine.js?v=2026-05-23-1" defer></script>
-<script src="/assets/voice-studio-tool.js?v=2026-05-23-1" defer></script>
-<script src="/assets/upload.js?v=2026-05-18-1" defer></script>
+<script src="/assets/audio-engine.js?v=2026-05-25-2" defer></script>
+<script src="/assets/voice-enhancer-engine.js?v=2026-05-25-2" defer></script>
+<script src="/assets/voice-studio-tool.js?v=2026-05-25-2" defer></script>
+<script src="/assets/upload.js?v=2026-05-25-2" defer></script>
 <script src="/assets/related-tools.js?v=2026-05-23-1"></script>
 <script>
 document.addEventListener('file:selected', function(e) {
   const file = e.detail.file;
   const input = e.detail.input;
 
-  if (!file || (input && input.id !== 'audioFileInput')) return;
-
   const uploadShell = document.getElementById('upload-shell');
   const toolShell = document.getElementById('tool-shell');
+
+  if (!file || (input && input.id !== 'audioFileInput') || !toolShell.classList.contains('is-hidden')) return;
 
   if (uploadShell) uploadShell.classList.add('is-hidden');
   if (toolShell) toolShell.classList.remove('is-hidden');

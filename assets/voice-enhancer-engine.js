@@ -3,8 +3,10 @@
 
   const DB_FLOOR = -48;
   const LUFS_OFFSET = -0.691;
-  const RNNOISE_WORKER_URL = "/assets/voice-enhancer-worker.js?v=2026-05-23-1";
+  const RNNOISE_WORKER_URL = "/assets/voice-enhancer-worker.js?v=2026-05-25-2";
   const DEFAULT_PRESET_KEY = "creator";
+  const LOG_PREFIX = "[AI Voice Studio]";
+  const RNNOISE_PREFIX = "[AI Voice Studio RNNoise]";
   const PRESETS = {
     creator: {
       key: "creator",
