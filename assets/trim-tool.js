@@ -44,6 +44,15 @@
     });
   }
 
+  function isDecodeLikeError(err) {
+    var errText = String((err && (err.message || err.name)) || "").toLowerCase();
+    return (
+      errText.indexOf("decode") !== -1 ||
+      errText.indexOf("encodingerror") !== -1 ||
+      errText.indexOf("notsupportederror") !== -1
+    );
+  }
+
   function loadMp3Module() {
     return new Promise(function (resolve, reject) {
       if (window.MP3EncoderModule) {
@@ -616,6 +625,8 @@
     this.minGap = 0.002;
     this.dragging = null;
     this.pointerId = null;
+    this.dragOffsetRatio = 0;
+    this.lockedSelectionRatio = null;
     this.pendingEmit = false;
     this.emitFrame = null;
     this._boundDown = this.handlePointerDown.bind(this);
@@ -630,6 +641,7 @@
   }
 
   TrimController.prototype.reset = function () {
+    this.lockedSelectionRatio = null;
     this.startRatio = 0;
     this.endRatio = 1;
     this.renderer.setSelection(this.startRatio, this.endRatio);
@@ -647,6 +659,38 @@
     this._emit();
   };
 
+  TrimController.prototype.setLockedSelectionLength = function (seconds, duration) {
+    if (!duration || duration <= 0) {
+      this.lockedSelectionRatio = null;
+      this.reset();
+      return;
+    }
+
+    var safeSeconds = Math.max(0, Number(seconds) || 0);
+    if (!safeSeconds) {
+      this.lockedSelectionRatio = null;
+      this.reset();
+      return;
+    }
+
+    var maxRatio = 1;
+    var requestedRatio = clamp(safeSeconds / duration, this.minGap, maxRatio);
+    this.lockedSelectionRatio = requestedRatio;
+    this.startRatio = 0;
+    this.endRatio = requestedRatio >= 1 ? 1 : requestedRatio;
+    this.renderer.setSelection(this.startRatio, this.endRatio);
+    this._emit();
+  };
+
+  TrimController.prototype.clearLockedSelection = function () {
+    this.lockedSelectionRatio = null;
+    this.reset();
+  };
+
+  TrimController.prototype.hasLockedSelection = function () {
+    return this.lockedSelectionRatio != null;
+  };
+
   TrimController.prototype.handlePointerDown = function (event) {
     if (event.button !== 0 && event.pointerType === "mouse") {
       return;
@@ -658,6 +702,18 @@
     var hitZone = 20;
     var distStart = Math.abs(x - startX);
     var distEnd = Math.abs(x - endX);
+    var ratio = this.renderer.xToRatio(x);
+
+    if (this.lockedSelectionRatio != null) {
+      if (x >= startX && x <= endX) {
+        this.dragging = "window";
+        this.dragOffsetRatio = ratio - this.startRatio;
+        this.pointerId = event.pointerId;
+        this.canvas.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      }
+      return;
+    }
 
     if (distStart <= hitZone || distEnd <= hitZone) {
       this.dragging = distStart <= distEnd ? "start" : "end";
@@ -680,7 +736,12 @@
     var ratio = this.renderer.xToRatio(event.clientX - rect.left);
     var prevStart = this.startRatio;
     var prevEnd = this.endRatio;
-    if (this.dragging === "start") {
+    if (this.dragging === "window") {
+      var lockedWidth = clamp(this.lockedSelectionRatio || (this.endRatio - this.startRatio), this.minGap, 1);
+      var nextStart = clamp(ratio - this.dragOffsetRatio, 0, 1 - lockedWidth);
+      this.startRatio = nextStart;
+      this.endRatio = clamp(nextStart + lockedWidth, this.startRatio + this.minGap, 1);
+    } else if (this.dragging === "start") {
       this.startRatio = clamp(ratio, 0, this.endRatio - this.minGap);
     } else {
       this.endRatio = clamp(ratio, this.startRatio + this.minGap, 1);
@@ -698,6 +759,7 @@
     }
     this.dragging = null;
     this.pointerId = null;
+    this.dragOffsetRatio = 0;
     this._flushEmit();
   };
 
@@ -908,6 +970,31 @@
     if (!file) {
       return;
     }
+    if (typeof window.AudioToolValidateFile === "function") {
+      var validation = window.AudioToolValidateFile(file, this);
+      if (validation && validation.ok === false) {
+        this.currentFile = null;
+        this.duration = 0;
+        this.audio.stop();
+        this.stopAnimationLoop();
+        this.renderer.setPlayhead(null);
+        this._setControlsEnabled(false);
+        this.trim.reset();
+        this.updateTimeText();
+        this.updateFadeOverlay();
+        if (this.fileInput) {
+          this.fileInput.value = "";
+        }
+        if (this.fileNameEl) {
+          this.fileNameEl.textContent = "";
+        }
+        if (this.fileRow) {
+          this.fileRow.classList.add("is-hidden");
+        }
+        this.setStatus(validation.message || "This file is not supported.");
+        return;
+      }
+    }
     if (this.fileNameEl) {
       this.fileNameEl.textContent = file.name;
     }
@@ -922,21 +1009,49 @@
     this.renderer.setPlayhead(null);
 
     try {
-      var buffer = await this.audio.loadFile(file);
+      var fileForDecode = file;
+      var convertedForCompatibility = false;
+      var buffer = null;
+
+      try {
+        buffer = await this.audio.loadFile(fileForDecode);
+      } catch (decodeError) {
+        var preprocess = typeof window.AudioToolPreprocessFile === "function"
+          ? window.AudioToolPreprocessFile
+          : null;
+
+        if (!isDecodeLikeError(decodeError) || !preprocess) {
+          throw decodeError;
+        }
+
+        this.setStatus("Converting media for compatibility...");
+        var preprocessed = await preprocess(file, decodeError, this);
+        if (!preprocessed) {
+          throw decodeError;
+        }
+        fileForDecode = preprocessed;
+        buffer = await this.audio.loadFile(fileForDecode);
+        convertedForCompatibility = true;
+      }
+
       this.duration = buffer.duration;
       this.trim.reset();
       this.renderer.setPeaksFromBuffer(buffer);
       this._setControlsEnabled(true);
       this.updateTimeText();
       this.updateFadeOverlay();
-      this.setStatus("Ready. Drag handles to trim and press Play.");
+      if (convertedForCompatibility) {
+        this.setStatus("Ready. File converted for compatibility.");
+      } else {
+        this.setStatus("Ready. Drag handles to trim and press Play.");
+      }
+      if (typeof window.AudioToolDidLoadFile === "function") {
+        window.AudioToolDidLoadFile(this, {
+          convertedForCompatibility: convertedForCompatibility
+        });
+      }
     } catch (err) {
-      var errText = String((err && (err.message || err.name)) || "").toLowerCase();
-      var isDecodeError =
-        errText.indexOf("decode") !== -1 ||
-        errText.indexOf("encodingerror") !== -1 ||
-        errText.indexOf("notsupportederror") !== -1;
-      if (isDecodeError) {
+      if (isDecodeLikeError(err)) {
         this.setStatus("This audio format is not supported by your browser. " + BROWSER_SUPPORT_MESSAGE);
       } else {
         this.setStatus("Failed to load audio file. " + (err && err.message ? err.message : "Please try another file."));
@@ -1014,6 +1129,9 @@
     this.audio.resetPosition(0);
     this.renderer.setPlayhead(0);
     this.setStatus("Trim region reset.");
+    if (typeof window.AudioToolDidReset === "function") {
+      window.AudioToolDidReset(this);
+    }
   };
 
   UIController.prototype._downloadBlob = function (blob, filename) {
