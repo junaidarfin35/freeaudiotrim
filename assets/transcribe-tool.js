@@ -4,9 +4,16 @@
   var srtContent = "";
   var vttContent = "";
   var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-21-1";
-  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-21-1";
+  var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-25-24";
+  var MOBILE_VAD_WORKER_URL = "/assets/mobile-vad-worker.js?v=2026-05-25-24";
+  var MOBILE_VAD_TIMEOUT_MS = 9000;
   var worker = null;
   var workerGeneration = 0;
+  var mobileVadWorker = null;
+  var mobileVadWorkerGeneration = 0;
+  var mobileVadRequestId = 0;
+  var mobileVadPendingRequests = Object.create(null);
+  var transcriptionSessionPathLabel = "";
   var processingLocked = false;
   var activeTranscriptionContext = null;
   var modelWarmState = "idle";
@@ -478,6 +485,187 @@
       type: "module"
     });
     return workerGeneration;
+  }
+
+  function rejectPendingMobileVadRequests(message) {
+    Object.keys(mobileVadPendingRequests).forEach(function (key) {
+      var pending = mobileVadPendingRequests[key];
+      if (!pending) {
+        return;
+      }
+
+      try {
+        pending.reject(new Error(message || "Speech detection worker unavailable."));
+      } catch (error) {
+      }
+      delete mobileVadPendingRequests[key];
+    });
+  }
+
+  function resetMobileVadWorker() {
+    rejectPendingMobileVadRequests("Speech detection worker reset.");
+
+    if (mobileVadWorker) {
+      try {
+        mobileVadWorker.terminate();
+      } catch (error) {
+      }
+      mobileVadWorker = null;
+    }
+  }
+
+  function attachMobileVadWorkerListeners(targetWorker, generation) {
+    if (!targetWorker) {
+      return;
+    }
+
+    function rejectVadRequest(requestId, message) {
+      var pending = mobileVadPendingRequests[requestId];
+      if (!pending) {
+        return;
+      }
+
+      delete mobileVadPendingRequests[requestId];
+      pending.reject(new Error(message || "Speech detection failed."));
+    }
+
+    targetWorker.onerror = function () {
+      if (generation !== mobileVadWorkerGeneration) {
+        return;
+      }
+
+      var failedWorker = targetWorker;
+      if (mobileVadWorker === failedWorker) {
+        mobileVadWorker = null;
+      }
+      rejectPendingMobileVadRequests("Speech detection worker failed.");
+    };
+
+    targetWorker.onmessageerror = function () {
+      if (generation !== mobileVadWorkerGeneration) {
+        return;
+      }
+
+      rejectPendingMobileVadRequests("Speech detection worker communication failed.");
+    };
+
+    targetWorker.onmessage = function (event) {
+      if (generation !== mobileVadWorkerGeneration) {
+        return;
+      }
+
+      var data = event && event.data ? event.data : {};
+      var requestId = data.requestId;
+      var pending = mobileVadPendingRequests[requestId];
+
+      if (!pending) {
+        return;
+      }
+
+      delete mobileVadPendingRequests[requestId];
+
+      if (data.type === "speech_spans") {
+        pending.resolve({
+          spans: Array.isArray(data.spans) ? data.spans : [],
+          stats: data.stats || null
+        });
+        return;
+      }
+
+      rejectVadRequest(requestId, data.message || "Speech detection failed.");
+    };
+  }
+
+  function ensureMobileVadWorker() {
+    if (!mobileVadWorker) {
+      mobileVadWorkerGeneration += 1;
+      mobileVadWorker = new Worker(MOBILE_VAD_WORKER_URL, {
+        type: "module"
+      });
+      attachMobileVadWorkerListeners(mobileVadWorker, mobileVadWorkerGeneration);
+    }
+
+    return mobileVadWorker;
+  }
+
+  function normalizeMobileVadSpans(spans, totalSamples) {
+    if (!Array.isArray(spans) || !spans.length || !totalSamples) {
+      return [];
+    }
+
+    var normalized = spans.map(function (span) {
+      return {
+        startSample: Math.max(0, Math.min(totalSamples, Math.floor(Number(span && span.startSample) || 0))),
+        endSample: Math.max(0, Math.min(totalSamples, Math.ceil(Number(span && span.endSample) || 0)))
+      };
+    }).filter(function (span) {
+      return span.endSample - span.startSample >= Math.round(16000 * 0.12);
+    }).sort(function (left, right) {
+      return left.startSample - right.startSample;
+    });
+
+    if (normalized.length > 120) {
+      return [];
+    }
+
+    return normalized;
+  }
+
+  function shouldUseMobileVad(audioRecord, resampledData) {
+    return !!(
+      audioRecord
+      && audioRecord.phoneOptimized
+      && audioRecord.file
+      && !audioRecord.phoneRiskReason
+      && !isVideoMediaFile(audioRecord.file)
+      && resampledData
+      && resampledData.length > 16000 * 12
+    );
+  }
+
+  function requestMobileVadSpans(audioData) {
+    if (!audioData || !audioData.length) {
+      return Promise.resolve([]);
+    }
+
+    var requestId = "vad-" + (++mobileVadRequestId);
+    var vadInput = new Float32Array(audioData);
+    var vadWorker = ensureMobileVadWorker();
+
+    return new Promise(function (resolve, reject) {
+      var timeoutId = window.setTimeout(function () {
+        delete mobileVadPendingRequests[requestId];
+        reject(new Error("Speech detection timed out."));
+      }, MOBILE_VAD_TIMEOUT_MS);
+
+      mobileVadPendingRequests[requestId] = {
+        resolve: function (value) {
+          window.clearTimeout(timeoutId);
+          resolve(value);
+        },
+        reject: function (error) {
+          window.clearTimeout(timeoutId);
+          reject(error);
+        }
+      };
+
+      try {
+        vadWorker.postMessage({
+          type: "detect_speech",
+          requestId: requestId,
+          audio: vadInput.buffer,
+          sampleRate: 16000
+        }, [vadInput.buffer]);
+      } catch (error) {
+        window.clearTimeout(timeoutId);
+        delete mobileVadPendingRequests[requestId];
+        reject(error);
+      }
+    }).then(function (result) {
+      return normalizeMobileVadSpans(result && result.spans, audioData.length);
+    }).finally(function () {
+      resetMobileVadWorker();
+    });
   }
 
   function getTranscriptionModeByKey(modelKey) {
@@ -2685,6 +2873,7 @@
       "  </div>",
       '  <div class="at-row is-hidden" data-role="processingInfo">',
       '    <div class="at-help" data-role="processingHint">Transcription runs entirely in your browser, so your media never leaves your device.</div>',
+      '    <div class="at-help at-help-session is-hidden" data-role="sessionPath"></div>',
       '    <button class="at-btn at-btn-soft is-hidden" type="button" data-role="extractAudioCta">Open audio extractor</button>',
       "  </div>",
       '  <div class="at-row transcribe-controls is-hidden" data-role="modelRow">',
@@ -2886,16 +3075,34 @@
     return !!(window.currentTranscript || getActiveSegments().length);
   }
 
+  function setTranscriptionSessionPathLabel(label) {
+    transcriptionSessionPathLabel = normalizeIncomingText(label || "");
+    updateRuntimeMessaging(getPrimaryTranscribeRoot());
+  }
+
+  function clearTranscriptionSessionPathLabel() {
+    transcriptionSessionPathLabel = "";
+    updateRuntimeMessaging(getPrimaryTranscribeRoot());
+  }
+
   function updateRuntimeMessaging(root) {
     if (!root) {
       return;
     }
 
     var processingHintEl = root.querySelector('[data-role="processingHint"]');
+    var sessionPathEl = root.querySelector('[data-role="sessionPath"]');
     var extractAudioBtn = root.querySelector('[data-role="extractAudioCta"]');
 
     if (processingHintEl) {
       processingHintEl.textContent = getProcessingInfoCopy();
+    }
+
+    if (sessionPathEl) {
+      sessionPathEl.textContent = transcriptionSessionPathLabel
+        ? "Current session: " + transcriptionSessionPathLabel
+        : "";
+      setElementVisible(sessionPathEl, !!transcriptionSessionPathLabel);
     }
 
     if (extractAudioBtn) {
@@ -5212,16 +5419,44 @@ function generateVTT(segments) {
       var selectedLanguage = language || "auto";
       var shouldReleaseDecodedAudio = !!audio.phoneOptimized || isSafariLikeBrowser();
       var transferBuffer = resampled.buffer;
+      var mobileVadSpans = [];
+      var sessionPathLabel = audio.phoneOptimized
+        ? "Standard mobile chunking."
+        : "Desktop browser path.";
+
+      if (shouldUseMobileVad(audio, resampled)) {
+        try {
+          setStatus(statusEl, "Analyzing speech regions...", "processing");
+          setProgressMessage("Analyzing speech regions...");
+          setProgress(Math.max(6, getProgressValue()));
+          mobileVadSpans = await requestMobileVadSpans(resampled);
+          if (mobileVadSpans.length) {
+            sessionPathLabel = "VAD-assisted speech chunking.";
+          }
+        } catch (vadError) {
+          mobileVadSpans = [];
+        }
+      }
+
+      setTranscriptionSessionPathLabel(sessionPathLabel);
 
       worker.postMessage(
-    {
-      type: "transcribe",
-      modelKey: modelKey,
-      audio: transferBuffer,
-      selectedLanguage: selectedLanguage
-    },
-    [transferBuffer]
-  );
+        mobileVadSpans.length
+          ? {
+              type: "transcribe_vad_chunks",
+              modelKey: modelKey,
+              audio: transferBuffer,
+              speechSpans: mobileVadSpans,
+              selectedLanguage: selectedLanguage
+            }
+          : {
+              type: "transcribe",
+              modelKey: modelKey,
+              audio: transferBuffer,
+              selectedLanguage: selectedLanguage
+            },
+        [transferBuffer]
+      );
       if (shouldReleaseDecodedAudio) {
         audio.data = null;
         audio.sampleRate = 0;
@@ -5687,6 +5922,8 @@ function generateVTT(segments) {
         setModelUiState(selectedTranscriptionModelKey, getSelectedModelState().enabled ? "idle" : "disabled");
       }
 
+      resetMobileVadWorker();
+
       if (worker) {
         try {
           worker.terminate();
@@ -5729,6 +5966,7 @@ function generateVTT(segments) {
         toolRoot.classList.remove("is-active");
       }
       window.transcriptionAudio = null;
+      clearTranscriptionSessionPathLabel();
       updateToolLayout(root);
     }
 
@@ -6346,6 +6584,7 @@ function generateVTT(segments) {
         phoneRiskReason: getPhoneFileRiskReason(file)
       };
       clearPendingSelectedTranscriptionFile();
+      clearTranscriptionSessionPathLabel();
 
       var selectedLanguage = languageSelect ? languageSelect.value : "";
       var readyMessage = getAudioReadyStatus(selectedLanguage);

@@ -535,7 +535,6 @@ function getPercentile(values, percentile) {
 function buildSpeechAwareChunks(audio, sampleRate, chunkLengthSeconds, strideLengthSeconds) {
   if (!audio || !audio.length || audio.length <= sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS) {
     return [{
-      audio,
       startSample: 0,
       endSample: audio.length
     }];
@@ -593,7 +592,6 @@ function buildSpeechAwareChunks(audio, sampleRate, chunkLengthSeconds, strideLen
 
   if (!speechRegions.length) {
     return [{
-      audio,
       startSample: 0,
       endSample: audio.length
     }];
@@ -641,17 +639,120 @@ function buildSpeechAwareChunks(audio, sampleRate, chunkLengthSeconds, strideLen
     const startSample = Math.max(0, chunk.startFrame * frameSize);
     const endSample = Math.min(audio.length, chunk.endFrame * frameSize);
     return {
-      audio: audio.slice(startSample, endSample),
       startSample,
       endSample
     };
-  }).filter((chunk) => chunk.audio && chunk.audio.length);
+  }).filter((chunk) => chunk.endSample > chunk.startSample);
 
   return chunks.length ? chunks : [{
-    audio,
     startSample: 0,
     endSample: audio.length
   }];
+}
+
+function buildSpeechAwareChunksFromSpans(audio, sampleRate, spans, chunkLengthSeconds, strideLengthSeconds) {
+  if (!audio || !audio.length || !Array.isArray(spans) || !spans.length) {
+    return [{
+      startSample: 0,
+      endSample: audio ? audio.length : 0
+    }];
+  }
+
+  const minSpeechSamples = Math.max(1, Math.round(sampleRate * 0.12));
+  const mergeGapSamples = Math.max(1, Math.round(sampleRate * 0.35));
+  const packGapSamples = Math.max(1, Math.round(sampleRate * 0.9));
+  const paddingSamples = Math.max(1, Math.round(sampleRate * 0.12));
+  const maxChunkSamples = Math.max(
+    sampleRate,
+    Math.round(Math.max(1, chunkLengthSeconds - strideLengthSeconds) * sampleRate)
+  );
+  const normalizedSpans = spans.map((span) => {
+    const startSample = Math.max(0, Math.min(audio.length, Math.floor(Number(span && span.startSample) || 0)));
+    const endSample = Math.max(0, Math.min(audio.length, Math.ceil(Number(span && span.endSample) || 0)));
+    return {
+      startSample,
+      endSample
+    };
+  }).filter((span) => span.endSample - span.startSample >= minSpeechSamples)
+    .sort((left, right) => left.startSample - right.startSample);
+
+  if (!normalizedSpans.length) {
+    return [{
+      startSample: 0,
+      endSample: audio.length
+    }];
+  }
+
+  const mergedSpans = [];
+  normalizedSpans.forEach((span) => {
+    if (!mergedSpans.length) {
+      mergedSpans.push({
+        startSample: span.startSample,
+        endSample: span.endSample
+      });
+      return;
+    }
+
+    const previous = mergedSpans[mergedSpans.length - 1];
+    if (span.startSample - previous.endSample <= mergeGapSamples) {
+      previous.endSample = Math.max(previous.endSample, span.endSample);
+    } else {
+      mergedSpans.push({
+        startSample: span.startSample,
+        endSample: span.endSample
+      });
+    }
+  });
+
+  const expandedSpans = mergedSpans.map((span) => ({
+    startSample: Math.max(0, span.startSample - paddingSamples),
+    endSample: Math.min(audio.length, span.endSample + paddingSamples)
+  }));
+
+  const packedChunks = [];
+  expandedSpans.forEach((span) => {
+    if (!packedChunks.length) {
+      packedChunks.push({
+        startSample: span.startSample,
+        endSample: span.endSample
+      });
+      return;
+    }
+
+    const current = packedChunks[packedChunks.length - 1];
+    const gapSamples = span.startSample - current.endSample;
+    const nextDuration = span.endSample - current.startSample;
+
+    if (gapSamples <= packGapSamples && nextDuration <= maxChunkSamples) {
+      current.endSample = span.endSample;
+    } else {
+      packedChunks.push({
+        startSample: span.startSample,
+        endSample: span.endSample
+      });
+    }
+  });
+
+  const chunks = packedChunks.map((chunk) => ({
+    startSample: chunk.startSample,
+    endSample: chunk.endSample
+  })).filter((chunk) => chunk.endSample > chunk.startSample);
+
+  return chunks.length ? chunks : [{
+    startSample: 0,
+    endSample: audio.length
+  }];
+}
+
+function extractChunkAudio(audio, chunk) {
+  if (!audio || !audio.length || !chunk) {
+    return new Float32Array(0);
+  }
+
+  const startSample = Math.max(0, Math.min(audio.length, Math.floor(Number(chunk.startSample) || 0)));
+  const endSample = Math.max(startSample, Math.min(audio.length, Math.ceil(Number(chunk.endSample) || 0)));
+
+  return audio.slice(startSample, endSample);
 }
 
 function appendTimedChunks(target, sourceChunks, offsetSeconds) {
@@ -1009,7 +1110,7 @@ async function loadTranscriptionModel(progressCallback) {
   };
 }
 
-async function handleTranscription(audioBuffer, selectedLanguage) {
+async function handleTranscription(audioBuffer, selectedLanguage, externalSpeechSpans) {
   if (!audioBuffer) {
     throw new Error("Missing audio data");
   }
@@ -1159,11 +1260,11 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
     const generationControlState = createGenerationControlState(activeModel, activeRuntimeProfile);
     const options = await createTranscriptionOptions(activeModel, activeRuntimeProfile);
     const timestampsEnabled = !activeRuntimeProfile || activeRuntimeProfile.timestampsEnabled !== false;
-    const useSpeechAwareChunks = audio.length > sampleRate * MIN_SPEECH_REGION_CLIP_SECONDS;
-    const chunkPlan = useSpeechAwareChunks
-      ? buildSpeechAwareChunks(audio, sampleRate, activeRuntimeProfile.chunkLengthSeconds, activeRuntimeProfile.strideLengthSeconds)
+    const shouldUseExternalSpeechSpans = Array.isArray(externalSpeechSpans) && externalSpeechSpans.length > 0;
+    const useSpeechAwareChunks = shouldUseExternalSpeechSpans;
+    const chunkPlan = shouldUseExternalSpeechSpans
+      ? buildSpeechAwareChunksFromSpans(audio, sampleRate, externalSpeechSpans, activeRuntimeProfile.chunkLengthSeconds, activeRuntimeProfile.strideLengthSeconds)
       : [{
-          audio,
           startSample: 0,
           endSample: audio.length
         }];
@@ -1188,8 +1289,9 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
 
     for (let index = 0; index < chunkPlan.length; index += 1) {
       const chunk = chunkPlan[index];
+      const chunkAudio = extractChunkAudio(audio, chunk);
       const chunkOffsetSeconds = chunk.startSample / sampleRate;
-      const clipDurationSeconds = chunk.audio.length / sampleRate;
+      const clipDurationSeconds = chunkAudio.length / sampleRate;
       if (chunkPlan.length > 1) {
         const chunkProgress = 12 + Math.round(((index + 1) / chunkPlan.length) * 82);
         postMessage({
@@ -1199,14 +1301,14 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
         });
       }
 
-      let result = await runWhisperTranscriptionAttempt(activeModel, chunk.audio, options, generationControlState);
+      let result = await runWhisperTranscriptionAttempt(activeModel, chunkAudio, options, generationControlState);
       let resultText = normalizeText(result && result.text);
       let rawResultChunks = sanitizeTimedChunks(result && result.chunks, clipDurationSeconds);
       let resultSegments = normalizeSegments(rawResultChunks, clipDurationSeconds);
       let timestampCheck = timestampsEnabled
         ? inspectTimestampQuality(rawResultChunks, clipDurationSeconds)
         : { ok: true, reason: "timestamps_disabled" };
-      let badOutputCheck = inspectBadTranscriptionOutput(resultText, chunk.audio, selectedLanguage);
+      let badOutputCheck = inspectBadTranscriptionOutput(resultText, chunkAudio, selectedLanguage);
       const mobileWarnings = [];
       const hasUsableTimestampedSegments = timestampsEnabled && timestampCheck.ok && resultSegments.length > 0;
 
@@ -1231,14 +1333,14 @@ async function handleTranscription(audioBuffer, selectedLanguage) {
           chunkIndex: index,
           retryReason
         });
-        const retriedResult = await runWhisperTranscriptionAttempt(activeModel, chunk.audio, retryOptions, generationControlState);
+        const retriedResult = await runWhisperTranscriptionAttempt(activeModel, chunkAudio, retryOptions, generationControlState);
         const retriedText = normalizeText(retriedResult && retriedResult.text);
         const retriedRawChunks = sanitizeTimedChunks(retriedResult && retriedResult.chunks, clipDurationSeconds);
         const retriedSegments = normalizeSegments(retriedRawChunks, clipDurationSeconds);
         const retriedTimestampCheck = timestampsEnabled
           ? inspectTimestampQuality(retriedRawChunks, clipDurationSeconds)
           : { ok: true, reason: "timestamps_disabled" };
-        const retriedBadOutputCheck = inspectBadTranscriptionOutput(retriedText, chunk.audio, selectedLanguage);
+        const retriedBadOutputCheck = inspectBadTranscriptionOutput(retriedText, chunkAudio, selectedLanguage);
         const retriedHasUsableTimestampedSegments = timestampsEnabled
           && retriedTimestampCheck.ok
           && retriedSegments.length > 0;
@@ -1428,7 +1530,7 @@ self.onmessage = async (event) => {
 
   if (isBusy) {
     postMessage({
-      type: requestType === "transcribe" ? "error" : "model_error",
+      type: requestType === "transcribe" || requestType === "transcribe_vad_chunks" ? "error" : "model_error",
       message: "Worker is busy"
     });
     return;
@@ -1439,6 +1541,11 @@ self.onmessage = async (event) => {
   try {
     if (requestType === "transcribe") {
       await handleTranscription(data.audio, data.selectedLanguage);
+      return;
+    }
+
+    if (requestType === "transcribe_vad_chunks") {
+      await handleTranscription(data.audio, data.selectedLanguage, data.speechSpans);
       return;
     }
 

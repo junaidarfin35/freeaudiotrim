@@ -3627,6 +3627,11 @@ body.audio-converter-page #audio-tool .at-tools {
   line-height: 1.5;
 }
 
+#audio-tool [data-role="processingInfo"] .at-help-session {
+  color: #3555d8;
+  font-weight: 600;
+}
+
 #audio-tool .at-status[data-status-state="ready"] {
   border-color: rgba(22, 163, 74, 0.22);
   background: #ecfdf5;
