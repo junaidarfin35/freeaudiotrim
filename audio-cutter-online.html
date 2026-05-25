@@ -38,7 +38,7 @@
 
 <link rel="stylesheet" href="/css/global.css?v=2026-05-18-1">
 <link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
-<link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-1">
+  <link rel="stylesheet" href="/assets/upload.css?v=2026-05-25-1">
 
 <!-- STRUCTURED DATA -->
 <script type="application/ld+json">
@@ -622,8 +622,14 @@
 
 <script src="/assets/encoders/lame.min.js?v=2026-05-18-1"></script>
 <script src="/assets/encoders/mp3-encoder.js?v=2026-05-18-1"></script>
-<script src="/assets/trim-tool.js?v=2026-05-18-1"></script>
-<script src="/assets/upload.js?v=2026-05-18-1"></script>
+<script src="/assets/trim-tool.js?v=2026-05-25-3"></script>
+<script src="/assets/upload.js?v=2026-05-25-2"></script>
+
+<script>
+window.AudioToolUploadPolicy = typeof window.AudioToolCreateTrimWaveformUploadPolicy === 'function'
+  ? window.AudioToolCreateTrimWaveformUploadPolicy({ toolId: 'audio-cutter-online' })
+  : { toolId: 'audio-cutter-online', family: 'trim-waveform' };
+</script>
 
 
 <script>

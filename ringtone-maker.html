@@ -38,7 +38,7 @@
 
 <link rel="stylesheet" href="/css/global.css?v=2026-05-18-1">
 <link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
-<link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-1">
+  <link rel="stylesheet" href="/assets/upload.css?v=2026-05-25-1">
 
 <!-- STRUCTURED DATA -->
 <script type="application/ld+json">
@@ -205,7 +205,7 @@
     Change
   </button>
 
-  <input id="audioFileInput" class="at-file" type="file" accept="audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mpga" hidden>
+  <input id="audioFileInput" class="at-file" type="file" accept="audio/*,video/mp4,video/x-m4v,video/webm,video/quicktime,.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mpga,.mp4,.m4v,.mov,.webm,.mpeg,.mpg,.avi,.mkv,.3gp,.3g2,.hevc,.h265" hidden>
 
 </div>
 
@@ -630,18 +630,27 @@
 
 <script src="/assets/encoders/lame.min.js?v=2026-05-18-1" defer></script>
 <script src="/assets/encoders/mp3-encoder.js?v=2026-05-18-1" defer></script>
-<script src="/assets/trim-tool.js?v=2026-05-18-1" defer></script>
-<script src="/assets/upload.js?v=2026-05-18-1" defer></script>
+<script src="/assets/trim-tool.js?v=2026-05-25-3" defer></script>
+<script src="/assets/upload.js?v=2026-05-25-2" defer></script>
 
 <script>
+window.AudioToolUploadPolicy = typeof window.AudioToolCreateTrimWaveformUploadPolicy === 'function'
+  ? window.AudioToolCreateTrimWaveformUploadPolicy({ toolId: 'ringtone-maker' })
+  : { toolId: 'ringtone-maker', family: 'trim-waveform' };
+
 document.addEventListener('DOMContentLoaded', function() {
   function isUnsupportedUploadSelection(file) {
-    if (!file) {
+    const safariOnly = typeof window.AudioToolIsSafariBrowser === 'function'
+      ? window.AudioToolIsSafariBrowser()
+      : false;
+    const sharedValidator = typeof window.AudioToolDefaultValidateFile === 'function'
+      ? window.AudioToolDefaultValidateFile
+      : null;
+    if (!file || !safariOnly || !sharedValidator) {
       return false;
     }
-    const type = String(file.type || '').toLowerCase();
-    const name = String(file.name || '').toLowerCase();
-    return type === 'video/quicktime' || name.endsWith('.mov') || name.endsWith('.hevc') || name.endsWith('.h265');
+    const validation = sharedValidator(file, null);
+    return !!(validation && validation.ok === false);
   }
 
   function showUploadNotice(message) {
@@ -664,7 +673,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const toolShell = document.getElementById('tool-shell');
 
     if (isUnsupportedUploadSelection(selectedFile)) {
-      showUploadNotice('This iPhone video format is not supported in Ringtone Maker yet. Please choose an audio file like MP3, WAV, M4A, AAC, FLAC, or OGG.');
+      showUploadNotice('Video files are not supported in Safari for browser waveform editing yet. Please use an audio file like MP3, WAV, M4A, AAC, FLAC, or OGG. You can still use MP4, MOV, M4V, and WebM files in desktop Chrome.');
       return;
     }
 
@@ -815,16 +824,17 @@ document.addEventListener('DOMContentLoaded', function() {
       notice.classList.toggle("is-visible", !!message);
     }
 
-    window.AudioToolValidateFile = function (file) {
-      if (isLikelyUnsupportedPhoneVideo(file)) {
-        setUploadNotice("This iPhone video format is not supported in Ringtone Maker yet. Please choose an audio file like MP3, WAV, M4A, AAC, FLAC, or OGG.");
-        return {
-          ok: false,
-          message: "This iPhone video format is not supported in Ringtone Maker yet. Please choose an audio file like MP3, WAV, M4A, AAC, FLAC, or OGG."
-        };
+    window.AudioToolValidateFile = function (file, controller) {
+      var sharedValidator = typeof window.AudioToolDefaultValidateFile === "function"
+        ? window.AudioToolDefaultValidateFile
+        : null;
+      var validation = sharedValidator ? sharedValidator(file, controller) : { ok: true };
+      if (validation && validation.ok === false) {
+        setUploadNotice(validation.message || "");
+        return validation;
       }
       setUploadNotice("");
-      return { ok: true };
+      return validation;
     };
 
     function isMediaLikeFile(file) {
@@ -901,6 +911,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.AudioToolPreprocessFile = function (file, decodeError, controller) {
       return convertInputForWaveform(file, controller);
+    };
+
+    window.AudioToolShouldTryPreprocess = function (file, decodeError) {
+      if (!file || isLikelyUnsupportedPhoneVideo(file)) {
+        return false;
+      }
+      var type = String(file.type || "").toLowerCase();
+      var ext = getFileExtension(file.name);
+      return (
+        type.indexOf("video/") === 0 ||
+        ext === ".mp4" ||
+        ext === ".m4v" ||
+        ext === ".webm" ||
+        ext === ".mpeg" ||
+        ext === ".mpg" ||
+        ext === ".avi" ||
+        ext === ".mkv" ||
+        ext === ".3gp" ||
+        ext === ".3g2"
+      );
     };
 
     var PRESETS = {

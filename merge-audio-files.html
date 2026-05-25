@@ -515,7 +515,15 @@
 
 <script src="/assets/encoders/lame.min.js"></script>
 <script src="/assets/merge-audio-files.js"></script>
-<script src="/assets/upload.js"></script>
+<script src="/assets/upload.js?v=2026-05-25-2"></script>
+
+<script>
+window.AudioToolUploadPolicy = function() {
+  return typeof window.AudioToolCreateAudioOnlyUploadPolicy === 'function'
+    ? window.AudioToolCreateAudioOnlyUploadPolicy({ toolId: 'merge-audio-files', family: 'audio-processor' })
+    : { toolId: 'merge-audio-files', family: 'audio-processor', pickerAccept: 'audio/*,.mp3,.wav,.wma,.ogg,.oga,.opus,.m4a,.aac,.amr,.flac,.aif,.aiff,.ape,.m4r,.3gp,.mpga' };
+};
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -557,6 +565,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     uploadShell.classList.remove('is-hidden');
     toolShell.classList.add('is-hidden');
+  });
+
+  document.addEventListener('upload:validation-failed', function(e) {
+    const detail = e.detail || {};
+    if (detail.phase !== 'replacement' || (detail.input && detail.input.id !== 'audioFileInput')) return;
+    const status = document.querySelector('[data-role="status"]');
+    if (!status) return;
+    status.textContent = detail.message || 'This file is not supported.';
+    status.dataset.statusState = 'error';
   });
 });
 </script>

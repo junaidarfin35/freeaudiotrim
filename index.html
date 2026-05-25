@@ -34,7 +34,7 @@
 
 <link rel="stylesheet" href="/css/global.css">
 <link rel="stylesheet" href="/assets/layout.css">
-<link rel="stylesheet" href="/assets/upload.css">
+  <link rel="stylesheet" href="/assets/upload.css?v=2026-05-25-1">
 
 
 <script type="application/ld+json">
@@ -713,8 +713,14 @@ People use audio trimmers for many different purposes. Whether you're a creator,
 
 <script src="/assets/encoders/lame.min.js"></script>
 <script src="/assets/encoders/mp3-encoder.js"></script>
-<script src="/assets/trim-tool.js"></script>
-<script src="/assets/upload.js"></script>
+<script src="/assets/trim-tool.js?v=2026-05-25-3"></script>
+<script src="/assets/upload.js?v=2026-05-25-2"></script>
+
+<script>
+window.AudioToolUploadPolicy = typeof window.AudioToolCreateTrimWaveformUploadPolicy === 'function'
+  ? window.AudioToolCreateTrimWaveformUploadPolicy({ toolId: 'homepage-trim' })
+  : { toolId: 'homepage-trim', family: 'trim-waveform' };
+</script>
 
 
 <script>

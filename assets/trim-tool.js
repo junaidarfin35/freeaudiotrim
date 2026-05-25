@@ -3,6 +3,9 @@
 
   var ENCODER_PATH = "/assets/encoders/mp3-encoder.js";
   var BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
+  var TRIM_AUDIO_ACCEPT = "audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mpga";
+  var TRIM_MEDIA_ACCEPT = "audio/*,video/mp4,video/x-m4v,video/webm,video/quicktime,.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mpga,.mp4,.m4v,.mov,.webm,.mpeg,.mpg,.avi,.mkv,.3gp,.3g2,.hevc,.h265";
+  var TRIM_SAFARI_VIDEO_MESSAGE = "Video files are not supported in Safari for browser waveform editing yet. Please use an audio file like MP3, WAV, M4A, AAC, FLAC, or OGG. You can still use MP4, MOV, M4V, and WebM files in desktop Chrome.";
 
   function formatTime(seconds) {
     var total = Math.max(0, Number(seconds) || 0);
@@ -44,14 +47,299 @@
     });
   }
 
+  function getFileExtension(name) {
+    if (!name) {
+      return "";
+    }
+    var idx = name.lastIndexOf(".");
+    if (idx === -1) {
+      return "";
+    }
+    return name.slice(idx).toLowerCase();
+  }
+
   function isDecodeLikeError(err) {
     var errText = String((err && (err.message || err.name)) || "").toLowerCase();
     return (
       errText.indexOf("decode") !== -1 ||
       errText.indexOf("encodingerror") !== -1 ||
-      errText.indexOf("notsupportederror") !== -1
+      errText.indexOf("notsupportederror") !== -1 ||
+      errText.indexOf("loading failed") !== -1 ||
+      errText.indexOf("could not decode") !== -1
     );
   }
+
+  function isVideoLikeFile(file) {
+    if (!file) {
+      return false;
+    }
+    var type = String(file.type || "").toLowerCase();
+    if (type.indexOf("video/") === 0) {
+      return true;
+    }
+    var ext = getFileExtension(file.name);
+    return (
+      ext === ".mp4" ||
+      ext === ".m4v" ||
+      ext === ".webm" ||
+      ext === ".mpeg" ||
+      ext === ".mpg" ||
+      ext === ".avi" ||
+      ext === ".mkv" ||
+      ext === ".3gp" ||
+      ext === ".3g2"
+    );
+  }
+
+  function isSafariBrowser() {
+    if (typeof navigator === "undefined") {
+      return false;
+    }
+    var ua = String(navigator.userAgent || "");
+    var vendor = String(navigator.vendor || "");
+    var isAppleVendor = vendor.indexOf("Apple") !== -1;
+    var hasSafariToken = ua.indexOf("Safari") !== -1;
+    var isExcluded =
+      ua.indexOf("CriOS") !== -1 ||
+      ua.indexOf("Chrome") !== -1 ||
+      ua.indexOf("Chromium") !== -1 ||
+      ua.indexOf("EdgiOS") !== -1 ||
+      ua.indexOf("Edg") !== -1 ||
+      ua.indexOf("FxiOS") !== -1 ||
+      ua.indexOf("Firefox") !== -1 ||
+      ua.indexOf("OPiOS") !== -1 ||
+      ua.indexOf("OPR") !== -1 ||
+      ua.indexOf("Android") !== -1;
+    return hasSafariToken && isAppleVendor && !isExcluded;
+  }
+
+  function isLikelyUnsupportedQuickTimeFile(file) {
+    if (!file) {
+      return false;
+    }
+    var type = String(file.type || "").toLowerCase();
+    var ext = getFileExtension(file.name);
+    return (
+      type === "video/quicktime" ||
+      ext === ".mov" ||
+      ext === ".hevc" ||
+      ext === ".h265"
+    );
+  }
+
+  function isSafariUnsupportedMediaFile(file) {
+    if (!file) {
+      return false;
+    }
+    return isLikelyUnsupportedQuickTimeFile(file) || isVideoLikeFile(file);
+  }
+
+  function resolveUploadPolicy(context) {
+    if (typeof window.AudioToolUploadPolicy === "function") {
+      return window.AudioToolUploadPolicy(context || {});
+    }
+    if (window.AudioToolUploadPolicy && typeof window.AudioToolUploadPolicy === "object") {
+      return window.AudioToolUploadPolicy;
+    }
+    return null;
+  }
+
+  var sharedFFmpeg = null;
+  var sharedFFmpegLoaded = false;
+  var sharedFFmpegLoadPromise = null;
+  var sharedFFmpegCompatPromise = null;
+
+  function loadSharedFFmpegCompat() {
+    if (window.FFmpeg && typeof window.FFmpeg.createFFmpeg === "function") {
+      return Promise.resolve(window.FFmpeg);
+    }
+    if (sharedFFmpegCompatPromise) {
+      return sharedFFmpegCompatPromise;
+    }
+
+    sharedFFmpegCompatPromise = new Promise(function (resolve, reject) {
+      var script = document.createElement("script");
+      script.src = "/assets/ffmpeg/ffmpeg-compat.js?v=2026-05-18-1";
+      script.async = true;
+      script.onload = function () {
+        if (window.FFmpeg && typeof window.FFmpeg.createFFmpeg === "function") {
+          resolve(window.FFmpeg);
+          return;
+        }
+        reject(new Error("FFmpeg loader unavailable."));
+      };
+      script.onerror = function () {
+        reject(new Error("FFmpeg loader unavailable."));
+      };
+      document.head.appendChild(script);
+    }).catch(function (error) {
+      sharedFFmpegCompatPromise = null;
+      throw error;
+    });
+
+    return sharedFFmpegCompatPromise;
+  }
+
+  function loadSharedFFmpeg() {
+    if (sharedFFmpegLoaded && sharedFFmpeg) {
+      return Promise.resolve(sharedFFmpeg);
+    }
+    if (sharedFFmpegLoadPromise) {
+      return sharedFFmpegLoadPromise;
+    }
+
+    sharedFFmpegLoadPromise = (async function () {
+      await loadSharedFFmpegCompat();
+      if (!window.FFmpeg || typeof window.FFmpeg.createFFmpeg !== "function") {
+        throw new Error("FFmpeg loader unavailable.");
+      }
+      var createFFmpeg = window.FFmpeg.createFFmpeg;
+      var base = window.location.origin + "/assets/ffmpeg";
+      sharedFFmpeg = createFFmpeg({
+        log: false,
+        corePath: base + "/ffmpeg-core.js",
+        mainName: "main"
+      });
+      await sharedFFmpeg.load();
+      sharedFFmpegLoaded = true;
+      return sharedFFmpeg;
+    })();
+
+    return sharedFFmpegLoadPromise.catch(function (error) {
+      sharedFFmpegLoadPromise = null;
+      sharedFFmpeg = null;
+      throw error;
+    });
+  }
+
+  function createCompatibilityFile(bytes, sourceFile) {
+    var baseName = sourceFile && sourceFile.name
+      ? sourceFile.name.replace(/\.[^/.]+$/, "")
+      : "media";
+    return new File([bytes.buffer], baseName + "-compat.wav", {
+      type: "audio/wav",
+      lastModified: Date.now()
+    });
+  }
+
+  async function defaultPreprocessMediaFile(file, decodeError, controller) {
+    if (!isVideoLikeFile(file)) {
+      return null;
+    }
+
+    if (controller && typeof controller.setStatus === "function") {
+      controller.setStatus("Converting media for compatibility...");
+    }
+
+    var encoder = await loadSharedFFmpeg();
+    var fetchFile = window.FFmpeg && window.FFmpeg.fetchFile;
+    if (typeof fetchFile !== "function") {
+      throw new Error("FFmpeg file bridge unavailable.");
+    }
+
+    var inputExt = getFileExtension(file.name) || ".bin";
+    var inputName = "compat-input" + inputExt;
+    var outputName = "compat-output.wav";
+
+    encoder.FS("writeFile", inputName, await fetchFile(file));
+    try {
+      await encoder.run(
+        "-i", inputName,
+        "-vn",
+        "-ac", "2",
+        "-ar", "44100",
+        "-c:a", "pcm_s16le",
+        outputName
+      );
+    } catch (err) {
+      throw new Error("Unable to decode this media format on this device.");
+    }
+
+    var outputData = null;
+    try {
+      outputData = encoder.FS("readFile", outputName);
+    } catch (readErr) {
+      throw new Error("Unable to decode this media format on this device.");
+    } finally {
+      try { encoder.FS("unlink", inputName); } catch (err1) {}
+      try { encoder.FS("unlink", outputName); } catch (err2) {}
+    }
+
+    return createCompatibilityFile(outputData, file);
+  }
+
+  window.AudioToolDefaultShouldTryPreprocess = function (file, decodeError, controller) {
+    return isVideoLikeFile(file);
+  };
+
+  window.AudioToolDefaultPreprocessFile = function (file, decodeError, controller) {
+    return defaultPreprocessMediaFile(file, decodeError, controller);
+  };
+
+  function resolveUploadValidator(policy) {
+    if (policy && typeof policy.validateFile === "function") {
+      return policy.validateFile.bind(policy);
+    }
+    if (typeof window.AudioToolValidateFile === "function") {
+      return window.AudioToolValidateFile;
+    }
+    return window.AudioToolDefaultValidateFile;
+  }
+
+  function runDefaultValidation(file, context) {
+    var policy = resolveUploadPolicy(context);
+    if (policy && typeof policy.validateFile === "function") {
+      return policy.validateFile(file, context || null);
+    }
+    var safariRuntime = typeof window.AudioToolIsSafariBrowser === "function"
+      ? window.AudioToolIsSafariBrowser()
+      : isSafariBrowser();
+    if (policy && policy.family === "trim-waveform" && safariRuntime && isSafariUnsupportedMediaFile(file)) {
+      return {
+        ok: false,
+        message: TRIM_SAFARI_VIDEO_MESSAGE
+      };
+    }
+    return { ok: true };
+  }
+
+  window.AudioToolDefaultValidateFile = function (file, controllerOrContext) {
+    var context = controllerOrContext;
+    if (!context || typeof context !== "object" || context.fileInput || context.currentFile) {
+      context = {
+        controller: controllerOrContext || null,
+        phase: controllerOrContext && controllerOrContext.duration ? "replacement" : "initial"
+      };
+    }
+    return runDefaultValidation(file, context);
+  };
+
+  window.AudioToolIsSafariBrowser = isSafariBrowser;
+  window.AudioToolIsVideoLikeFile = isVideoLikeFile;
+  window.AudioToolTrimAudioAccept = TRIM_AUDIO_ACCEPT;
+  window.AudioToolTrimMediaAccept = TRIM_MEDIA_ACCEPT;
+  window.AudioToolTrimSafariVideoMessage = TRIM_SAFARI_VIDEO_MESSAGE;
+  window.AudioToolResolveUploadPolicy = resolveUploadPolicy;
+  window.AudioToolResolveUploadValidator = resolveUploadValidator;
+  window.AudioToolCreateTrimWaveformUploadPolicy = function (options) {
+    var config = options || {};
+    return {
+      toolId: config.toolId || "trim-waveform",
+      family: "trim-waveform",
+      getPickerAccept: function () {
+        return isSafariBrowser() ? TRIM_AUDIO_ACCEPT : TRIM_MEDIA_ACCEPT;
+      },
+      validateFile: function (file) {
+        if (isSafariBrowser() && isSafariUnsupportedMediaFile(file)) {
+          return {
+            ok: false,
+            message: config.safariVideoMessage || TRIM_SAFARI_VIDEO_MESSAGE
+          };
+        }
+        return { ok: true };
+      }
+    };
+  };
 
   function loadMp3Module() {
     return new Promise(function (resolve, reject) {
@@ -970,26 +1258,53 @@
     if (!file) {
       return;
     }
-    if (typeof window.AudioToolValidateFile === "function") {
-      var validation = window.AudioToolValidateFile(file, this);
+    var validationContext = {
+      controller: this,
+      input: this.fileInput || null,
+      phase: this.duration ? "replacement" : "initial"
+    };
+    var policy = resolveUploadPolicy(validationContext);
+    var validateFile = resolveUploadValidator(policy);
+    if (validateFile) {
+      var validation = validateFile(file, validationContext);
       if (validation && validation.ok === false) {
+        var hadLoadedFile = !!(this.currentFile && this.duration);
+        var previousFile = this.currentFile;
         this.currentFile = null;
-        this.duration = 0;
-        this.audio.stop();
-        this.stopAnimationLoop();
-        this.renderer.setPlayhead(null);
-        this._setControlsEnabled(false);
-        this.trim.reset();
-        this.updateTimeText();
-        this.updateFadeOverlay();
         if (this.fileInput) {
           this.fileInput.value = "";
         }
-        if (this.fileNameEl) {
-          this.fileNameEl.textContent = "";
-        }
-        if (this.fileRow) {
-          this.fileRow.classList.add("is-hidden");
+        if (hadLoadedFile && previousFile) {
+          var self = this;
+          this.currentFile = previousFile;
+          this.audio.stop();
+          this.stopAnimationLoop();
+          this.playPauseBtn.textContent = "Play";
+          this.audio.resetPosition(this.trim.startRatio * this.duration);
+          this.renderer.setPlayhead(this.trim.startRatio);
+          setTimeout(function () {
+            if (self.fileNameEl) {
+              self.fileNameEl.textContent = previousFile.name;
+            }
+            if (self.fileRow) {
+              self.fileRow.classList.remove("is-hidden");
+            }
+          }, 0);
+        } else {
+          this.duration = 0;
+          this.audio.stop();
+          this.stopAnimationLoop();
+          this.renderer.setPlayhead(null);
+          this._setControlsEnabled(false);
+          this.trim.reset();
+          this.updateTimeText();
+          this.updateFadeOverlay();
+          if (this.fileNameEl) {
+            this.fileNameEl.textContent = "";
+          }
+          if (this.fileRow) {
+            this.fileRow.classList.add("is-hidden");
+          }
         }
         this.setStatus(validation.message || "This file is not supported.");
         return;
@@ -1018,9 +1333,16 @@
       } catch (decodeError) {
         var preprocess = typeof window.AudioToolPreprocessFile === "function"
           ? window.AudioToolPreprocessFile
-          : null;
+          : (typeof window.AudioToolDefaultPreprocessFile === "function"
+            ? window.AudioToolDefaultPreprocessFile
+            : null);
+        var shouldTryPreprocess = typeof window.AudioToolShouldTryPreprocess === "function"
+          ? window.AudioToolShouldTryPreprocess(file, decodeError, this)
+          : (typeof window.AudioToolDefaultShouldTryPreprocess === "function"
+            ? window.AudioToolDefaultShouldTryPreprocess(file, decodeError, this)
+            : false);
 
-        if (!isDecodeLikeError(decodeError) || !preprocess) {
+        if ((!isDecodeLikeError(decodeError) && !shouldTryPreprocess) || !preprocess) {
           throw decodeError;
         }
 
