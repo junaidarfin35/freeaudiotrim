@@ -564,13 +564,27 @@
 <script src="/assets/ffmpeg/ffmpeg-compat.js"></script>
 <script src="/assets/encoders/lame.min.js"></script>
 <script src="/assets/encoders/mp3-encoder.js"></script>
-<script src="/assets/upload.js" defer></script>
+<script src="/assets/upload.js?v=2026-05-25-3" defer></script>
 <script src="/assets/related-tools.js"></script>
 
 
 <script>
+window.AudioToolUploadPolicy = function () {
+  if (typeof window.AudioToolCreateMediaConverterUploadPolicy === 'function') {
+    return window.AudioToolCreateMediaConverterUploadPolicy({
+      toolId: 'audio-converter',
+      family: 'media-converter'
+    });
+  }
+
+  return {
+    pickerAccept: document.getElementById('audioFileInput')?.getAttribute('accept') || 'audio/*,video/*'
+  };
+};
+
 let currentFile = null;
 let convertedBlob = null;
+let convertedBaseName = '';
 
 // =========================
 // FFMPEG SETUP
@@ -618,6 +632,8 @@ document.addEventListener('file:selected', function(e) {
   if (!file) return;
 
   currentFile = file;
+  convertedBlob = null;
+  convertedBaseName = '';
 
   const uploadShell = document.getElementById('upload-shell');
   const toolShell = document.getElementById('tool-shell');
@@ -639,12 +655,37 @@ document.addEventListener('file:selected', function(e) {
     lucide.createIcons();
   }
 
+  const convertBtn = document.querySelector('[data-role="convertBtn"], [data-role="downloadBtn"]');
+  if (convertBtn) {
+    convertBtn.textContent = "Convert";
+    convertBtn.disabled = false;
+    convertBtn.dataset.role = "convertBtn";
+  }
+
+  const status = document.querySelector('[data-role="status"]');
+  if (status) {
+    status.textContent = "Ready to convert";
+  }
+
+  const postActions = document.querySelector('[data-role="postActions"]');
+  if (postActions) {
+    postActions.style.display = "none";
+  }
+
   uploadShell.classList.add('is-hidden');
   toolShell.classList.remove('is-hidden');
 
   const offset = 100;
   const y = toolShell.getBoundingClientRect().top + window.pageYOffset - offset;
   window.scrollTo({ top: y, behavior: "smooth" });
+});
+document.addEventListener('upload:validation-failed', function(e) {
+  const detail = e.detail || {};
+  if (detail.phase !== 'replacement' || detail.input?.id !== 'audioFileInput') return;
+  const status = document.querySelector('[data-role="status"]');
+  if (status) {
+    status.textContent = detail.message || 'This file is not supported.';
+  }
 });
 
 // =========================
@@ -665,6 +706,10 @@ document.addEventListener('click', async function(e) {
 
   const status = document.querySelector('[data-role="status"]');
   const format = document.querySelector('[data-role="formatSelect"]').value;
+  const activeFile = currentFile;
+  const activeFileBaseName = activeFile.name.replace(/\.[^/.]+$/, "");
+  const isVideoSource = String(activeFile.type || '').toLowerCase().startsWith('video/')
+    || /\.(mp4|m4v|mov|webm|mkv|avi|ogv|mpeg|mpg|3gp|3g2|ts|m2ts|mts|wmv|asf|mxf|flv|f4v|vob)$/i.test(activeFile.name || '');
 
   btn.textContent = "Processing...";
   btn.disabled = true;
@@ -675,35 +720,41 @@ document.addEventListener('click', async function(e) {
     // =========================
     // FAST PATH (MP3 / WAV)
     // =========================
-    if (format === "wav" || format === "mp3") {
-      const arrayBuffer = await currentFile.arrayBuffer();
-      const audioCtx = new AudioContext();
-      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    if ((format === "wav" || format === "mp3") && !isVideoSource) {
+      try {
+        const arrayBuffer = await activeFile.arrayBuffer();
+        const audioCtx = new AudioContext();
+        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-      if (format === "wav") {
-        status.textContent = "Converting to WAV...";
-        convertedBlobLocal = bufferToWav(audioBuffer);
+        if (format === "wav") {
+          status.textContent = "Converting to WAV...";
+          convertedBlobLocal = bufferToWav(audioBuffer);
 
-      } else if (format === "mp3") {
-        status.textContent = "Converting to MP3...";
+        } else if (format === "mp3") {
+          status.textContent = "Converting to MP3...";
 
-        if (!window.MP3EncoderModule || !window.MP3EncoderModule.isAvailable()) {
-          throw new Error("MP3 encoder not available");
+          if (!window.MP3EncoderModule || !window.MP3EncoderModule.isAvailable()) {
+            throw new Error("MP3 encoder not available");
+          }
+
+          const channels = [];
+          for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+            channels.push(audioBuffer.getChannelData(i));
+          }
+
+          convertedBlobLocal = window.MP3EncoderModule.encode({
+            channels,
+            sampleRate: audioBuffer.sampleRate,
+            bitrateKbps: 192
+          });
         }
-
-        const channels = [];
-        for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
-          channels.push(audioBuffer.getChannelData(i));
-        }
-
-        convertedBlobLocal = window.MP3EncoderModule.encode({
-          channels,
-          sampleRate: audioBuffer.sampleRate,
-          bitrateKbps: 192
-        });
+      } catch (decodeError) {
+        console.warn("Fast decode failed, falling back to advanced converter.", decodeError);
+        status.textContent = "Switching to advanced converter...";
       }
+    }
 
-    } else {
+    if (!convertedBlobLocal) {
       // =========================
       // ADVANCED PATH (FFMPEG)
       // =========================
@@ -716,7 +767,7 @@ document.addEventListener('click', async function(e) {
       const inputName = "input";
       const outputName = `output.${format}`;
 
-      ffmpeg.FS("writeFile", inputName, await fetchFile(currentFile));
+      ffmpeg.FS("writeFile", inputName, await fetchFile(activeFile));
 
       status.textContent = "Converting with advanced engine...";
 
@@ -760,6 +811,7 @@ document.addEventListener('click', async function(e) {
     // SUCCESS (ALL FORMATS)
     // =========================
     convertedBlob = convertedBlobLocal;
+    convertedBaseName = activeFileBaseName;
 
     btn.textContent = "Download";
     btn.disabled = false;
@@ -774,9 +826,12 @@ document.addEventListener('click', async function(e) {
 
     const status = document.querySelector('[data-role="status"]');
     status.textContent = "Conversion failed";
+    convertedBlob = null;
+    convertedBaseName = '';
 
     btn.textContent = "Convert";
     btn.disabled = false;
+    btn.dataset.role = "convertBtn";
   }
 });
 
@@ -792,7 +847,7 @@ document.addEventListener('click', function(e) {
   const url = URL.createObjectURL(convertedBlob);
   const a = document.createElement('a');
 
-  const baseName = currentFile.name.replace(/\.[^/.]+$/, "");
+  const baseName = convertedBaseName || currentFile.name.replace(/\.[^/.]+$/, "");
 
   a.href = url;
   a.download = `${baseName}.${format}`;

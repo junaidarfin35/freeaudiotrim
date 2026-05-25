@@ -38,6 +38,12 @@ const SUPPORTED_VIDEO_MIME_TYPES = new Set([
   "video/x-flv",
   "application/mxf"
 ]);
+const SUPPORTED_VIDEO_ACCEPT = [
+  ...SUPPORTED_VIDEO_EXTENSIONS,
+  ...SUPPORTED_VIDEO_MIME_TYPES,
+  "video/*"
+].join(",");
+const UNSUPPORTED_VIDEO_MESSAGE = "This file type is not supported yet. " + SUPPORT_COPY;
 
 const state = {
   selectedFile: null,
@@ -69,8 +75,27 @@ if (extractBtn && downloadLink && status) {
 
   window.ExtractAudioFromVideoTool = {
     addFile(file) {
+      if (state.extracting) {
+        const input = document.getElementById("audioFileInput");
+        if (input) {
+          input.value = "";
+        }
+        setStatus("Extraction already running. Wait for it to finish before changing files.", "warning");
+        return { accepted: false, reason: "busy" };
+      }
       setSelectedFile(file);
+      return { accepted: !!state.selectedFile };
     }
+  };
+  window.AudioToolExtractVideoAccept = SUPPORTED_VIDEO_ACCEPT;
+  window.AudioToolValidateExtractVideoFile = function (file) {
+    if (isSupportedVideoFile(file)) {
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      message: UNSUPPORTED_VIDEO_MESSAGE
+    };
   };
 }
 
@@ -167,7 +192,7 @@ function setSelectedFile(file) {
   }
 
   if (!supportedFile) {
-    setStatus("This file type is not supported yet. " + SUPPORT_COPY, "error");
+    setStatus(UNSUPPORTED_VIDEO_MESSAGE, "error");
     return;
   }
 
@@ -204,7 +229,7 @@ async function ensureFFmpegReady() {
 
 function buildExtractionErrorMessage(file, error) {
   if (!file || !isSupportedVideoFile(file)) {
-    return "This file type is not supported yet. " + SUPPORT_COPY;
+    return UNSUPPORTED_VIDEO_MESSAGE;
   }
 
   if (error && error.message === "FFMPEG_UNAVAILABLE") {
@@ -238,7 +263,7 @@ async function extractSelectedFile() {
   }
 
   if (!isSupportedVideoFile(file)) {
-    setStatus("This file type is not supported yet. " + SUPPORT_COPY, "error");
+    setStatus(UNSUPPORTED_VIDEO_MESSAGE, "error");
     return;
   }
 

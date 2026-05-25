@@ -38,7 +38,7 @@
 
 <link rel="stylesheet" href="/css/global.css?v=2026-05-18-1">
 <link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
-<link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-1">
+  <link rel="stylesheet" href="/assets/upload.css?v=2026-05-25-1">
 
 <!-- STRUCTURED DATA -->
 <script type="application/ld+json">
@@ -205,7 +205,7 @@
     Change
   </button>
 
-  <input id="audioFileInput" class="at-file" type="file" hidden>
+  <input id="audioFileInput" class="at-file" type="file" accept="audio/*,video/mp4,video/x-m4v,video/webm,video/quicktime,.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mpga,.mp4,.m4v,.mov,.webm,.mpeg,.mpg,.avi,.mkv,.3gp,.3g2,.hevc,.h265" hidden>
 
 </div>
 
@@ -222,6 +222,21 @@
     <span data-role="startTime">0:00.000</span>
     <span data-role="duration">No file loaded</span>
     <span data-role="endTime">0:00.000</span>
+  </div>
+
+  <div class="ringtone-preset-panel">
+    <label class="at-checkbox">
+      <input type="checkbox" data-role="presetEnabled">
+      Use ringtone preset
+    </label>
+    <div class="ringtone-preset-actions">
+      <button class="at-btn at-btn-soft" type="button" data-role="presetIphone" disabled>iPhone 40s</button>
+      <button class="at-btn at-btn-soft" type="button" data-role="presetAndroid" disabled>Android 30s</button>
+      <button class="at-btn at-btn-soft" type="button" data-role="presetClear" disabled>Clear preset</button>
+    </div>
+    <p class="ringtone-preset-hint" data-role="presetHint">
+      Turn on a preset to lock the selection length, then drag the whole selected block to the part you want.
+    </p>
   </div>
 
   <div class="at-row">
@@ -255,6 +270,7 @@
       </div>
     </div>
   </div>
+      <div id="ringtone-upload-notice" class="ringtone-upload-notice" aria-live="polite"></div>
       <div class="trust-line">
       <i data-lucide="shield-check"></i>
       <span>
@@ -614,17 +630,56 @@
 
 <script src="/assets/encoders/lame.min.js?v=2026-05-18-1" defer></script>
 <script src="/assets/encoders/mp3-encoder.js?v=2026-05-18-1" defer></script>
-<script src="/assets/trim-tool.js?v=2026-05-18-1" defer></script>
-<script src="/assets/upload.js?v=2026-05-18-1" defer></script>
+<script src="/assets/trim-tool.js?v=2026-05-25-3" defer></script>
+<script src="/assets/upload.js?v=2026-05-25-2" defer></script>
 
 <script>
+window.AudioToolUploadPolicy = typeof window.AudioToolCreateTrimWaveformUploadPolicy === 'function'
+  ? window.AudioToolCreateTrimWaveformUploadPolicy({ toolId: 'ringtone-maker' })
+  : { toolId: 'ringtone-maker', family: 'trim-waveform' };
+
 document.addEventListener('DOMContentLoaded', function() {
+  function isUnsupportedUploadSelection(file) {
+    const safariOnly = typeof window.AudioToolIsSafariBrowser === 'function'
+      ? window.AudioToolIsSafariBrowser()
+      : false;
+    const sharedValidator = typeof window.AudioToolDefaultValidateFile === 'function'
+      ? window.AudioToolDefaultValidateFile
+      : null;
+    if (!file || !safariOnly || !sharedValidator) {
+      return false;
+    }
+    const validation = sharedValidator(file, null);
+    return !!(validation && validation.ok === false);
+  }
+
+  function showUploadNotice(message) {
+    const notice = document.getElementById('ringtone-upload-notice');
+    if (!notice) return;
+    notice.textContent = message;
+    notice.classList.add('is-visible');
+  }
+
+  function hideUploadNotice() {
+    const notice = document.getElementById('ringtone-upload-notice');
+    if (!notice) return;
+    notice.textContent = '';
+    notice.classList.remove('is-visible');
+  }
+
   document.addEventListener('file:selected', function(e) {
+    const selectedFile = e && e.detail ? e.detail.file : null;
     const uploadShell = document.getElementById('upload-shell');
     const toolShell = document.getElementById('tool-shell');
 
+    if (isUnsupportedUploadSelection(selectedFile)) {
+      showUploadNotice('Video files are not supported in Safari for browser waveform editing yet. Please use an audio file like MP3, WAV, M4A, AAC, FLAC, or OGG. You can still use MP4, MOV, M4V, and WebM files in desktop Chrome.');
+      return;
+    }
+
     if (!toolShell || !toolShell.classList.contains('is-hidden')) return;
 
+    hideUploadNotice();
     uploadShell.style.display = "none";
     toolShell.classList.remove('is-hidden');
 
@@ -734,6 +789,341 @@ document.addEventListener('DOMContentLoaded', function() {
         URL.revokeObjectURL(url);
       }, 1000);
     }
+
+    function getFileExtension(name) {
+      if (!name) {
+        return "";
+      }
+      var idx = name.lastIndexOf(".");
+      if (idx === -1) {
+        return "";
+      }
+      return name.slice(idx).toLowerCase();
+    }
+
+    function isLikelyUnsupportedPhoneVideo(file) {
+      if (!file) {
+        return false;
+      }
+      var type = String(file.type || "").toLowerCase();
+      var ext = getFileExtension(file.name);
+      return (
+        type === "video/quicktime" ||
+        ext === ".mov" ||
+        ext === ".hevc" ||
+        ext === ".h265"
+      );
+    }
+
+    function setUploadNotice(message) {
+      var notice = document.getElementById("ringtone-upload-notice");
+      if (!notice) {
+        return;
+      }
+      notice.textContent = message || "";
+      notice.classList.toggle("is-visible", !!message);
+    }
+
+    window.AudioToolValidateFile = function (file, controller) {
+      var sharedValidator = typeof window.AudioToolDefaultValidateFile === "function"
+        ? window.AudioToolDefaultValidateFile
+        : null;
+      var validation = sharedValidator ? sharedValidator(file, controller) : { ok: true };
+      if (validation && validation.ok === false) {
+        setUploadNotice(validation.message || "");
+        return validation;
+      }
+      setUploadNotice("");
+      return validation;
+    };
+
+    function isMediaLikeFile(file) {
+      if (!file) {
+        return false;
+      }
+      var type = String(file.type || "").toLowerCase();
+      if (type.indexOf("audio/") === 0 || type.indexOf("video/") === 0) {
+        return true;
+      }
+      var ext = getFileExtension(file.name);
+      return [
+        ".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".oga",
+        ".mp4", ".m4v", ".mov", ".webm", ".mpga", ".mpeg", ".mpg",
+        ".avi", ".mkv", ".3gp", ".3g2"
+      ].indexOf(ext) !== -1;
+    }
+
+    function createCompatibilityFile(bytes, sourceFile) {
+      var baseName = sourceFile && sourceFile.name
+        ? sourceFile.name.replace(/\.[^/.]+$/, "")
+        : "media";
+      return new File([bytes.buffer], baseName + "-compat.wav", {
+        type: "audio/wav",
+        lastModified: Date.now()
+      });
+    }
+
+    async function convertInputForWaveform(file, controller) {
+      if (!isMediaLikeFile(file)) {
+        return null;
+      }
+
+      if (controller && typeof controller.setStatus === "function") {
+        controller.setStatus("Converting media for compatibility...");
+      }
+
+      var encoder = await loadFFmpeg();
+      var fetchFile = window.FFmpeg && window.FFmpeg.fetchFile;
+      if (typeof fetchFile !== "function") {
+        throw new Error("FFmpeg file bridge unavailable.");
+      }
+
+      var inputExt = getFileExtension(file.name) || ".bin";
+      var inputName = "compat-input" + inputExt;
+      var outputName = "compat-output.wav";
+
+      encoder.FS("writeFile", inputName, await fetchFile(file));
+      try {
+        await encoder.run(
+          "-i", inputName,
+          "-vn",
+          "-ac", "2",
+          "-ar", "44100",
+          "-c:a", "pcm_s16le",
+          outputName
+        );
+      } catch (err) {
+        throw new Error("Unable to decode this media format on this device.");
+      }
+
+      var outputData = null;
+      try {
+        outputData = encoder.FS("readFile", outputName);
+      } catch (readErr) {
+        throw new Error("Unable to decode this media format on this device.");
+      } finally {
+        try { encoder.FS("unlink", inputName); } catch (err1) {}
+        try { encoder.FS("unlink", outputName); } catch (err2) {}
+      }
+
+      return createCompatibilityFile(outputData, file);
+    }
+
+    window.AudioToolPreprocessFile = function (file, decodeError, controller) {
+      return convertInputForWaveform(file, controller);
+    };
+
+    window.AudioToolShouldTryPreprocess = function (file, decodeError) {
+      if (!file || isLikelyUnsupportedPhoneVideo(file)) {
+        return false;
+      }
+      var type = String(file.type || "").toLowerCase();
+      var ext = getFileExtension(file.name);
+      return (
+        type.indexOf("video/") === 0 ||
+        ext === ".mp4" ||
+        ext === ".m4v" ||
+        ext === ".webm" ||
+        ext === ".mpeg" ||
+        ext === ".mpg" ||
+        ext === ".avi" ||
+        ext === ".mkv" ||
+        ext === ".3gp" ||
+        ext === ".3g2"
+      );
+    };
+
+    var PRESETS = {
+      iphone: {
+        label: "iPhone",
+        seconds: 40
+      },
+      android: {
+        label: "Android",
+        seconds: 30
+      }
+    };
+
+    var presetState = {
+      enabled: false,
+      key: null
+    };
+
+    function getPresetElements(controller) {
+      var root = controller && controller.root ? controller.root : document.getElementById("audio-tool");
+      if (!root) {
+        return null;
+      }
+      return {
+        enabled: root.querySelector('[data-role="presetEnabled"]'),
+        iphone: root.querySelector('[data-role="presetIphone"]'),
+        android: root.querySelector('[data-role="presetAndroid"]'),
+        clear: root.querySelector('[data-role="presetClear"]'),
+        hint: root.querySelector('[data-role="presetHint"]')
+      };
+    }
+
+    function updatePresetHint(ui, text) {
+      if (!ui || !ui.hint) {
+        return;
+      }
+      ui.hint.textContent = text;
+    }
+
+    function updatePresetButtons(ui) {
+      if (!ui) {
+        return;
+      }
+      ui.iphone.classList.toggle("is-active", presetState.enabled && presetState.key === "iphone");
+      ui.android.classList.toggle("is-active", presetState.enabled && presetState.key === "android");
+    }
+
+    function syncPresetUi(controller) {
+      var ui = getPresetElements(controller);
+      if (!ui) {
+        return;
+      }
+
+      var hasFile = !!(controller && controller.duration);
+      ui.enabled.checked = !!presetState.enabled;
+      ui.enabled.disabled = !hasFile;
+      ui.iphone.disabled = !hasFile || !presetState.enabled;
+      ui.android.disabled = !hasFile || !presetState.enabled;
+      ui.clear.disabled = !hasFile || (!presetState.enabled && !presetState.key);
+      updatePresetButtons(ui);
+
+      if (!hasFile) {
+        updatePresetHint(ui, "Upload a file to enable iPhone or Android ringtone presets.");
+        return;
+      }
+
+      if (!presetState.enabled) {
+        updatePresetHint(ui, "Turn on a preset to lock the selection length, then drag the whole selected block to the part you want.");
+        return;
+      }
+
+      if (!presetState.key) {
+        updatePresetHint(ui, "Choose iPhone or Android to apply a locked ringtone length.");
+        return;
+      }
+
+      var preset = PRESETS[presetState.key];
+      updatePresetHint(ui, preset.label + " preset locks the selection to " + preset.seconds + " seconds. Drag the selected block to reposition it.");
+    }
+
+    function resetPlaybackPosition(controller) {
+      if (!controller) {
+        return;
+      }
+      controller.audio.stop();
+      controller.stopAnimationLoop();
+      controller.playPauseBtn.textContent = "Play";
+      controller.audio.resetPosition(controller.trim.startRatio * controller.duration);
+      controller.renderer.setPlayhead(controller.trim.startRatio);
+    }
+
+    function clearPresetSelection(controller, keepLastPreset) {
+      if (controller && controller.duration) {
+        resetPlaybackPosition(controller);
+        controller.trim.clearLockedSelection();
+      }
+      presetState.enabled = false;
+      if (!keepLastPreset) {
+        presetState.key = null;
+      }
+      syncPresetUi(controller);
+    }
+
+    function applyPreset(controller, presetKey) {
+      if (!controller || !controller.duration || !PRESETS[presetKey]) {
+        return;
+      }
+
+      var preset = PRESETS[presetKey];
+      var selectionSeconds = Math.min(preset.seconds, controller.duration);
+      presetState.enabled = true;
+      presetState.key = presetKey;
+
+      resetPlaybackPosition(controller);
+      controller.trim.setLockedSelectionLength(selectionSeconds, controller.duration);
+      syncPresetUi(controller);
+
+      if (controller.duration <= preset.seconds + 0.001) {
+        controller.setStatus("This file is shorter than the " + preset.label + " preset (" + preset.seconds + "s), so the full file is selected.");
+      } else {
+        controller.setStatus(preset.label + " preset active. Drag the selected block to choose your ringtone.");
+      }
+    }
+
+    function bindPresetControls() {
+      var controller = getController();
+      var ui = getPresetElements(controller);
+      if (!ui || ui.enabled.dataset.boundPresetUi === "true") {
+        syncPresetUi(controller);
+        return;
+      }
+
+      ui.enabled.dataset.boundPresetUi = "true";
+
+      ui.enabled.addEventListener("change", function (event) {
+        var activeController = getController();
+        if (!activeController || !activeController.duration) {
+          event.target.checked = false;
+          return;
+        }
+
+        if (!event.target.checked) {
+          clearPresetSelection(activeController, true);
+          activeController.setStatus("Preset turned off. You can trim freely again.");
+          return;
+        }
+
+        presetState.enabled = true;
+        if (presetState.key) {
+          applyPreset(activeController, presetState.key);
+        } else {
+          syncPresetUi(activeController);
+          activeController.setStatus("Preset mode enabled. Choose iPhone or Android.");
+        }
+      });
+
+      ui.iphone.addEventListener("click", function () {
+        applyPreset(getController(), "iphone");
+      });
+
+      ui.android.addEventListener("click", function () {
+        applyPreset(getController(), "android");
+      });
+
+      ui.clear.addEventListener("click", function () {
+        var activeController = getController();
+        clearPresetSelection(activeController, false);
+        if (activeController && activeController.duration) {
+          activeController.setStatus("Preset cleared. You can select any length again.");
+        }
+      });
+
+      syncPresetUi(controller);
+    }
+
+    window.AudioToolDidLoadFile = function (controller) {
+      setUploadNotice("");
+      bindPresetControls();
+      syncPresetUi(controller);
+      if (presetState.enabled && presetState.key) {
+        applyPreset(controller, presetState.key);
+      }
+    };
+
+    window.AudioToolDidReset = function (controller) {
+      if (presetState.enabled && presetState.key) {
+        applyPreset(controller, presetState.key);
+        return;
+      }
+      syncPresetUi(controller);
+    };
+
+    bindPresetControls();
 
     async function exportM4R(controller) {
       var selection = controller && typeof controller._getSelection === "function" ? controller._getSelection() : null;

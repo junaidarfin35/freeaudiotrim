@@ -627,7 +627,14 @@
 
 <script src="/assets/audio-engine.js?v=2026-05-18-1" defer></script>
 <script src="/assets/pitch-tool.js?v=2026-05-18-1" defer></script>
-<script src="/assets/upload.js?v=2026-05-18-1" defer></script>
+<script src="/assets/upload.js?v=2026-05-25-2" defer></script>
+<script>
+window.AudioToolUploadPolicy = function() {
+  return typeof window.AudioToolCreateAudioOnlyUploadPolicy === 'function'
+    ? window.AudioToolCreateAudioOnlyUploadPolicy({ toolId: 'audio-pitch-changer' })
+    : { toolId: 'audio-pitch-changer', family: 'audio-processor', pickerAccept: 'audio/*,.mp3,.wav,.wma,.ogg,.oga,.opus,.m4a,.aac,.amr,.flac,.aif,.aiff,.ape,.m4r,.3gp,.mpga' };
+};
+</script>
 <script src="/assets/related-tools.js?v=2026-05-18-1"></script>
 <script>
 document.addEventListener('file:selected', function(e) {
@@ -682,6 +689,15 @@ document.addEventListener('converter:empty', () => {
   if (toolShell) toolShell.classList.add('is-hidden');
 
   if (input) input.value = '';
+});
+
+document.addEventListener('upload:validation-failed', function(e) {
+  const detail = e.detail || {};
+  if (detail.phase !== 'replacement' || (detail.input && detail.input.id !== 'audioFileInput')) return;
+  const status = document.getElementById('status');
+  if (!status) return;
+  status.textContent = detail.message || 'This file is not supported.';
+  status.dataset.statusState = 'error';
 });
 
 document.addEventListener("DOMContentLoaded", () => {

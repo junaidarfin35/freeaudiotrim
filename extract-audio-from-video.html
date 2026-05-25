@@ -449,10 +449,38 @@
 </footer>
 
 <script src="/assets/ffmpeg/ffmpeg-compat.js?v=2026-05-18-2" defer></script>
-<script src="/assets/extract-audio-from-video.js?v=2026-05-18-2" defer></script>
-<script src="/assets/upload.js?v=2026-05-18-2" defer></script>
+<script src="/assets/extract-audio-from-video.js?v=2026-05-25-1" defer></script>
+<script src="/assets/upload.js?v=2026-05-25-3" defer></script>
 <script src="/assets/related-tools.js?v=2026-05-18-2"></script>
 <script>
+window.AudioToolUploadPolicy = function () {
+  if (typeof window.AudioToolValidateExtractVideoFile === 'function') {
+    return {
+      toolId: 'extract-audio-from-video',
+      family: 'video-extractor',
+      validateOnReplacement: true,
+      getPickerAccept() {
+        return window.AudioToolExtractVideoAccept || document.getElementById('audioFileInput')?.getAttribute('accept') || '';
+      },
+      validateFile(file) {
+        return window.AudioToolValidateExtractVideoFile(file);
+      }
+    };
+  }
+
+  if (typeof window.AudioToolCreateVideoOnlyUploadPolicy === 'function') {
+    return window.AudioToolCreateVideoOnlyUploadPolicy({
+      toolId: 'extract-audio-from-video',
+      family: 'video-extractor',
+      pickerAccept: document.getElementById('audioFileInput')?.getAttribute('accept') || ''
+    });
+  }
+
+  return {
+    pickerAccept: document.getElementById('audioFileInput')?.getAttribute('accept') || ''
+  };
+};
+
 document.addEventListener('file:selected', function(e) {
   const file = e.detail && e.detail.file;
   const input = e.detail && e.detail.input;
@@ -465,13 +493,27 @@ document.addEventListener('file:selected', function(e) {
   toolShell.classList.remove('is-hidden');
 
   if (window.ExtractAudioFromVideoTool) {
-    window.ExtractAudioFromVideoTool.addFile(file);
+    const result = window.ExtractAudioFromVideoTool.addFile(file);
+    if (result && result.accepted === false) {
+      return;
+    }
   }
 
   const offset = 100;
   const y = toolShell.getBoundingClientRect().top + window.pageYOffset - offset;
 
   window.scrollTo({ top: y, behavior: "smooth" });
+});
+document.addEventListener('upload:validation-failed', function(e) {
+  const detail = e.detail || {};
+  if (detail.phase !== 'replacement' || detail.input?.id !== 'audioFileInput') {
+    return;
+  }
+  const status = document.getElementById('status');
+  if (status) {
+    status.textContent = detail.message || 'This file is not supported.';
+    status.dataset.statusState = 'error';
+  }
 });
 document.addEventListener('click', function(e) {
   if (!e.target.closest('[data-role="changeFile"]')) return;

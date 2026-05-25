@@ -7,6 +7,12 @@
   const DEFAULT_FORMAT_TEXT = 'MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WEBM';
   const DEFAULT_META_TEXT = 'Max file size: 200MB';
   const DEFAULT_PRIVACY_TEXT = 'Files processed locally in your browser';
+  const AUDIO_ONLY_ACCEPT = 'audio/*,.mp3,.wav,.wma,.ogg,.oga,.opus,.m4a,.aac,.amr,.flac,.aif,.aiff,.ape,.m4r,.3gp,.mpga';
+  const VIDEO_ONLY_ACCEPT = '.mp4,.m4v,.mov,.webm,.mkv,.avi,.ogv,.mpeg,.mpg,.3gp,.3g2,.ts,.m2ts,.mts,.wmv,.asf,.mxf,.flv,.f4v,.vob,video/mp4,video/x-m4v,video/quicktime,video/webm,video/x-matroska,video/x-msvideo,video/ogg,video/mpeg,video/3gpp,video/3gpp2,video/mp2t,video/x-ms-wmv,video/x-ms-asf,application/mxf,video/x-flv,video/*';
+  const MEDIA_CONVERTER_ACCEPT = `${AUDIO_ONLY_ACCEPT},${VIDEO_ONLY_ACCEPT}`;
+  const AUDIO_ONLY_MESSAGE = 'This tool works with audio files only. Please choose an audio file such as MP3, WAV, M4A, AAC, FLAC, or OGG.';
+  const VIDEO_ONLY_MESSAGE = 'This tool works with video files only. Please choose a supported video file such as MP4, MOV, WebM, MKV, AVI, MPEG, 3GP, TS, WMV, MXF, FLV, or VOB.';
+  const MEDIA_CONVERTER_MESSAGE = 'This tool works with audio or video files. Please choose a supported file such as MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WebM, MKV, AVI, MPEG, 3GP, TS, WMV, MXF, FLV, or VOB.';
 
   const formatFileSizeMB = (bytes) => {
     const mb = Number(bytes || 0) / (1024 * 1024);
@@ -73,6 +79,18 @@
     return acceptTokens.some((token) => matchesAcceptToken(file, token));
   };
 
+  const fileMatchesAcceptString = (accept, file) => {
+    const acceptValue = String(accept || '').trim();
+    if (!acceptValue) {
+      return true;
+    }
+    const acceptTokens = acceptValue.split(',').map((token) => token.trim()).filter(Boolean);
+    if (acceptTokens.length === 0) {
+      return true;
+    }
+    return acceptTokens.some((token) => matchesAcceptToken(file, token));
+  };
+
   const findTargetInput = (dropzone) => {
     const inputId = dropzone.getAttribute('data-upload-input');
     if (inputId) {
@@ -91,23 +109,190 @@
     return document.querySelector('input[type="file"]');
   };
 
-  const ensureAudioAccept = (input) => {
+  const resolveUploadPolicy = (context = {}) => {
+    if (typeof window.AudioToolUploadPolicy === 'function') {
+      return window.AudioToolUploadPolicy(context) || null;
+    }
+    if (window.AudioToolUploadPolicy && typeof window.AudioToolUploadPolicy === 'object') {
+      return window.AudioToolUploadPolicy;
+    }
+    return null;
+  };
+
+  const resolvePolicyPickerAccept = (policy, input, context = {}) => {
+    if (!policy) {
+      return '';
+    }
+    if (typeof policy.getPickerAccept === 'function') {
+      return String(policy.getPickerAccept(input, context) || '').trim();
+    }
+    return String(policy.pickerAccept || '').trim();
+  };
+
+  const ensureAudioAccept = (input, policy, context = {}) => {
+    const policyAccept = resolvePolicyPickerAccept(policy, input, context);
+    if (policyAccept) {
+      input.setAttribute('accept', policyAccept);
+      return;
+    }
     const currentAccept = (input.getAttribute('accept') || '').trim();
     if (!currentAccept) {
-      input.setAttribute('accept', '.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mp4,.m4v,.mov,.webm,.mpga,.mpeg,.mpg');
+      input.setAttribute('accept', '.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mp4,.m4v,.mov,.webm,.mpga,.mpeg,.mpg,.hevc,.h265');
     }
+  };
+
+  const resolveFileValidator = (policy) => {
+    if (policy && typeof policy.validateFile === 'function') {
+      return policy.validateFile.bind(policy);
+    }
+    if (typeof window.AudioToolValidateFile === 'function') {
+      return window.AudioToolValidateFile;
+    }
+    if (typeof window.AudioToolDefaultValidateFile === 'function') {
+      return window.AudioToolDefaultValidateFile;
+    }
+    return null;
+  };
+
+  const resolveUploadPhase = (input) => {
+    const toolShell = document.getElementById('tool-shell');
+    if (!toolShell) {
+      return 'initial';
+    }
+    return toolShell.classList.contains('is-hidden') ? 'initial' : 'replacement';
+  };
+
+  const buildPolicyContext = ({ input = null, dropzone = null, phase = null, controller = null } = {}) => ({
+    input,
+    dropzone,
+    phase: phase || resolveUploadPhase(input),
+    controller
+  });
+
+  const ensureValidationNotice = (dropzone) => {
+    const shell = dropzone.closest('.upload-shell');
+    const scope = shell && shell.parentNode ? shell.parentNode : dropzone.parentNode;
+    let notice = scope?.querySelector?.('.upload-validation-notice');
+    if (notice) {
+      return notice;
+    }
+
+    notice = document.createElement('div');
+    notice.className = 'upload-validation-notice';
+    notice.setAttribute('aria-live', 'polite');
+
+    if (shell && shell.parentNode) {
+      shell.parentNode.insertBefore(notice, shell.nextSibling);
+      return notice;
+    }
+
+    dropzone.parentNode.insertBefore(notice, dropzone.nextSibling);
+    return notice;
+  };
+
+  const setValidationNotice = (dropzone, message) => {
+    const notice = ensureValidationNotice(dropzone);
+    if (!notice) {
+      return;
+    }
+    notice.textContent = message || '';
+    notice.classList.toggle('is-visible', !!message);
+  };
+
+  const emitValidationFailure = (context, message) => {
+    document.dispatchEvent(new CustomEvent('upload:validation-failed', {
+      detail: {
+        input: context?.input || null,
+        dropzone: context?.dropzone || null,
+        phase: context?.phase || 'initial',
+        message: message || 'This file is not supported.'
+      }
+    }));
+  };
+
+  window.AudioToolAudioOnlyAccept = AUDIO_ONLY_ACCEPT;
+  window.AudioToolAudioOnlyMessage = AUDIO_ONLY_MESSAGE;
+  window.AudioToolVideoOnlyAccept = VIDEO_ONLY_ACCEPT;
+  window.AudioToolVideoOnlyMessage = VIDEO_ONLY_MESSAGE;
+  window.AudioToolMediaConverterAccept = MEDIA_CONVERTER_ACCEPT;
+  window.AudioToolMediaConverterMessage = MEDIA_CONVERTER_MESSAGE;
+  window.AudioToolCreateAudioOnlyUploadPolicy = (options = {}) => {
+    const pickerAccept = String(options.pickerAccept || AUDIO_ONLY_ACCEPT).trim();
+    const message = String(options.message || AUDIO_ONLY_MESSAGE);
+    return {
+      toolId: options.toolId || 'audio-only-tool',
+      family: options.family || 'audio-processor',
+      validateOnReplacement: options.validateOnReplacement !== false,
+      pickerAccept,
+      getPickerAccept() {
+        return pickerAccept;
+      },
+      validateFile(file) {
+        if (fileMatchesAcceptString(pickerAccept, file)) {
+          return { ok: true };
+        }
+        return {
+          ok: false,
+          message
+        };
+      }
+    };
+  };
+  window.AudioToolCreateVideoOnlyUploadPolicy = (options = {}) => {
+    const pickerAccept = String(options.pickerAccept || VIDEO_ONLY_ACCEPT).trim();
+    const message = String(options.message || VIDEO_ONLY_MESSAGE);
+    return {
+      toolId: options.toolId || 'video-only-tool',
+      family: options.family || 'video-extractor',
+      validateOnReplacement: options.validateOnReplacement !== false,
+      pickerAccept,
+      getPickerAccept() {
+        return pickerAccept;
+      },
+      validateFile(file) {
+        if (fileMatchesAcceptString(pickerAccept, file)) {
+          return { ok: true };
+        }
+        return {
+          ok: false,
+          message
+        };
+      }
+    };
+  };
+  window.AudioToolCreateMediaConverterUploadPolicy = (options = {}) => {
+    const pickerAccept = String(options.pickerAccept || MEDIA_CONVERTER_ACCEPT).trim();
+    const message = String(options.message || MEDIA_CONVERTER_MESSAGE);
+    return {
+      toolId: options.toolId || 'media-converter-tool',
+      family: options.family || 'media-converter',
+      validateOnReplacement: options.validateOnReplacement !== false,
+      pickerAccept,
+      getPickerAccept() {
+        return pickerAccept;
+      },
+      validateFile(file) {
+        if (fileMatchesAcceptString(pickerAccept, file)) {
+          return { ok: true };
+        }
+        return {
+          ok: false,
+          message
+        };
+      }
+    };
   };
 
 const dispatchToInput = (input, incomingFiles) => {
   const files = Array.isArray(incomingFiles) ? incomingFiles : [incomingFiles];
-  const acceptedFiles = files.filter((file) => fileMatchesInputAccept(input, file));
-  if (!acceptedFiles.length) {
+  const nextFiles = input.multiple ? files.filter(Boolean) : [files.find(Boolean)];
+  const normalizedFiles = nextFiles.filter(Boolean);
+  if (!normalizedFiles.length) {
     return;
   }
 
   const transfer = new DataTransfer();
-  const nextFiles = input.multiple ? acceptedFiles : [acceptedFiles[0]];
-  nextFiles.forEach((file) => {
+  normalizedFiles.forEach((file) => {
     transfer.items.add(file);
   });
   input.files = transfer.files;
@@ -322,7 +507,9 @@ const dispatchToInput = (input, incomingFiles) => {
       return;
     }
 
-    ensureAudioAccept(input);
+    const bindContext = buildPolicyContext({ input, dropzone, phase: 'initial' });
+    const policy = resolveUploadPolicy(bindContext);
+    ensureAudioAccept(input, policy, bindContext);
     ensureContentStructure(dropzone);
     ensureBrowseButton(dropzone, input);
     ensureChangeFileButton(dropzone, input);
@@ -366,11 +553,43 @@ const dispatchToInput = (input, incomingFiles) => {
       dispatchToInput(input, droppedFiles);
     });
 
+    input.addEventListener('change', (event) => {
+      const context = buildPolicyContext({ input, dropzone });
+      const validateFile = resolveFileValidator(policy);
+      const files = Array.from(input.files || []);
+      if (!validateFile || !files.length) {
+        return;
+      }
+
+      if (context.phase !== 'initial' && !policy?.validateOnReplacement) {
+        return;
+      }
+
+      for (const file of files) {
+        const validation = validateFile(file, context);
+        if (validation && validation.ok === false) {
+          const message = validation.message || 'This file is not supported.';
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          input.value = '';
+          updateDropzoneState(dropzone, null);
+          if (context.phase === 'initial') {
+            syncSharedFileRow(input, null);
+            setValidationNotice(dropzone, message);
+          }
+          emitValidationFailure(context, message);
+          return;
+        }
+      }
+      setValidationNotice(dropzone, '');
+    }, true);
+
       input.addEventListener('change', () => {
         const files = Array.from(input.files || []);
         const [file] = files;
         updateDropzoneState(dropzone, file || null);
         syncSharedFileRow(input, file || null);
+        setValidationNotice(dropzone, '');
         if (file) {
           document.dispatchEvent(new CustomEvent('file:selected', {
             detail: { file, files, input }
