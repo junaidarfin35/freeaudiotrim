@@ -232,8 +232,14 @@
       <div class="pitch-controls">
 
         <!-- PRIMARY ACTION -->
-        <button class="at-btn at-btn-primary" id="previewBtn">
-          Play
+        <button class="at-btn at-btn-primary at-preview-icon-btn" id="previewBtn" type="button" aria-label="Play preview" data-playing="false">
+          <span class="at-preview-icon" aria-hidden="true">
+            <span class="at-preview-icon__play"></span>
+            <span class="at-preview-icon__pause">
+              <span></span>
+              <span></span>
+            </span>
+          </span>
         </button>
 
         <!-- SECONDARY CONTROL -->
@@ -247,7 +253,7 @@
         </p>
 
         <!-- EXPORT (secondary CTA) -->
-        <button class="at-btn at-btn-soft" id="exportBtn">
+        <button class="at-btn at-btn-soft" id="exportBtn" type="button">
           Export
         </button>
 
@@ -626,7 +632,7 @@
 </footer>
 
 <script src="/assets/audio-engine.js?v=2026-05-18-1" defer></script>
-<script src="/assets/pitch-tool.js?v=2026-05-18-1" defer></script>
+<script src="/assets/pitch-tool.js?v=2026-05-25-1" defer></script>
 <script src="/assets/upload.js?v=2026-05-25-2" defer></script>
 <script>
 window.AudioToolUploadPolicy = function() {
@@ -724,6 +730,4 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 </body>
 </html>
-
-
 

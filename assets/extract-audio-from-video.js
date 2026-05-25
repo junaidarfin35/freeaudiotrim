@@ -44,6 +44,9 @@ const SUPPORTED_VIDEO_ACCEPT = [
   "video/*"
 ].join(",");
 const UNSUPPORTED_VIDEO_MESSAGE = "This file type is not supported yet. " + SUPPORT_COPY;
+const EXTRACT_BUTTON_LABEL = "Extract Audio";
+const DOWNLOAD_BUTTON_LABEL = "Download WAV";
+const EXTRACTING_BUTTON_LABEL = "Extracting Audio...";
 
 const state = {
   selectedFile: null,
@@ -63,6 +66,10 @@ const fileIcon = document.querySelector('[data-role="fileIcon"]');
 
 if (extractBtn && downloadLink && status) {
   extractBtn.addEventListener("click", function () {
+    if (state.outputUrl && downloadLink.href) {
+      downloadLink.click();
+      return;
+    }
     void extractSelectedFile();
   });
 
@@ -148,11 +155,25 @@ function setStatus(message, nextState) {
   status.dataset.statusState = nextState || "idle";
 }
 
+function syncActionButton() {
+  if (!extractBtn) {
+    return;
+  }
+
+  if (state.extracting) {
+    extractBtn.textContent = EXTRACTING_BUTTON_LABEL;
+    return;
+  }
+
+  extractBtn.textContent = state.outputUrl ? DOWNLOAD_BUTTON_LABEL : EXTRACT_BUTTON_LABEL;
+}
+
 function resetDownloadState() {
   revokeOutputUrl();
-  downloadLink.classList.add("is-hidden");
   downloadLink.removeAttribute("href");
   downloadLink.removeAttribute("download");
+  downloadLink.classList.add("is-hidden");
+  syncActionButton();
 }
 
 function syncFileUi() {
@@ -182,6 +203,7 @@ function setSelectedFile(file) {
   state.extracting = false;
   resetDownloadState();
   syncFileUi();
+  syncActionButton();
 
   extractBtn.classList.remove("is-hidden");
   extractBtn.disabled = !supportedFile;
@@ -270,6 +292,7 @@ async function extractSelectedFile() {
   state.extracting = true;
   extractBtn.disabled = true;
   resetDownloadState();
+  syncActionButton();
   setStatus("Preparing the browser extractor...", "processing");
 
   let ffmpeg;
@@ -311,7 +334,6 @@ async function extractSelectedFile() {
 
     downloadLink.href = state.outputUrl;
     downloadLink.download = stripExtension(file.name) + ".wav";
-    downloadLink.classList.remove("is-hidden");
 
     setStatus("Audio extracted successfully. Download your WAV file when ready.", "ready");
   } catch (error) {
@@ -322,5 +344,6 @@ async function extractSelectedFile() {
     await safeDelete(ffmpeg, outputName);
     state.extracting = false;
     extractBtn.disabled = !state.selectedFile;
+    syncActionButton();
   }
 }

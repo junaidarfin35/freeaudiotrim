@@ -300,11 +300,14 @@ document.addEventListener('file:selected', function(e) {
 
   const uploadShell = document.getElementById('upload-shell');
   const toolShell = document.getElementById('tool-shell');
+  const shouldActivateTool = !!toolShell && toolShell.classList.contains('is-hidden');
 
-  if (!file || (input && input.id !== 'audioFileInput') || !toolShell.classList.contains('is-hidden')) return;
+  if (!file || (input && input.id !== 'audioFileInput')) return;
 
-  if (uploadShell) uploadShell.classList.add('is-hidden');
-  if (toolShell) toolShell.classList.remove('is-hidden');
+  if (shouldActivateTool) {
+    if (uploadShell) uploadShell.classList.add('is-hidden');
+    if (toolShell) toolShell.classList.remove('is-hidden');
+  }
 
   const fileRow = document.querySelector('[data-role="fileRow"]');
   if (fileRow) fileRow.classList.remove('is-hidden');
@@ -316,7 +319,7 @@ document.addEventListener('file:selected', function(e) {
     window.VoiceStudioTool.addFile(file);
   }
 
-  if (toolShell) {
+  if (shouldActivateTool && toolShell) {
     const offset = 100;
     const y = toolShell.getBoundingClientRect().top + window.pageYOffset - offset;
     window.scrollTo({ top: y, behavior: "smooth" });

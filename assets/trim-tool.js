@@ -368,6 +368,8 @@
     this.context = null;
     this.buffer = null;
     this.source = null;
+    this.outputGain = null;
+    this.pendingSuspend = null;
     this.isPlaying = false;
     this.loop = true;
     this.playStart = 0;
@@ -379,7 +381,7 @@
   }
 
   AudioEngine.prototype.ensureContext = function () {
-    if (!this.context) {
+    if (!this.context || this.context.state === "closed") {
       var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
       this.context = new AudioContextCtor();
     }
@@ -397,8 +399,17 @@
     return this.buffer;
   };
 
-  AudioEngine.prototype.stop = function () {
+  AudioEngine.prototype.stop = function (shouldSuspendContext) {
     this._playToken += 1;
+    var suspendContext = shouldSuspendContext !== false;
+    var ctx = this.context;
+    if (this.outputGain && ctx) {
+      try {
+        this.outputGain.gain.cancelScheduledValues(ctx.currentTime);
+        this.outputGain.gain.setValueAtTime(0, ctx.currentTime);
+      } catch (gainErr) {
+      }
+    }
     if (this.source) {
       this.source.onended = null;
       try {
@@ -411,7 +422,23 @@
       }
       this.source = null;
     }
+    if (this.outputGain) {
+      try {
+        this.outputGain.disconnect();
+      } catch (gainDisconnectErr) {
+      }
+      this.outputGain = null;
+    }
     this.isPlaying = false;
+    if (suspendContext && ctx && ctx.state === "running") {
+      var suspendPromise = ctx.suspend().catch(function () {});
+      this.pendingSuspend = suspendPromise;
+      suspendPromise.finally(function () {
+        if (this.pendingSuspend === suspendPromise) {
+          this.pendingSuspend = null;
+        }
+      }.bind(this));
+    }
   };
 
   AudioEngine.prototype.pause = function () {
@@ -440,14 +467,14 @@
       return;
     }
     var ctx = this.ensureContext();
-    if (ctx.state === "suspended") {
-      await ctx.resume();
+    if (this.pendingSuspend) {
+      await this.pendingSuspend;
     }
     var safeStart = clamp(start, 0, this.buffer.duration);
     var safeEnd = clamp(end, safeStart + 0.001, this.buffer.duration);
     var token = this._playToken + 1;
 
-    this.stop();
+    this.stop(false);
     this._playToken = token;
     this.loop = !!loop;
     this.playStart = safeStart;
@@ -455,6 +482,9 @@
     this.startedOffset = clamp(this.startedOffset || safeStart, safeStart, safeEnd);
     if (this.startedOffset >= safeEnd - 0.0001) {
       this.startedOffset = safeStart;
+    }
+    if (ctx.state === "suspended") {
+      await ctx.resume();
     }
     var self = this;
     var useManualLoopFade = this.loop && (this.uiFadeIn || this.uiFadeOut);
@@ -464,12 +494,15 @@
       var totalDuration = safeEnd - segmentOffset;
       var fadeIn = self.uiFadeIn || 0;
       var fadeOut = self.uiFadeOut || 0;
+      var shouldApplyFadeIn = Math.abs(segmentOffset - safeStart) < 0.0005;
+      var appliedFadeIn = shouldApplyFadeIn ? fadeIn : 0;
       var src = ctx.createBufferSource();
       var gainNode = ctx.createGain();
 
       src.buffer = self.buffer;
       src.connect(gainNode);
       gainNode.connect(ctx.destination);
+      gainNode.gain.setValueAtTime(1, ctx.currentTime);
 
       if (!useManualLoopFade) {
         src.loop = self.loop;
@@ -480,18 +513,19 @@
       }
 
       self.source = src;
+      self.outputGain = gainNode;
       self.startedAt = ctx.currentTime;
       self.startedOffset = segmentOffset;
       self.isPlaying = true;
 
-      if (fadeIn + fadeOut > totalDuration) {
-        fadeIn = totalDuration / 2;
+      if (appliedFadeIn + fadeOut > totalDuration) {
+        appliedFadeIn = totalDuration / 2;
         fadeOut = totalDuration / 2;
       }
 
-      if (fadeIn > 0) {
+      if (appliedFadeIn > 0) {
         gainNode.gain.setValueAtTime(0, ctx.currentTime);
-        gainNode.gain.linearRampToValueAtTime(1, ctx.currentTime + fadeIn);
+        gainNode.gain.linearRampToValueAtTime(1, ctx.currentTime + appliedFadeIn);
       }
 
       if (fadeOut > 0) {
@@ -509,6 +543,7 @@
         }
         self.isPlaying = false;
         self.source = null;
+        self.outputGain = null;
         self.startedOffset = self.playStart;
         if (typeof self.onEnded === "function") {
           self.onEnded();
@@ -1058,14 +1093,10 @@
     var wasSeeking = this.dragging === "seek";
     this.dragging = null;
     this.pointerId = null;
-<<<<<<< HEAD
+    this.dragOffsetRatio = 0;
     if (!wasSeeking) {
       this._flushEmit();
     }
-=======
-    this.dragOffsetRatio = 0;
-    this._flushEmit();
->>>>>>> origin/codex/upload-policy-multi-agent-plan
   };
 
   TrimController.prototype._emit = function () {

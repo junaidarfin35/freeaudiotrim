@@ -139,7 +139,13 @@
     pauseBtn.addEventListener("click", () => engine.pause());
     stopBtn.addEventListener("click", () => engine.stop());
     modifiedModeBtn.addEventListener("click", () => void engine.setMode("modified"));
-    exportBtn.addEventListener("click", () => void exportAudio());
+    exportBtn.addEventListener("click", () => {
+      if (downloadUrl) {
+        downloadLink.click();
+        return;
+      }
+      void exportAudio();
+    });
 
     document.addEventListener("keydown", (event) => {
       if (event.code !== "Space" || isTypingTarget(event.target)) {
@@ -161,10 +167,24 @@
     if (!file) {
       return;
     }
+    resetControlsToDefaults();
     clearDownload();
     void engine.loadFile(file).then(() => {
       applySettings();
     });
+  }
+
+  function resetControlsToDefaults() {
+    semitoneMode.checked = true;
+    semitoneRange.min = "-12";
+    semitoneRange.max = "12";
+    semitoneRange.step = "1";
+    semitoneRange.value = "0";
+    alsoAdjustSpeed.checked = false;
+    speedControlGroup.hidden = true;
+    linkedSpeedRange.value = "1";
+    updatePitchSliderUI();
+    updateSpeedUI();
   }
 
   function syncPitchScaleMode() {
@@ -252,8 +272,8 @@
     downloadUrl = URL.createObjectURL(result.blob);
     downloadLink.href = downloadUrl;
     downloadLink.download = result.fileName.replace("_processed", `_pitch_${formatPitchFilePart()}`);
-    downloadLink.style.display = "inline-flex";
     downloadLink.textContent = "Download";
+    updateExportButton();
   }
 
   function formatPitchFilePart() {
@@ -266,7 +286,8 @@
       window.updatePlayhead(state.currentTime, state.duration);
     }
     rateValue.textContent = `Preview Mode: ${state.mode === "original" ? "Original" : "Modified"}`;
-    previewBtn.textContent = state.isPlaying ? "Pause" : "Play";
+    previewBtn.dataset.playing = state.isPlaying ? "true" : "false";
+    previewBtn.setAttribute("aria-label", state.isPlaying ? "Pause preview" : "Play preview");
     if (seekBar) {
       seekBar.max = String(state.duration || 0);
       seekBar.value = String(Math.min(state.currentTime || 0, state.duration || 0));
@@ -306,8 +327,9 @@
       URL.revokeObjectURL(downloadUrl);
       downloadUrl = "";
     }
-    downloadLink.style.display = "none";
     downloadLink.removeAttribute("href");
+    downloadLink.removeAttribute("download");
+    updateExportButton();
   }
 
   function prepareDownloadButton() {
@@ -316,9 +338,11 @@
     }
     downloadLink.dataset.enhanced = "true";
     downloadLink.textContent = "Download";
-    downloadLink.className = "at-btn at-btn-primary";
     downloadLink.style.display = "none";
-    exportBtn.insertAdjacentElement("afterend", downloadLink);
+  }
+
+  function updateExportButton() {
+    exportBtn.textContent = downloadUrl ? "Download" : "Export";
   }
 
   function isTypingTarget(target) {

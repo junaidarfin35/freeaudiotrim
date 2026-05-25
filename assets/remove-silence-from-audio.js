@@ -11,10 +11,14 @@
   const fileNameEl = document.querySelector('[data-role="fileName"]');
   const changeFileBtn = document.querySelector('[data-role="changeFile"]');
   const fileInput = document.getElementById("audioFileInput");
+  const PROCESS_BUTTON_LABEL = "Remove Silence";
+  const DOWNLOAD_BUTTON_LABEL = "Download WAV";
+  const PROCESSING_BUTTON_LABEL = "Removing Silence...";
 
   const BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
 
   let currentFile = null;
+  let outputUrl = "";
 
   function setStatus(message) {
     if (!status) return;
@@ -74,8 +78,38 @@
     return await file.arrayBuffer();
   }
 
+  function revokeOutputUrl() {
+    if (!outputUrl) {
+      return;
+    }
+    URL.revokeObjectURL(outputUrl);
+    outputUrl = "";
+  }
+
+  function syncProcessButton(isProcessing) {
+    if (!processBtn) {
+      return;
+    }
+
+    if (isProcessing) {
+      processBtn.textContent = PROCESSING_BUTTON_LABEL;
+      return;
+    }
+
+    processBtn.textContent = outputUrl ? DOWNLOAD_BUTTON_LABEL : PROCESS_BUTTON_LABEL;
+  }
+
+  function resetDownloadState() {
+    revokeOutputUrl();
+    downloadLink.removeAttribute("href");
+    downloadLink.removeAttribute("download");
+    downloadLink.classList.add("is-hidden");
+    syncProcessButton(false);
+  }
+
   function processFile(file) {
     currentFile = file;
+    resetDownloadState();
     if (processBtn) processBtn.disabled = false;
     if (fileRow && fileNameEl) {
       fileNameEl.textContent = file.name;
@@ -93,20 +127,32 @@
     thresholdValueEl.textContent = `${thresholdEl.value} dB`;
     thresholdEl.addEventListener("input", () => {
       thresholdValueEl.textContent = `${thresholdEl.value} dB`;
+      resetDownloadState();
     });
   }
+
+  minMsEl.addEventListener("input", () => {
+    resetDownloadState();
+  });
 
   if (changeFileBtn && fileInput) {
     changeFileBtn.addEventListener("click", () => fileInput.click());
   }
 
   processBtn.addEventListener("click", async () => {
+    if (outputUrl && downloadLink.href) {
+      downloadLink.click();
+      return;
+    }
+
     if (!currentFile) {
       setStatus("No file loaded.");
       return;
     }
 
     try {
+      processBtn.disabled = true;
+      syncProcessButton(true);
       setStatus("Decoding...");
       const abuf = await readFile(currentFile);
       const actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -192,14 +238,18 @@
       }
 
       const wav = encodeWAV(outBuf);
-      const url = URL.createObjectURL(wav);
-      downloadLink.href = url;
+      revokeOutputUrl();
+      outputUrl = URL.createObjectURL(wav);
+      downloadLink.href = outputUrl;
       downloadLink.download = `${(currentFile.name.replace(/\.[^/.]+$/, "") || "clean")}_nosilence.wav`;
-      downloadLink.classList.remove("is-hidden");
       setStatus("Ready - download cleaned file.");
     } catch (e) {
       console.error(e);
       setStatus(`This audio format is not supported by your browser. ${BROWSER_SUPPORT_MESSAGE}`);
+      resetDownloadState();
+    } finally {
+      processBtn.disabled = !currentFile;
+      syncProcessButton(false);
     }
   });
 

@@ -187,8 +187,14 @@
             </div>
 
             <div class="pitch-controls">
-              <button class="at-btn at-btn-primary" id="previewBtn" type="button">
-                Play
+              <button class="at-btn at-btn-primary at-preview-icon-btn" id="previewBtn" type="button" aria-label="Play preview" data-playing="false">
+                <span class="at-preview-icon" aria-hidden="true">
+                  <span class="at-preview-icon__play"></span>
+                  <span class="at-preview-icon__pause">
+                    <span></span>
+                    <span></span>
+                  </span>
+                </span>
               </button>
 
               <div class="pitch-inline speed-inline">
@@ -564,7 +570,7 @@
 </footer>
 
 <script src="/assets/audio-engine.js?v=2026-05-18-1" defer></script>
-<script src="/assets/speed-tool.js?v=2026-05-18-1" defer></script>
+<script src="/assets/speed-tool.js?v=2026-05-25-1" defer></script>
 <script src="/assets/upload.js?v=2026-05-25-2" defer></script>
 <script>
 window.AudioToolUploadPolicy = function() {
@@ -645,4 +651,3 @@ document.addEventListener('upload:validation-failed', function(e) {
 </script>
 </body>
 </html>
-

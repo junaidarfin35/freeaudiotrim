@@ -157,26 +157,25 @@
     });
 
     elements.previewBtn.addEventListener("click", () => {
-      if (!canUseProcessedActions()) {
+      if (!canUsePreviewActions()) {
         return;
       }
-      const playbackState = engine.getPlaybackState();
-      info("preview toggle requested", {
-        mode: playbackState.mode,
-        isPlaying: playbackState.isPlaying,
-      });
-      void engine.togglePlayPause();
+      void togglePreviewPlayback();
     });
 
     elements.exportBtn.addEventListener("click", () => {
       if (!canUseProcessedActions()) {
         return;
       }
+      if (state.downloadUrl) {
+        elements.downloadLink.click();
+        return;
+      }
       void exportAudio();
     });
 
     elements.modeButtons.original?.addEventListener("click", () => {
-      if (!canUseProcessedActions()) {
+      if (!canUsePreviewActions()) {
         return;
       }
       void switchMode("original");
@@ -220,7 +219,7 @@
 
     if (elements.seekBar) {
       elements.seekBar.addEventListener("input", () => {
-        if (!canUseProcessedActions()) {
+        if (!canUsePreviewActions()) {
           return;
         }
         void engine.seekTo(Number(elements.seekBar.value) || 0);
@@ -229,7 +228,7 @@
 
     if (elements.waveformCanvas) {
       elements.waveformCanvas.addEventListener("click", (event) => {
-        if (!canUseProcessedActions()) {
+        if (!canUsePreviewActions()) {
           return;
         }
         const rect = elements.waveformCanvas.getBoundingClientRect();
@@ -248,10 +247,10 @@
         return;
       }
       event.preventDefault();
-      if (!canUseProcessedActions()) {
+      if (!canUsePreviewActions()) {
         return;
       }
-      void engine.togglePlayPause();
+      void togglePreviewPlayback();
     });
   }
 
@@ -353,7 +352,7 @@
     state.compareHeld = false;
     state.hasEnhanced = false;
     state.needsEnhance = true;
-    state.currentMode = "modified";
+    state.currentMode = "original";
     state.userPresetLocked = false;
     engine.reset();
     clearDownload();
@@ -402,6 +401,7 @@
     }
 
     applySettings({ silent: true });
+    await switchMode("original", { silentStatus: true });
     updateActionState();
     info("decoded audio ready", {
       fileName: file.name,
@@ -410,7 +410,7 @@
       channelCount: engine.originalBuffer.numberOfChannels,
       sizeBytes: file.size,
     });
-    setStatus("Choose a preset, then click Enhance Voice.", "ready");
+    setStatus("Preview the original, then click Enhance Voice when you are ready.", "ready");
     return true;
   }
 
@@ -470,8 +470,8 @@
     state.downloadUrl = URL.createObjectURL(result.blob);
     elements.downloadLink.href = state.downloadUrl;
     elements.downloadLink.download = result.fileName.replace("_processed", `_voice_studio_${state.preset}`);
-    elements.downloadLink.style.display = "inline-flex";
     elements.downloadLink.textContent = "Download WAV";
+    updateActionState();
     updateRenderMeta();
     info("export completed", {
       fileName: elements.downloadLink.download,
@@ -491,7 +491,7 @@
   function updateRenderMeta() {
     const meta = state.renderMeta;
     if (!meta) {
-      elements.metaNote.textContent = "Pick a preset, click Enhance Voice, then compare the result.";
+      elements.metaNote.textContent = "Preview the original, then click Enhance Voice to generate the enhanced version.";
       return;
     }
     if (meta.aiDenoiseActive) {
@@ -523,18 +523,20 @@
 
   function updateActionState() {
     const hasFile = !!engine.originalBuffer;
+    const canUsePreview = canUsePreviewActions();
     const canUseProcessed = canUseProcessedActions();
     const busy = state.isEnhancing;
 
     elements.enhanceBtn.disabled = !hasFile || state.tooLong || busy;
-    elements.previewBtn.disabled = !canUseProcessed;
+    elements.previewBtn.disabled = !canUsePreview;
     elements.compareHoldBtn.disabled = !canUseProcessed;
     elements.exportBtn.disabled = !canUseProcessed;
-    elements.modeButtons.original.disabled = !canUseProcessed;
+    elements.modeButtons.original.disabled = !canUsePreview;
     elements.modeButtons.modified.disabled = !canUseProcessed;
     if (elements.seekBar) {
-      elements.seekBar.disabled = !canUseProcessed;
+      elements.seekBar.disabled = !canUsePreview;
     }
+    elements.exportBtn.textContent = state.downloadUrl ? "Download WAV" : "Export WAV";
   }
 
   function updatePresetCards() {
@@ -578,16 +580,31 @@
   function markNeedsEnhance(message) {
     state.hasEnhanced = false;
     state.needsEnhance = true;
-    state.currentMode = "modified";
+    state.currentMode = "original";
     state.renderMeta = null;
+    void engine.setMode("original");
     updateRenderMeta();
     updateModeButtons();
     updateActionState();
     setStatus(message, "ready");
   }
 
+  function canUsePreviewActions() {
+    return !!engine.originalBuffer && !state.tooLong && !state.isEnhancing;
+  }
+
   function canUseProcessedActions() {
     return !!engine.originalBuffer && !state.tooLong && !state.isEnhancing && state.hasEnhanced && !state.needsEnhance;
+  }
+
+  async function togglePreviewPlayback() {
+    if (!canUsePreviewActions()) {
+      return;
+    }
+    if (!state.hasEnhanced || state.needsEnhance) {
+      await switchMode("original", { silentStatus: true });
+    }
+    void engine.togglePlayPause();
   }
 
   function setStatus(message, explicitState) {
@@ -611,10 +628,8 @@
       return;
     }
     link.dataset.enhanced = "true";
-    link.className = "at-btn at-btn-primary";
     link.style.display = "none";
     link.textContent = "Download WAV";
-    elements.exportBtn.insertAdjacentElement("afterend", link);
   }
 
   function clearDownload() {
@@ -622,8 +637,9 @@
       URL.revokeObjectURL(state.downloadUrl);
       state.downloadUrl = "";
     }
-    elements.downloadLink.style.display = "none";
     elements.downloadLink.removeAttribute("href");
+    elements.downloadLink.removeAttribute("download");
+    updateActionState();
   }
 
   function isTypingTarget(target) {

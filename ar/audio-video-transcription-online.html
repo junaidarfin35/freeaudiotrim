@@ -283,6 +283,7 @@
             <h2 class="upload-dropzone__primary">اسحب ملف الصوت أو الفيديو هنا أو اضغط للرفع</h2>
             <!-- <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WebM</p> -->
             <small class="upload-dropzone__meta">دعم الملفات الكبيرة يعتمد على جهازك</small>
+            <small class="upload-dropzone__meta is-hidden" data-role="iosVideoHint">على iPhone و iPad، استخدم &quot;Browse &gt; Files&quot; لرفع الفيديو. استيراد الفيديو من مكتبة الصور قد يتعطل في Safari.</small>
             <small class="upload-dropzone__privacy">تتم المعالجة داخل المتصفح قدر الإمكان</small>
           </div>
         </div>
@@ -705,11 +706,41 @@
 <script src="/assets/encoders/lame.min.js?v=2026-05-18-1"></script>
 <script src="/assets/encoders/mp3-encoder.js?v=2026-05-18-1"></script>
 <script src="/assets/upload.js?v=2026-05-18-2" defer></script>
-  <script src="/assets/transcribe-tool.js?v=2026-05-21-16"></script>
+  <script src="/assets/transcribe-tool.js?v=2026-05-25-23"></script>
 <script src="/assets/arabic-ui-localization.js?v=2026-05-18-1"></script>
 <script>
   (function () {
+    function isAppleMobileTranscriptionBrowser() {
+      var ua = navigator.userAgent || "";
+      return /iPhone|iPad|iPod/i.test(ua);
+    }
+
+    function isMobileTranscriptionBrowser() {
+      var ua = navigator.userAgent || "";
+      return /iPhone|iPad|iPod|Android.+Mobile|Windows Phone|Mobile/i.test(ua);
+    }
+
+    function isLikelyVideoFile(file) {
+      var type = String(file && file.type || "").toLowerCase();
+      var name = String(file && file.name || "").toLowerCase();
+      return type.indexOf("video/") === 0 || /\.(mp4|m4v|mov|webm|mpeg|mpg)$/i.test(name);
+    }
+
+    window.AudioToolUploadPolicy = {
+      toolId: "audio-video-transcription-online-ar",
+      family: "transcription",
+      pickerAccept: ".mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mp4,.m4v,.mov,.webm,.mpga,.mpeg,.mpg",
+      validateOnReplacement: true
+    };
+
+    function applyIosVideoHint() {
+      var hint = document.querySelector('[data-role="iosVideoHint"]');
+      if (!hint) return;
+      hint.classList.toggle('is-hidden', !isAppleMobileTranscriptionBrowser());
+    }
+
     function bootTranscribeTool() {
+      applyIosVideoHint();
       if (typeof window.initTranscribeTool === "function") {
         window.initTranscribeTool("#audio-tool");
       }
@@ -734,9 +765,12 @@ document.addEventListener('file:selected', function(e) {
 
   uploadShell.classList.add('is-hidden');
   toolShell.classList.remove('is-hidden');
+  window.__pendingTranscriptionFile = file;
+  window.__transcribePendingSelection = true;
 
   if (window.AudioVideoTranscriptionTool) {
-    window.AudioVideoTranscriptionTool.addFile(file);
+    Promise.resolve(window.AudioVideoTranscriptionTool.addFile(file)).catch(function () {
+    });
   }
 
   if (wasHidden) {
