@@ -764,7 +764,7 @@
           <div class="at-row at-wave-wrap">
             <canvas id="waveformCanvas" class="at-wave" aria-label="Voice enhancement waveform preview"></canvas>
           </div>
-          
+
           <div class="voice-badge-row">
             <span class="normalize-badge" id="sourceDuration">Original -</span>
             <span class="normalize-badge" id="processedDuration">Enhanced -</span>
