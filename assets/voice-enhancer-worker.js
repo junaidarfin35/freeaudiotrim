@@ -72,32 +72,38 @@ async function denoiseSamples(inputSamples, sampleRate) {
   const targetRate = 48000;
   const resampled = sampleRate === targetRate ? inputSamples : resampleLinear(inputSamples, sampleRate, targetRate);
   const denoiseState = runtime.createDenoiseState();
-  const frameSize = runtime.frameSize;
-  rnnoiseLog("processing started", {
-    inputSampleRate: sampleRate,
-    targetSampleRate: targetRate,
-    frameSize,
-    inputSamples: inputSamples.length,
-    resampledSamples: resampled.length,
-  });
-  const pcm = floatToPcmFloat(resampled);
-  const denoised = new Float32Array(pcm.length);
-  const frame = new Float32Array(frameSize);
+  try {
+    const frameSize = runtime.frameSize;
+    rnnoiseLog("processing started", {
+      inputSampleRate: sampleRate,
+      targetSampleRate: targetRate,
+      frameSize,
+      inputSamples: inputSamples.length,
+      resampledSamples: resampled.length,
+    });
+    const pcm = floatToPcmFloat(resampled);
+    const denoised = new Float32Array(pcm.length);
+    const frame = new Float32Array(frameSize);
 
-  for (let offset = 0; offset < pcm.length; offset += frameSize) {
-    frame.fill(0);
-    frame.set(pcm.subarray(offset, Math.min(pcm.length, offset + frameSize)));
-    denoiseState.processFrame(frame);
-    denoised.set(frame.subarray(0, Math.min(frameSize, pcm.length - offset)), offset);
+    for (let offset = 0; offset < pcm.length; offset += frameSize) {
+      frame.fill(0);
+      frame.set(pcm.subarray(offset, Math.min(pcm.length, offset + frameSize)));
+      denoiseState.processFrame(frame);
+      denoised.set(frame.subarray(0, Math.min(frameSize, pcm.length - offset)), offset);
+    }
+
+    const floatOut = pcmFloatToUnit(denoised);
+    const output = sampleRate === targetRate ? floatOut : resampleLinear(floatOut, targetRate, sampleRate);
+    rnnoiseLog("processing completed", {
+      outputSamples: output.length,
+      durationMs: round(performance.now() - startedAt),
+    });
+    return output;
+  } finally {
+    if (denoiseState && typeof denoiseState.destroy === "function") {
+      denoiseState.destroy();
+    }
   }
-
-  const floatOut = pcmFloatToUnit(denoised);
-  const output = sampleRate === targetRate ? floatOut : resampleLinear(floatOut, targetRate, sampleRate);
-  rnnoiseLog("processing completed", {
-    outputSamples: output.length,
-    durationMs: round(performance.now() - startedAt),
-  });
-  return output;
 }
 
 async function getRuntime() {
