@@ -3,14 +3,20 @@
 
   const DB_FLOOR = -48;
   const LUFS_OFFSET = -0.691;
-  const RNNOISE_WORKER_URL = "/assets/voice-enhancer-worker.js?v=2026-05-25-2";
+  const MODEL_WORKER = {
+    key: "dpdfnet",
+    label: "DPDFNet",
+    url: "/assets/voice-enhancer-dpdfnet-worker.js?v=2026-06-05-1647",
+    type: "module",
+  };
   const DEFAULT_PRESET_KEY = "creator";
   const LOG_PREFIX = "[AI Voice Studio]";
-  const RNNOISE_PREFIX = "[AI Voice Studio RNNoise]";
+  const MODEL_PREFIX = "[AI Voice Studio Models]";
   const PRESETS = {
     creator: {
       key: "creator",
-      label: "Creator",
+      label: "Fast Clean",
+      modelVariant: "baseline",
       targetLufsEstimate: -14.2,
       ceilingDb: -1.1,
       lowShelf: 0.6,
@@ -25,7 +31,8 @@
     },
     podcast: {
       key: "podcast",
-      label: "Podcast",
+      label: "Balanced Clean",
+      modelVariant: "dpdfnet2_48khz_hr",
       targetLufsEstimate: -15.8,
       ceilingDb: -1.4,
       lowShelf: 1.6,
@@ -40,7 +47,8 @@
     },
     cinematic: {
       key: "cinematic",
-      label: "Cinematic",
+      label: "Studio Clean",
+      modelVariant: "dpdfnet8_48khz_hr",
       targetLufsEstimate: -14.8,
       ceilingDb: -1.2,
       lowShelf: 2.0,
@@ -56,7 +64,7 @@
   };
 
   let workerClientPromise = null;
-  let workerWarmupPromise = null;
+  const workerWarmupPromises = new Map();
 
   function createProcessor(options = {}) {
     return {
@@ -80,24 +88,25 @@
     };
   }
 
-  function prewarmWorker() {
-    if (!workerWarmupPromise) {
+  function prewarmWorker(presetKey = DEFAULT_PRESET_KEY) {
+    if (!workerWarmupPromises.has(presetKey)) {
       info("worker init start");
-      workerWarmupPromise = getWorkerClient()
-        .then((client) => client.init())
+      const warmupPromise = getWorkerClient()
+        .then((client) => client.init(presetKey))
         .then((runtimeInfo) => {
           info("worker init success", runtimeInfo);
           return runtimeInfo;
         })
         .catch((error) => {
-          workerWarmupPromise = null;
+          workerWarmupPromises.delete(presetKey);
           warn("worker init failure", {
             error: error instanceof Error ? error.message : String(error),
           });
           throw error;
         });
+      workerWarmupPromises.set(presetKey, warmupPromise);
     }
-    return workerWarmupPromise;
+    return workerWarmupPromises.get(presetKey);
   }
 
   async function enhanceVoice(ctxOrBuffer, bufferOrSettings, maybeSettings) {
@@ -282,6 +291,7 @@
   function speechPrep(buffer) {
     const mono = mergeToMono(buffer);
     removeDcOffsetInPlace(mono);
+    applySpeechHighPassInPlace(mono, buffer.sampleRate, 82);
     applyGainSanityInPlace(mono);
     return {
       samples: mono,
@@ -291,7 +301,7 @@
 
   async function runDenoiseStage(samples, sampleRate, settings, stageDurations) {
     if (settings.noiseReduction < 0.02) {
-      warn("fallback activated because rnnoise disabled by noise reduction control", {
+      warn("fallback activated because model disabled by noise reduction control", {
         noiseReduction: settings.noiseReduction,
       });
       return {
@@ -307,21 +317,24 @@
     }
 
     try {
-      rnnoiseInfo("path selected", {
+      const presetKey = settings.preset?.key || DEFAULT_PRESET_KEY;
+      modelInfo("path selected", {
+        preset: settings.preset?.label || PRESETS[DEFAULT_PRESET_KEY].label,
+        modelVariant: settings.preset?.modelVariant || PRESETS[DEFAULT_PRESET_KEY].modelVariant,
         sampleRate,
         noiseReduction: settings.noiseReduction,
       });
-      rnnoiseInfo("worker init check");
+      modelInfo("worker init check");
       const client = await getWorkerClient();
       const startedAt = performance.now();
-      const processed = await client.process(samples, sampleRate);
-      stageDurations.rnnoiseMs = round(performance.now() - startedAt);
+      const processed = await client.process(samples, sampleRate, presetKey);
+      stageDurations.dpdfnetMs = round(performance.now() - startedAt);
       const denoised = settings.denoiseMix >= 0.995
         ? processed.samples
         : blendSignals(samples, processed.samples, settings.denoiseMix);
       const residualCleaned = applyResidualCleanupStage(denoised, sampleRate, settings, stageDurations);
-      rnnoiseInfo("worker response received", {
-        durationMs: stageDurations.rnnoiseMs,
+      modelInfo("worker response received", {
+        durationMs: stageDurations.dpdfnetMs,
         sampleRate,
         sampleCount: processed.samples.length,
         denoiseMix: settings.denoiseMix,
@@ -331,23 +344,23 @@
         meta: {
           aiDenoiseActive: true,
           fallbackReason: "",
-          processingMode: "compatibility",
-          processingPath: "compatibility",
-          modelName: processed.meta?.modelName || "RNNoise",
+          processingMode: "neural-onnx",
+          processingPath: presetKey,
+          modelName: processed.meta?.displayName || processed.meta?.modelName || settings.preset?.label || MODEL_WORKER.label,
           denoiseMix: settings.denoiseMix,
           residualCleanupActive: residualCleaned.active,
           workerMeta: processed.meta || null,
         },
       };
     } catch (error) {
-      warn("fallback activated because rnnoise unavailable/failed", {
+      warn("fallback activated because model unavailable/failed", {
         error: error instanceof Error ? error.message : String(error),
       });
       return {
         samples,
         meta: {
           aiDenoiseActive: false,
-          fallbackReason: "AI noise reduction unavailable. Studio chain still active.",
+          fallbackReason: "AI voice model unavailable. Studio chain still active.",
           processingMode: "compatibility",
           processingPath: "fallback",
           modelName: "Voice Mastering Chain",
@@ -806,10 +819,12 @@
   async function getWorkerClient() {
     if (!workerClientPromise) {
       workerClientPromise = Promise.resolve().then(() => {
-        rnnoiseInfo("worker init start", {
-          workerUrl: RNNOISE_WORKER_URL,
+        modelInfo("worker init start", {
+          backend: MODEL_WORKER.label,
+          workerUrl: MODEL_WORKER.url,
         });
-        const worker = new Worker(RNNOISE_WORKER_URL, { type: "module" });
+        const workerOptions = MODEL_WORKER.type === "module" ? { type: "module" } : undefined;
+        const worker = new Worker(MODEL_WORKER.url, workerOptions);
         let nextId = 1;
         const pending = new Map();
         let isAlive = true;
@@ -823,13 +838,15 @@
           pending.delete(payload.id);
 
           if (payload.type === "init-ready") {
-            rnnoiseInfo("worker init success", {
+            modelInfo("worker init success", {
+              backend: MODEL_WORKER.label,
               runtime: payload.runtime,
               frameSize: payload.frameSize,
             });
             ticket.resolve({
               runtime: payload.runtime,
               frameSize: payload.frameSize,
+              modelName: payload.modelName || "",
             });
             return;
           }
@@ -843,18 +860,20 @@
           }
 
           warn("worker response failure", {
+            backend: MODEL_WORKER.label,
             type: payload.type,
-            error: payload.error || "RNNoise worker failed.",
+            error: payload.error || `${MODEL_WORKER.label} worker failed.`,
           });
-          ticket.reject(new Error(payload.error || "RNNoise worker failed."));
+          ticket.reject(new Error(payload.error || `${MODEL_WORKER.label} worker failed.`));
         });
 
         worker.addEventListener("error", (event) => {
-          const error = new Error(event.message || "RNNoise worker crashed.");
+          const error = new Error(event.message || `${MODEL_WORKER.label} worker crashed.`);
           isAlive = false;
           workerClientPromise = null;
-          workerWarmupPromise = null;
+          workerWarmupPromises.clear();
           errorLog("worker init failure", {
+            backend: MODEL_WORKER.label,
             error: error.message,
           });
           pending.forEach((ticket) => ticket.reject(error));
@@ -863,7 +882,7 @@
 
         function sendRequest(type, body, transferList = []) {
           if (!isAlive) {
-            return Promise.reject(new Error("RNNoise worker crashed."));
+            return Promise.reject(new Error(`${MODEL_WORKER.label} worker crashed.`));
           }
           const id = nextId += 1;
           return new Promise((resolve, reject) => {
@@ -877,16 +896,19 @@
         }
 
         return {
-          init() {
-            return sendRequest("init", {});
+          init(presetKey = DEFAULT_PRESET_KEY) {
+            return sendRequest("init", { presetKey });
           },
-          async process(samples, sampleRate) {
-            rnnoiseInfo("worker message sent", {
+          async process(samples, sampleRate, presetKey = DEFAULT_PRESET_KEY) {
+            modelInfo("worker message sent", {
+              backend: MODEL_WORKER.label,
               sampleRate,
               sampleCount: samples.length,
+              presetKey,
             });
             const transfer = new Float32Array(samples);
             return sendRequest("process", {
+              presetKey,
               sampleRate,
               samples: transfer.buffer,
             }, [transfer.buffer]);
@@ -925,6 +947,27 @@
     }
     for (let i = 0; i < samples.length; i += 1) {
       samples[i] -= mean;
+    }
+  }
+
+  function applySpeechHighPassInPlace(samples, sampleRate, cutoffHz) {
+    if (!samples.length || !Number.isFinite(sampleRate) || sampleRate <= 0) {
+      return;
+    }
+
+    const cutoff = clamp(Number(cutoffHz) || 80, 40, Math.min(220, sampleRate * 0.45));
+    const rc = 1 / (2 * Math.PI * cutoff);
+    const dt = 1 / sampleRate;
+    const alpha = rc / (rc + dt);
+    let previousInput = samples[0] || 0;
+    let previousOutput = 0;
+
+    for (let i = 0; i < samples.length; i += 1) {
+      const input = samples[i] || 0;
+      const output = alpha * (previousOutput + input - previousInput);
+      samples[i] = output;
+      previousInput = input;
+      previousOutput = output;
     }
   }
 
@@ -1397,8 +1440,8 @@
     emit("info", LOG_PREFIX, message, data);
   }
 
-  function rnnoiseInfo(message, data) {
-    emit("info", RNNOISE_PREFIX, message, data);
+  function modelInfo(message, data) {
+    emit("info", MODEL_PREFIX, message, data);
   }
 
   function warn(message, data) {
