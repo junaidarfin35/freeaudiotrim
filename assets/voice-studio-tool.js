@@ -6,6 +6,9 @@
   const PAGE_INPUT_ID = "audioFileInput";
   const MAX_DURATION_SECONDS = 10 * 60;
   const DEFAULT_PRESET = "creator";
+  const BRAND_OUTRO_URL = "/assets/brand/freeaudiotrim-outro.aac?v=2026-06-06-1";
+  const BRAND_OUTRO_FADE_SECONDS = 0.12;
+  let brandOutroBufferPromise = null;
   if (!engineApi || !voiceApi) {
     errorLog("tool boot failed", {
       hasAudioEngine: !!engineApi,
@@ -371,7 +374,9 @@
       hasEnhanced: state.hasEnhanced,
       needsEnhance: state.needsEnhance,
     });
-    const result = await engine.exportProcessed();
+    const result = await engine.exportProcessed({
+      bufferTransform: appendBrandOutroForExport,
+    });
     if (!result) {
       warn("export failed");
       return;
@@ -390,11 +395,111 @@
       sampleRate: result.sampleRate,
       usedProcessedBuffer: result.usedProcessedBuffer,
     });
-    if (state.renderMeta?.fallbackReason) {
+    if (result.exportMeta?.brandOutroAppended) {
+      setStatus("Enhanced WAV with FreeAudioTrim outro ready. Download when it sounds right.", "success");
+    } else if (result.exportMeta?.brandOutroError) {
+      setStatus("Enhanced WAV ready. Branding outro could not be added in this browser.", "warning");
+    } else if (state.renderMeta?.fallbackReason) {
       setStatus(state.renderMeta.fallbackReason, "warning");
     } else {
       setStatus("Enhanced WAV ready. Download when it sounds right.", "success");
     }
+  }
+
+  async function appendBrandOutroForExport(processedBuffer, ctx) {
+    try {
+      const outroBuffer = await getBrandOutroBuffer(ctx);
+      const matchedOutro = await matchBufferSampleRate(outroBuffer, processedBuffer.sampleRate);
+      const combined = appendBuffersWithCrossfade(ctx, processedBuffer, matchedOutro, BRAND_OUTRO_FADE_SECONDS);
+      return {
+        buffer: combined,
+        meta: {
+          brandOutroAppended: true,
+          outroDuration: round(matchedOutro.duration),
+        },
+      };
+    } catch (error) {
+      warn("brand outro append failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return {
+        buffer: processedBuffer,
+        meta: {
+          brandOutroAppended: false,
+          brandOutroError: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  }
+
+  function getBrandOutroBuffer(ctx) {
+    if (!brandOutroBufferPromise) {
+      brandOutroBufferPromise = fetch(BRAND_OUTRO_URL)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`Brand outro missing (${response.status}).`);
+          }
+          return response.arrayBuffer();
+        })
+        .then((arrayBuffer) => ctx.decodeAudioData(arrayBuffer.slice(0)));
+    }
+    return brandOutroBufferPromise;
+  }
+
+  async function matchBufferSampleRate(sourceBuffer, targetSampleRate) {
+    if (!sourceBuffer || sourceBuffer.sampleRate === targetSampleRate) {
+      return sourceBuffer;
+    }
+    const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OfflineCtx) {
+      throw new Error("OfflineAudioContext is not supported for outro resampling.");
+    }
+    const targetLength = Math.max(1, Math.ceil(sourceBuffer.duration * targetSampleRate));
+    const offline = new OfflineCtx(sourceBuffer.numberOfChannels, targetLength, targetSampleRate);
+    const source = offline.createBufferSource();
+    source.buffer = sourceBuffer;
+    source.connect(offline.destination);
+    source.start(0);
+    return offline.startRendering();
+  }
+
+  function appendBuffersWithCrossfade(ctx, firstBuffer, secondBuffer, fadeSeconds = 0) {
+    const channels = Math.max(firstBuffer.numberOfChannels, secondBuffer.numberOfChannels);
+    const sampleRate = firstBuffer.sampleRate;
+    const fadeFrames = Math.max(0, Math.min(
+      Math.round((Number(fadeSeconds) || 0) * sampleRate),
+      firstBuffer.length,
+      secondBuffer.length
+    ));
+    const outputLength = firstBuffer.length + secondBuffer.length - fadeFrames;
+    const output = ctx.createBuffer(channels, outputLength, sampleRate);
+    const firstCopyLength = firstBuffer.length - fadeFrames;
+
+    for (let channel = 0; channel < channels; channel += 1) {
+      const out = output.getChannelData(channel);
+
+      for (let i = 0; i < firstCopyLength; i += 1) {
+        out[i] = readBufferSample(firstBuffer, channel, i);
+      }
+
+      for (let i = 0; i < fadeFrames; i += 1) {
+        const mix = fadeFrames > 1 ? i / (fadeFrames - 1) : 1;
+        const a = readBufferSample(firstBuffer, channel, firstCopyLength + i);
+        const b = readBufferSample(secondBuffer, channel, i);
+        out[firstCopyLength + i] = (a * (1 - mix)) + (b * mix);
+      }
+
+      for (let i = fadeFrames; i < secondBuffer.length; i += 1) {
+        out[firstCopyLength + i] = readBufferSample(secondBuffer, channel, i);
+      }
+    }
+
+    return output;
+  }
+
+  function readBufferSample(buffer, channel, index) {
+    const sourceChannel = Math.min(channel, buffer.numberOfChannels - 1);
+    return buffer.getChannelData(sourceChannel)[index] || 0;
   }
 
   function updateRenderMeta() {

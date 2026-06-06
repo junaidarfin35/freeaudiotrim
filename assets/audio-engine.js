@@ -237,7 +237,7 @@
       }
     }
 
-    async exportProcessed() {
+    async exportProcessed(options = {}) {
       if (!this.originalBuffer) {
         this.onStatus("Upload an audio file first.");
         return null;
@@ -245,15 +245,29 @@
       try {
         this.onStatus("Rendering processed audio...");
         const buffer = await this.getProcessedBuffer();
-        const wavBlob = encodeWav(buffer);
+        let exportBuffer = buffer;
+        let exportMeta = null;
+
+        if (typeof options.bufferTransform === "function") {
+          const transformed = await options.bufferTransform(buffer, this.getContext(), this);
+          if (isAudioBufferLike(transformed)) {
+            exportBuffer = transformed;
+          } else if (transformed && isAudioBufferLike(transformed.buffer)) {
+            exportBuffer = transformed.buffer;
+            exportMeta = transformed.meta || null;
+          }
+        }
+
+        const wavBlob = encodeWav(exportBuffer);
         this.onStatus("Export ready. Click Download.");
         return {
           blob: wavBlob,
           fileName: `${this.fileName}_processed.wav`,
-          duration: buffer.duration,
-          numberOfChannels: buffer.numberOfChannels,
-          sampleRate: buffer.sampleRate,
+          duration: exportBuffer.duration,
+          numberOfChannels: exportBuffer.numberOfChannels,
+          sampleRate: exportBuffer.sampleRate,
           usedProcessedBuffer: buffer !== this.originalBuffer,
+          exportMeta,
         };
       } catch (error) {
         console.error(error);
@@ -923,6 +937,13 @@
     }
 
     return new Blob([out], { type: "audio/wav" });
+  }
+
+  function isAudioBufferLike(value) {
+    return !!value
+      && typeof value.getChannelData === "function"
+      && Number.isFinite(value.length)
+      && Number.isFinite(value.sampleRate);
   }
 
   function clamp(value, min, max) {
