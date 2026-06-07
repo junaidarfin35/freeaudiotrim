@@ -3442,6 +3442,14 @@ body.audio-converter-page #audio-tool .at-tools {
   color: #0f172a;
 }
 
+#voice-studio-tool .voice-preset-hint {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
 #voice-studio-tool .voice-download-row {
   display: flex;
   justify-content: stretch;
@@ -5541,6 +5549,11 @@ html[dir="rtl"] #audio-tool .at-transcript-player {
     margin: 0;
     margin-bottom: 2px;
     font-size: 0.94rem;
+  }
+
+  #voice-studio-tool .voice-preset-hint {
+    font-size: 0.8rem;
+    line-height: 1.35;
   }
 
   #voice-studio-tool .voice-preset-card {

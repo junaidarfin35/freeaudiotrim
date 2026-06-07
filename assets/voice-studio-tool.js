@@ -6,6 +6,13 @@
   const PAGE_INPUT_ID = "audioFileInput";
   const MAX_DURATION_SECONDS = 10 * 60;
   const DEFAULT_PRESET = "creator";
+  const PRESET_ORDER = ["creator", "podcast", "cinematic"];
+  const BENCHMARK_CACHE_VERSION = "2026-06-07-tier-bench-v1";
+  const BENCHMARK_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  const BENCHMARK_TIMEOUT_MS = 3000;
+  const EXPORT_FLAGS = {
+    brandOutro: true,
+  };
   const BRAND_OUTRO_URL = "/assets/brand/freeaudiotrim-outro.aac?v=2026-06-06-1";
   const BRAND_OUTRO_FADE_SECONDS = 0.12;
   let brandOutroBufferPromise = null;
@@ -23,8 +30,13 @@
     return;
   }
 
+  window.FreeAudioTrimVoiceStudioFlags = EXPORT_FLAGS;
+  let deviceProfile = detectDeviceProfile();
+  let benchmarkRunId = 0;
+
   const state = {
-    preset: DEFAULT_PRESET,
+    preset: deviceProfile.recommendedPreset || DEFAULT_PRESET,
+    appliedPreset: deviceProfile.recommendedPreset || DEFAULT_PRESET,
     analysisProfile: null,
     renderMeta: null,
     tooLong: false,
@@ -65,6 +77,7 @@
     progressPercent: root.querySelector("#statusProgressPercent"),
     progressStage: root.querySelector("#statusProgressStage"),
     metaNote: root.querySelector('[data-role="renderMetaNote"]'),
+    presetHint: root.querySelector('[data-role="presetHint"]'),
     targetBadge: root.querySelector("#targetBadge"),
     presetCards: Array.from(root.querySelectorAll("[data-preset]")),
   };
@@ -86,7 +99,10 @@
     onAnalysis: (analysis) => {
       state.analysisProfile = analysis || null;
       if (!state.userPresetLocked) {
-        const recommendedKey = findPresetKeyByLabel(analysis?.adaptiveProfile?.recommendedPreset || analysis?.heuristic?.recommendedPreset);
+        const recommendedKey = capPresetForDevice(
+          findPresetKeyByLabel(analysis?.adaptiveProfile?.recommendedPreset || analysis?.heuristic?.recommendedPreset),
+          deviceProfile
+        );
         if (recommendedKey && recommendedKey !== state.preset) {
           state.preset = recommendedKey;
           updatePresetCards();
@@ -104,19 +120,8 @@
   info("tool initialized", {
     presetCount: Object.keys(voiceApi.PRESETS || {}).length,
     defaultPreset: DEFAULT_PRESET,
+    deviceProfile,
   });
-
-  if (typeof voiceApi.prewarmWorker === "function") {
-    void voiceApi.prewarmWorker()
-      .then((runtimeInfo) => {
-        info("voice model runtime detected", runtimeInfo);
-      })
-      .catch((error) => {
-        warn("voice model runtime unavailable", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
-  }
 
   window.__audioEngine = engine;
   bindEvents();
@@ -125,7 +130,10 @@
   updateModeButtons();
   updateRenderMeta();
   updateActionState();
+  updateDeviceHint();
   applySettings({ silent: true });
+  applyCachedDeviceProfile();
+  void scheduleDeviceBenchmark();
 
   function bindEvents() {
     elements.changeFileBtn.addEventListener("click", () => {
@@ -171,20 +179,16 @@
 
     elements.presetCards.forEach((card) => {
       card.addEventListener("click", () => {
-        state.preset = card.getAttribute("data-preset") || DEFAULT_PRESET;
+        const requestedPreset = card.getAttribute("data-preset") || DEFAULT_PRESET;
+        const nextPreset = capPresetForDevice(requestedPreset, deviceProfile);
         state.userPresetLocked = true;
+        state.preset = nextPreset;
         updatePresetCards();
-        if (typeof voiceApi.prewarmWorker === "function") {
-          void voiceApi.prewarmWorker(state.preset).catch((error) => {
-            warn("preset worker prewarm failed", {
-              preset: state.preset,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          });
+        if (requestedPreset !== nextPreset) {
+          markNeedsEnhance(`${voiceApi.PRESETS[requestedPreset]?.label || "That preset"} is too heavy for this device. Using ${voiceApi.PRESETS[nextPreset]?.label || "Fast Clean"} instead.`);
+          return;
         }
-        pauseBeforeUpdate();
-        applySettings({ silent: true });
-        markNeedsEnhance(`Preset changed to ${voiceApi.PRESETS[state.preset]?.label || "Fast Clean"}. Click Enhance Voice to render the new sound.`);
+        markNeedsEnhance(`Preset changed to ${voiceApi.PRESETS[state.preset]?.label || "Fast Clean"}. Click Re-Enhance to update the result.`);
       });
     });
 
@@ -222,21 +226,17 @@
     });
   }
 
-  function pauseBeforeUpdate() {
-    if (engine.getPlaybackState().isPlaying) {
-      engine.pause();
-    }
-    clearDownload();
-  }
-
   function applySettings(options = {}) {
     const settings = {
       preset: state.preset,
       analysisProfile: state.analysisProfile,
     };
 
-    engine.setSettings(settings);
-    elements.targetBadge.textContent = `Preset ${voiceApi.PRESETS[state.preset]?.label || "Fast Clean"}`;
+    if (options.forceEngineSync || !state.hasEnhanced || !state.needsEnhance) {
+      engine.setSettings(settings);
+      state.appliedPreset = state.preset;
+    }
+    updateTargetBadge();
     if (!options.silent && !state.tooLong) {
       setStatus("Settings updated. Click Enhance Voice when you want a fresh render.", "ready");
     }
@@ -259,13 +259,18 @@
     state.tooLong = false;
     state.hasEnhanced = false;
     state.needsEnhance = true;
+    state.appliedPreset = state.preset;
     state.currentMode = "original";
     state.userPresetLocked = false;
+    state.preset = deviceProfile.recommendedPreset || DEFAULT_PRESET;
     engine.reset();
     clearDownload();
     resetEnhanceProgress();
     updateRenderMeta();
     updateModeButtons();
+    updatePresetCards();
+    updateTargetBadge();
+    updateDeviceHint();
     setStatus("Loading voice recording...", "processing");
 
     const probedDuration = await probeFileDuration(file, 1800);
@@ -338,9 +343,11 @@
     });
 
     try {
+      applySettings({ silent: true, forceEngineSync: true });
       await engine.primeProcessedBuffer();
       state.hasEnhanced = true;
       state.needsEnhance = false;
+      state.appliedPreset = state.preset;
       await switchMode("modified", { silentStatus: true });
       if (state.renderMeta?.fallbackReason) {
         completeEnhanceProgress(false);
@@ -369,8 +376,9 @@
 
   async function exportAudio() {
     clearDownload();
+    const exportPresetKey = state.needsEnhance && state.hasEnhanced ? state.appliedPreset : state.preset;
     info("export started", {
-      preset: voiceApi.PRESETS[state.preset]?.label || "Fast Clean",
+      preset: voiceApi.PRESETS[exportPresetKey]?.label || "Fast Clean",
       hasEnhanced: state.hasEnhanced,
       needsEnhance: state.needsEnhance,
     });
@@ -383,7 +391,7 @@
     }
     state.downloadUrl = URL.createObjectURL(result.blob);
     elements.downloadLink.href = state.downloadUrl;
-    elements.downloadLink.download = result.fileName.replace("_processed", `_voice_studio_${state.preset}`);
+    elements.downloadLink.download = result.fileName.replace("_processed", `_voice_studio_${exportPresetKey}`);
     elements.downloadLink.textContent = "Download WAV";
     updateActionState();
     updateRenderMeta();
@@ -407,6 +415,15 @@
   }
 
   async function appendBrandOutroForExport(processedBuffer, ctx) {
+    if (EXPORT_FLAGS.brandOutro === false) {
+      return {
+        buffer: processedBuffer,
+        meta: {
+          brandOutroAppended: false,
+          brandOutroSkipped: true,
+        },
+      };
+    }
     try {
       const outroBuffer = await getBrandOutroBuffer(ctx);
       const matchedOutro = await matchBufferSampleRate(outroBuffer, processedBuffer.sampleRate);
@@ -505,14 +522,19 @@
   function updateRenderMeta() {
     const meta = state.renderMeta;
     if (!meta) {
-      elements.metaNote.textContent = "Preview the original, then click Enhance Voice to generate the enhanced version.";
+      elements.metaNote.textContent = state.hasEnhanced && state.needsEnhance
+        ? `Preview still reflects the last rendered preset. Click Re-Enhance to update it to ${voiceApi.PRESETS[state.preset]?.label || "the selected preset"}.`
+        : "Preview the original, then click Enhance Voice to generate the enhanced version.";
       return;
     }
     if (meta.aiDenoiseActive) {
       const cleanupNote = meta.roomControlActive ? "Mild room control active." : "Mild room control bypassed.";
       const mixPercent = Math.round((Number(meta.denoiseMix) || 0) * 100);
       const modelName = meta.modelName || "AI noise reduction";
-      elements.metaNote.textContent = `${modelName} active at ${mixPercent}% cleanup mix. ${cleanupNote} ${meta.presetLabel} preset targeting ${meta.targetLufsEstimate.toFixed(1)} LUFS estimate.`;
+      const staleNote = state.needsEnhance && state.hasEnhanced
+        ? ` Preview still reflects ${meta.presetLabel}. Click Re-Enhance to switch to ${voiceApi.PRESETS[state.preset]?.label || "the selected preset"}.`
+        : "";
+      elements.metaNote.textContent = `${modelName} active at ${mixPercent}% cleanup mix. ${cleanupNote} ${meta.presetLabel} preset targeting ${meta.targetLufsEstimate.toFixed(1)} LUFS estimate.${staleNote}`;
       return;
     }
     if (meta.fallbackReason) {
@@ -551,7 +573,7 @@
     }
     elements.enhanceBtn.textContent = busy
       ? "Enhancing..."
-      : hasFile && state.hasEnhanced && !state.needsEnhance
+      : hasFile && state.hasEnhanced
         ? "Re-Enhance"
         : "Enhance Voice";
     elements.exportBtn.textContent = state.downloadUrl ? "Download WAV" : "Export WAV";
@@ -662,6 +684,118 @@
     });
   }
 
+  function updateTargetBadge() {
+    const badgePresetKey = state.hasEnhanced && state.needsEnhance ? state.appliedPreset : state.preset;
+    elements.targetBadge.textContent = `Preset ${voiceApi.PRESETS[badgePresetKey]?.label || "Fast Clean"}`;
+  }
+
+  function updateDeviceHint() {
+    if (!elements.presetHint) {
+      return;
+    }
+    const tierLabel = deviceProfile.label || "Balanced creator";
+    const presetLabel = voiceApi.PRESETS[deviceProfile.recommendedPreset]?.label || "Balanced Clean";
+    const maxLabel = voiceApi.PRESETS[deviceProfile.maxPresetKey]?.label || presetLabel;
+    const tierCopy = tierLabel === "Studio creator"
+      ? "Your device can handle the richest cleanup modes."
+      : tierLabel === "Balanced creator"
+        ? "This device looks best suited to balanced voice cleanup."
+        : tierLabel === "Starter creator"
+          ? "This device is better suited to lighter cleanup modes."
+          : tierLabel === "High-end mobile"
+            ? "This device can handle richer mobile voice cleanup."
+            : tierLabel === "Balanced mobile"
+              ? "This device looks best suited to balanced mobile cleanup."
+              : "This device is better suited to lighter mobile cleanup.";
+    const recommendationCopy = `${presetLabel} is recommended right now.`;
+    const ceilingCopy = deviceProfile.maxPresetKey === "cinematic"
+      ? "You can still try the other presets if you want."
+      : `${maxLabel} is the highest preset recommended for this browser right now.`;
+    const benchmarkCopy = deviceProfile.benchmark
+      ? " Performance check complete."
+      : " Checking performance in the background.";
+    elements.presetHint.textContent = `${tierCopy} ${recommendationCopy} ${ceilingCopy}${benchmarkCopy}`;
+  }
+
+  async function scheduleDeviceBenchmark() {
+    const cached = loadCachedBenchmarkProfile();
+    if (cached?.profile) {
+      deviceProfile = cached.profile;
+      window.FreeAudioTrimVoiceStudioDeviceProfile = deviceProfile;
+      updateDeviceHint();
+      if (!state.userPresetLocked && !state.activeFile) {
+        const cachedPreset = deviceProfile.recommendedPreset || DEFAULT_PRESET;
+        if (cachedPreset !== state.preset) {
+          state.preset = cachedPreset;
+          updatePresetCards();
+          updateTargetBadge();
+        }
+      }
+      if (!cached.isFresh) {
+        void runDeviceBenchmark({ backgroundRefresh: true });
+      }
+      return;
+    }
+    void runDeviceBenchmark({ backgroundRefresh: false });
+  }
+
+  async function runDeviceBenchmark(options = {}) {
+    if (typeof voiceApi.benchmarkPreset !== "function") {
+      return;
+    }
+    const runId = ++benchmarkRunId;
+    try {
+      const benchmark = await withTimeout(voiceApi.benchmarkPreset(deviceProfile.recommendedPreset, {
+        durationSeconds: deviceProfile.isMobile ? 0.45 : 0.7,
+      }), BENCHMARK_TIMEOUT_MS, "Warmup benchmark timed out.");
+      if (runId !== benchmarkRunId) {
+        return;
+      }
+      let nextProfile = refineDeviceProfileFromBenchmark(deviceProfile, benchmark);
+
+      if (nextProfile.tierKey !== "low" && nextProfile.maxPresetKey === "cinematic") {
+        const podcastBenchmark = await withTimeout(voiceApi.benchmarkPreset("podcast", {
+          durationSeconds: nextProfile.isMobile ? 0.45 : 0.7,
+        }), BENCHMARK_TIMEOUT_MS, "Podcast benchmark timed out.");
+        if (runId !== benchmarkRunId) {
+          return;
+        }
+        nextProfile = refineDeviceProfileFromBenchmark(nextProfile, podcastBenchmark);
+      }
+
+      deviceProfile = nextProfile;
+      window.FreeAudioTrimVoiceStudioDeviceProfile = deviceProfile;
+      saveCachedBenchmarkProfile(deviceProfile);
+      updateDeviceHint();
+
+      if (!state.userPresetLocked && !state.activeFile) {
+        const nextPreset = deviceProfile.recommendedPreset || DEFAULT_PRESET;
+        if (nextPreset !== state.preset) {
+          state.preset = nextPreset;
+          updatePresetCards();
+          updateTargetBadge();
+        }
+      }
+      info("device benchmark completed", {
+        deviceProfile,
+        backgroundRefresh: !!options.backgroundRefresh,
+      });
+    } catch (error) {
+      if (runId !== benchmarkRunId) {
+        return;
+      }
+      warn("device benchmark failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      deviceProfile = {
+        ...deviceProfile,
+        benchmarkError: error instanceof Error ? error.message : String(error),
+      };
+      window.FreeAudioTrimVoiceStudioDeviceProfile = deviceProfile;
+      updateDeviceHint();
+    }
+  }
+
   function updateModeButtons() {
     const activeMode = state.currentMode || "modified";
     elements.modeButtons.original?.setAttribute("data-selected", activeMode === "original" ? "true" : "false");
@@ -684,11 +818,14 @@
   }
 
   function markNeedsEnhance(message) {
-    state.hasEnhanced = false;
+    const keepEnhanced = state.hasEnhanced;
     state.needsEnhance = true;
-    state.currentMode = "original";
-    state.renderMeta = null;
-    void engine.setMode("original");
+    state.hasEnhanced = keepEnhanced;
+    if (!keepEnhanced) {
+      state.currentMode = "original";
+      state.renderMeta = null;
+      void engine.setMode("original");
+    }
     updateRenderMeta();
     updateModeButtons();
     updateActionState();
@@ -700,14 +837,14 @@
   }
 
   function canUseProcessedActions() {
-    return !!engine.originalBuffer && !state.tooLong && !state.isEnhancing && state.hasEnhanced && !state.needsEnhance;
+    return !!engine.originalBuffer && !state.tooLong && !state.isEnhancing && state.hasEnhanced;
   }
 
   async function togglePreviewPlayback() {
     if (!canUsePreviewActions()) {
       return;
     }
-    if (!state.hasEnhanced || state.needsEnhance) {
+    if (!state.hasEnhanced) {
       await switchMode("original", { silentStatus: true });
     }
     void engine.togglePlayPause();
@@ -848,6 +985,7 @@
           <div class="voice-section voice-section--preset">
             <div class="voice-section__header">
               <p>Pick a preset</p>
+              <span class="voice-preset-hint" data-role="presetHint"></span>
             </div>
             <div class="at-model-grid voice-preset-grid">
               ${renderPresetCards()}
@@ -940,13 +1078,253 @@
     return Object.values(voiceApi.PRESETS).find((preset) => preset.label.toLowerCase() === target)?.key || "";
   }
 
+  function detectDeviceProfile() {
+    const ua = navigator.userAgent || "";
+    const platform = navigator.platform || "";
+    const hardwareConcurrency = Math.max(1, Number(navigator.hardwareConcurrency) || 0);
+    const deviceMemory = Math.max(0, Number(navigator.deviceMemory) || 0);
+    const touchPoints = Math.max(0, Number(navigator.maxTouchPoints) || 0);
+    const minViewport = Math.min(window.screen?.width || 0, window.screen?.height || 0);
+    const isMobileUa = /android|iphone|ipod|mobile/i.test(ua);
+    const isTabletUa = /ipad|tablet/i.test(ua);
+    const isTouchMac = /Mac/.test(platform) && touchPoints > 1;
+    const isMobile = isMobileUa || isTabletUa || isTouchMac || (touchPoints > 1 && minViewport > 0 && minViewport < 900);
+    const hasSharedArrayBuffer = typeof window.SharedArrayBuffer === "function";
+    const hasCrossOriginIsolation = !!window.crossOriginIsolated;
+    const hasWebGpu = !!navigator.gpu;
+
+    let tierKey = "balanced";
+    let label = isMobile ? "Balanced mobile" : "Balanced creator";
+    let recommendedPreset = "podcast";
+    let maxPresetKey = "podcast";
+
+    if (isMobile) {
+      if ((deviceMemory > 0 && deviceMemory <= 6) || hardwareConcurrency <= 6) {
+        tierKey = "low";
+        label = "Minimum mobile";
+        recommendedPreset = "creator";
+        maxPresetKey = "creator";
+      } else if ((deviceMemory >= 12 && hardwareConcurrency >= 8) || hasWebGpu) {
+        tierKey = "pro";
+        label = "High-end mobile";
+        recommendedPreset = "podcast";
+        maxPresetKey = "cinematic";
+      }
+    } else {
+      if ((deviceMemory > 0 && deviceMemory <= 16) || hardwareConcurrency <= 6) {
+        tierKey = "low";
+        label = "Starter creator";
+        recommendedPreset = "creator";
+        maxPresetKey = "creator";
+      } else if (
+        ((deviceMemory >= 32 && hardwareConcurrency >= 12) || (deviceMemory >= 24 && hardwareConcurrency >= 10 && hasWebGpu))
+        && hasSharedArrayBuffer
+        && hasCrossOriginIsolation
+      ) {
+        tierKey = "pro";
+        label = "Studio creator";
+        recommendedPreset = "cinematic";
+        maxPresetKey = "cinematic";
+      }
+    }
+
+    if (!hasSharedArrayBuffer || !hasCrossOriginIsolation) {
+      if (isMobile) {
+        maxPresetKey = downgradePreset(maxPresetKey);
+        recommendedPreset = downgradePreset(recommendedPreset);
+      } else {
+        maxPresetKey = maxPresetKey === "cinematic" ? "podcast" : maxPresetKey;
+        recommendedPreset = recommendedPreset === "cinematic" ? "podcast" : recommendedPreset;
+      }
+      if (tierKey === "pro") {
+        tierKey = "balanced";
+        label = isMobile ? "Balanced mobile" : "Balanced creator";
+      }
+    }
+
+    return {
+      tierKey,
+      label,
+      isMobile,
+      hardwareConcurrency,
+      deviceMemory,
+      touchPoints,
+      hasSharedArrayBuffer,
+      hasCrossOriginIsolation,
+      hasWebGpu,
+      recommendedPreset,
+      maxPresetKey,
+      benchmarkCacheKey: createBenchmarkCacheKey({
+        isMobile,
+        hardwareConcurrency,
+        deviceMemory,
+        hasSharedArrayBuffer,
+        hasCrossOriginIsolation,
+        hasWebGpu,
+      }),
+    };
+  }
+
+  function createBenchmarkCacheKey(profile) {
+    return [
+      BENCHMARK_CACHE_VERSION,
+      profile.isMobile ? "mobile" : "desktop",
+      profile.hardwareConcurrency || 0,
+      profile.deviceMemory || 0,
+      profile.hasSharedArrayBuffer ? 1 : 0,
+      profile.hasCrossOriginIsolation ? 1 : 0,
+      profile.hasWebGpu ? 1 : 0,
+    ].join(":");
+  }
+
+  function applyCachedDeviceProfile() {
+    const cached = loadCachedBenchmarkProfile();
+    if (!cached?.profile) {
+      return;
+    }
+    deviceProfile = cached.profile;
+    window.FreeAudioTrimVoiceStudioDeviceProfile = deviceProfile;
+    if (!state.userPresetLocked && !state.activeFile) {
+      state.preset = deviceProfile.recommendedPreset || state.preset;
+      updatePresetCards();
+    }
+  }
+
+  function loadCachedBenchmarkProfile() {
+    try {
+      const raw = window.localStorage.getItem("fat_voice_studio_device_profile");
+      if (!raw) {
+        return null;
+      }
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.version !== BENCHMARK_CACHE_VERSION) {
+        return null;
+      }
+      if (parsed.cacheKey !== deviceProfile.benchmarkCacheKey) {
+        return null;
+      }
+      if (!parsed.profile || typeof parsed.profile !== "object") {
+        return null;
+      }
+      return {
+        profile: parsed.profile,
+        isFresh: (Date.now() - (Number(parsed.savedAt) || 0)) < BENCHMARK_CACHE_TTL_MS,
+      };
+    } catch (error) {
+      warn("benchmark cache read failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  function saveCachedBenchmarkProfile(profile) {
+    try {
+      window.localStorage.setItem("fat_voice_studio_device_profile", JSON.stringify({
+        version: BENCHMARK_CACHE_VERSION,
+        cacheKey: profile.benchmarkCacheKey,
+        savedAt: Date.now(),
+        profile,
+      }));
+    } catch (error) {
+      warn("benchmark cache write failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  function withTimeout(promise, timeoutMs, timeoutMessage) {
+    return new Promise((resolve, reject) => {
+      const timerId = window.setTimeout(() => {
+        reject(new Error(timeoutMessage));
+      }, Math.max(250, timeoutMs));
+      Promise.resolve(promise)
+        .then((value) => {
+          window.clearTimeout(timerId);
+          resolve(value);
+        })
+        .catch((error) => {
+          window.clearTimeout(timerId);
+          reject(error);
+        });
+    });
+  }
+
+  function refineDeviceProfileFromBenchmark(profile, benchmark) {
+    const next = {
+      ...profile,
+      benchmark,
+    };
+    const speed = Number(benchmark?.msPerSecond) || 0;
+    const testedPreset = benchmark?.presetKey || profile.recommendedPreset;
+
+    if (testedPreset === "creator") {
+      if (speed > 1400) {
+        next.tierKey = "low";
+        next.label = profile.isMobile ? "Minimum mobile" : "Starter creator";
+        next.recommendedPreset = "creator";
+        next.maxPresetKey = "creator";
+        return next;
+      }
+      if (speed < 650 && profile.maxPresetKey !== "creator") {
+        next.tierKey = next.tierKey === "low" ? "balanced" : next.tierKey;
+        next.label = profile.isMobile ? "Balanced mobile" : "Balanced creator";
+        next.recommendedPreset = "podcast";
+        next.maxPresetKey = PRESET_ORDER[Math.max(
+          PRESET_ORDER.indexOf(next.maxPresetKey),
+          PRESET_ORDER.indexOf("podcast")
+        )] || next.maxPresetKey;
+      }
+      return next;
+    }
+
+    if (testedPreset === "podcast") {
+      if (speed > 1250) {
+        next.tierKey = "balanced";
+        next.label = profile.isMobile ? "Balanced mobile" : "Balanced creator";
+        next.recommendedPreset = "creator";
+        next.maxPresetKey = "podcast";
+        return next;
+      }
+      if (speed < 700 && profile.maxPresetKey === "cinematic") {
+        next.tierKey = "pro";
+        next.label = profile.isMobile ? "High-end mobile" : "Studio creator";
+        next.recommendedPreset = "cinematic";
+        next.maxPresetKey = "cinematic";
+      } else {
+        next.recommendedPreset = "podcast";
+        next.maxPresetKey = PRESET_ORDER[Math.max(
+          PRESET_ORDER.indexOf(next.maxPresetKey),
+          PRESET_ORDER.indexOf("podcast")
+        )] || next.maxPresetKey;
+      }
+      return next;
+    }
+
+    return next;
+  }
+
+  function capPresetForDevice(presetKey, profile) {
+    const safePreset = PRESET_ORDER.includes(presetKey) ? presetKey : (profile?.recommendedPreset || DEFAULT_PRESET);
+    const maxPreset = PRESET_ORDER.includes(profile?.maxPresetKey) ? profile.maxPresetKey : "cinematic";
+    return PRESET_ORDER[Math.min(PRESET_ORDER.indexOf(safePreset), PRESET_ORDER.indexOf(maxPreset))] || safePreset;
+  }
+
+  function downgradePreset(presetKey) {
+    const index = PRESET_ORDER.indexOf(presetKey);
+    if (index <= 0) {
+      return "creator";
+    }
+    return PRESET_ORDER[index - 1];
+  }
+
   window.VoiceStudioTool = {
     addFile(file) {
       return loadSelectedFile(file);
     },
     reset() {
       info("tool reset requested");
-      state.preset = DEFAULT_PRESET;
+      state.preset = deviceProfile.recommendedPreset || DEFAULT_PRESET;
       state.renderMeta = null;
       state.analysisProfile = null;
       state.tooLong = false;
@@ -962,13 +1340,19 @@
       elements.fileRow.classList.add("is-hidden");
       elements.fileName.textContent = "";
       updateRenderMeta();
-      elements.targetBadge.textContent = "Preset Fast Clean";
       updatePresetCards();
+      updateTargetBadge();
+      updateDeviceHint();
       updateModeButtons();
       setStatus("Upload a voice recording to start.", "idle");
       updateActionState();
     },
+    getDeviceProfile() {
+      return { ...deviceProfile };
+    },
   };
+
+  window.FreeAudioTrimVoiceStudioDeviceProfile = deviceProfile;
 
   function info(message, data) {
     emit("info", message, data);

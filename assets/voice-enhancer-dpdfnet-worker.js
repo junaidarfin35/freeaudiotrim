@@ -8,16 +8,16 @@ const MODEL_VARIANTS = {
     metadataUrl: "/assets/vendor/dpdfnet/baseline.metadata.json",
   },
   podcast: {
-    key: "dpdfnet2_48khz_hr",
+    key: "dpdfnet2",
     displayName: "Balanced Clean",
-    modelUrl: "/assets/vendor/dpdfnet/dpdfnet2_48khz_hr.onnx",
-    metadataUrl: "/assets/vendor/dpdfnet/dpdfnet2_48khz_hr.metadata.json",
+    modelUrl: "/assets/vendor/dpdfnet/dpdfnet2.onnx",
+    metadataUrl: "/assets/vendor/dpdfnet/dpdfnet2.metadata.json",
   },
   cinematic: {
-    key: "dpdfnet8_48khz_hr",
+    key: "dpdfnet4",
     displayName: "Studio Clean",
-    modelUrl: "/assets/vendor/dpdfnet/dpdfnet8_48khz_hr.onnx",
-    metadataUrl: "/assets/vendor/dpdfnet/dpdfnet8_48khz_hr.metadata.json",
+    modelUrl: "/assets/vendor/dpdfnet/dpdfnet4.onnx",
+    metadataUrl: "/assets/vendor/dpdfnet/dpdfnet4.metadata.json",
   },
 };
 
@@ -149,7 +149,7 @@ function createModelConfig(metadata, session, variant) {
   }
 
   return {
-    modelName: String(metadata.modelName || "dpdfnet2_48khz_hr"),
+    modelName: String(metadata.modelName || variant.key || "DPDFNet"),
     displayName: variant.displayName,
     sampleRate,
     windowLength,

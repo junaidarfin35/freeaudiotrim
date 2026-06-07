@@ -6,8 +6,18 @@
   const MODEL_WORKER = {
     key: "dpdfnet",
     label: "DPDFNet",
-    url: "/assets/voice-enhancer-dpdfnet-worker.js?v=2026-06-05-1647",
+    url: "/assets/voice-enhancer-dpdfnet-worker.js?v=2026-06-07-ship-1",
     type: "module",
+  };
+  const PIPELINE_FLAGS = {
+    speechPrep: true,
+    aiDenoise: true,
+    residualCleanup: false,
+    roomControl: false,
+    masterEQCompressor: true,
+    deEsser: true,
+    detailEnhancer: true,
+    loudnessNormalize: true
   };
   const DEFAULT_PRESET_KEY = "creator";
   const LOG_PREFIX = "[AI Voice Studio]";
@@ -21,44 +31,44 @@
       ceilingDb: -1.1,
       lowShelf: 0.6,
       mudCut: -2.2,
-      presence: 2.8,
-      air: 2.2,
+      presence: 2.2,
+      air: 1.4,
       compThreshold: -24,
-      compRatio: 3.8,
-      makeupDb: 1.5,
-      compAttack: 0.005,
+      compRatio: 3.4,
+      makeupDb: 1.2,
+      compAttack: 0.012,
       compRelease: 0.09,
     },
     podcast: {
       key: "podcast",
       label: "Balanced Clean",
-      modelVariant: "dpdfnet2_48khz_hr",
+      modelVariant: "dpdfnet2",
       targetLufsEstimate: -15.8,
       ceilingDb: -1.4,
       lowShelf: 1.6,
       mudCut: -1.4,
-      presence: 1.4,
-      air: 1.0,
+      presence: 1.2,
+      air: 0.8,
       compThreshold: -24,
-      compRatio: 2.8,
-      makeupDb: 1.0,
-      compAttack: 0.007,
+      compRatio: 2.6,
+      makeupDb: 0.8,
+      compAttack: 0.016,
       compRelease: 0.12,
     },
     cinematic: {
       key: "cinematic",
       label: "Studio Clean",
-      modelVariant: "dpdfnet8_48khz_hr",
+      modelVariant: "dpdfnet4",
       targetLufsEstimate: -14.8,
       ceilingDb: -1.2,
       lowShelf: 2.0,
       mudCut: -2.0,
-      presence: 1.9,
-      air: 1.6,
+      presence: 1.6,
+      air: 1.2,
       compThreshold: -24.5,
-      compRatio: 3.4,
-      makeupDb: 1.7,
-      compAttack: 0.006,
+      compRatio: 3.0,
+      makeupDb: 1.3,
+      compAttack: 0.014,
       compRelease: 0.11,
     },
   };
@@ -107,6 +117,31 @@
       workerWarmupPromises.set(presetKey, warmupPromise);
     }
     return workerWarmupPromises.get(presetKey);
+  }
+
+  async function benchmarkPreset(presetKey = DEFAULT_PRESET_KEY, options = {}) {
+    const resolvedKey = PRESETS[presetKey] ? presetKey : DEFAULT_PRESET_KEY;
+    const preset = PRESETS[resolvedKey];
+    const sampleRate = /48khz/i.test(String(preset.modelVariant || "")) ? 48000 : 16000;
+    const durationSeconds = clamp(Number(options.durationSeconds) || 1, 0.35, 2);
+    const sampleCount = Math.max(1, Math.round(sampleRate * durationSeconds));
+    const samples = createBenchmarkSamples(sampleCount, sampleRate);
+    const client = await getWorkerClient();
+    await client.init(resolvedKey);
+    const startedAt = performance.now();
+    const processed = await client.process(samples, sampleRate, resolvedKey);
+    const durationMs = round(performance.now() - startedAt);
+    return {
+      presetKey: resolvedKey,
+      presetLabel: preset.label,
+      sampleRate,
+      durationSeconds,
+      durationMs,
+      msPerSecond: round(durationMs / Math.max(durationSeconds, 0.001)),
+      realtimeFactor: round(durationMs / Math.max(durationSeconds * 1000, 1)),
+      outputSamples: processed.samples.length,
+      modelVariant: processed.meta?.modelVariant || preset.modelVariant,
+    };
   }
 
   async function enhanceVoice(ctxOrBuffer, bufferOrSettings, maybeSettings) {
@@ -238,8 +273,8 @@
     const denoiseMix = resolveDenoiseMix(adaptiveNoiseReduction);
     const residualCleanupAmount = clamp01((adaptiveNoiseReduction * 0.58) + Math.max(0, effectiveBroadcast - 0.45) * 0.24 + adaptiveProfile.residualCleanupBoost);
     const roomControlAmount = clamp01(((adaptiveNoiseReduction - 0.24) / 0.76) * (0.82 + (effectiveBroadcast * 0.18)) + adaptiveProfile.roomControlBoost);
-    const deEssAmount = clamp01(0.28 + Math.max(0, effectiveClarity) * 0.18 + (effectiveBroadcast * 0.1) + adaptiveProfile.deEssBoost);
-    const detailAmount = clamp01(0.36 + Math.max(0, effectiveClarity) * 0.34 + adaptiveProfile.detailBoost);
+    const deEssAmount = clamp01(0.03 + Math.max(0, effectiveClarity) * 0.08 + (effectiveBroadcast * 0.05) + adaptiveProfile.deEssBoost);
+    const detailAmount = clamp01(0.16 + Math.max(0, effectiveClarity) * 0.2 + adaptiveProfile.detailBoost);
 
     return {
       preset,
@@ -254,42 +289,48 @@
       targetLufsEstimate: preset.targetLufsEstimate + (effectiveBroadcast * 0.8) + adaptiveProfile.loudnessBiasDb,
       ceilingDb: preset.ceilingDb,
       eq: {
-        highPassHz: 94,
+        highPassHz: 88,
         lowShelfHz: 170,
         lowShelfGain: preset.lowShelf + (effectiveDepth * 3.5) - Math.max(0, effectiveClarity) * 0.5 + adaptiveProfile.lowShelfBias,
         mudCutHz: 320,
         mudCutGain: preset.mudCut - Math.max(0, effectiveDepth) * 0.8 - adaptiveProfile.mudCutBoost,
         presenceHz: 3500,
-        presenceGain: preset.presence + (effectiveClarity * 3.2) + adaptiveProfile.presenceBias,
+        presenceGain: preset.presence + (effectiveClarity * 2.2) + (adaptiveProfile.presenceBias * 0.85),
         airHz: 11000,
-        airGain: preset.air + Math.max(0, effectiveClarity) * 1.7 - adaptiveProfile.airTrim,
+        airGain: preset.air + Math.max(0, effectiveClarity) * 1.1 - adaptiveProfile.airTrim,
       },
       compressor: {
-        threshold: preset.compThreshold - (effectiveBroadcast * 4.5) - adaptiveProfile.compressorThresholdShift,
-        ratio: preset.compRatio + (effectiveBroadcast * 1.4) + adaptiveProfile.compressorRatioBoost,
+        threshold: preset.compThreshold - (effectiveBroadcast * 3.2) - (adaptiveProfile.compressorThresholdShift * 0.75),
+        ratio: preset.compRatio + (effectiveBroadcast * 0.9) + (adaptiveProfile.compressorRatioBoost * 0.7),
         knee: 24,
-        attack: preset.compAttack + Math.max(0, effectiveClarity) * 0.0015,
+        attack: preset.compAttack + Math.max(0, effectiveClarity) * 0.003,
         release: preset.compRelease,
-        makeupDb: preset.makeupDb + (effectiveBroadcast * 1.6) + adaptiveProfile.makeupBoost,
+        makeupDb: preset.makeupDb + (effectiveBroadcast * 1.0) + (adaptiveProfile.makeupBoost * 0.75),
       },
       deEsser: {
-        crossoverHz: 6200 + Math.max(0, effectiveClarity) * 420 + adaptiveProfile.deEssCrossoverShiftHz,
-        thresholdRatio: 0.36 - Math.max(0, effectiveClarity) * 0.03 - adaptiveProfile.deEssThresholdShift,
-        maxReductionDb: 2.6 + (deEssAmount * 2.4),
+        crossoverHz: 5800 + Math.max(0, effectiveClarity) * 260 + adaptiveProfile.deEssCrossoverShiftHz,
+        thresholdRatio: 0.41 - Math.max(0, effectiveClarity) * 0.02 - adaptiveProfile.deEssThresholdShift,
+        maxReductionDb: 1.8 + (deEssAmount * 2.0),
         sensitivity: deEssAmount,
       },
       detailEnhancer: {
         presenceHz: 3500,
         airHz: 11000,
-        presenceAmount: detailAmount * (1.65 + adaptiveProfile.detailPresenceBias),
-        airAmount: detailAmount * (0.95 + adaptiveProfile.detailAirBias),
-        transientAmount: detailAmount * (0.5 + adaptiveProfile.detailTransientBias),
+        presenceAmount: detailAmount * (1.05 + (adaptiveProfile.detailPresenceBias * 0.6)),
+        airAmount: detailAmount * (0.5 + (adaptiveProfile.detailAirBias * 0.5)),
+        transientAmount: detailAmount * (0.3 + (adaptiveProfile.detailTransientBias * 0.45)),
       },
     };
   }
 
   function speechPrep(buffer) {
     const mono = mergeToMono(buffer);
+    if (!isStageEnabled("speechPrep")) {
+      return {
+        samples: mono,
+        sampleRate: buffer.sampleRate,
+      };
+    }
     removeDcOffsetInPlace(mono);
     applySpeechHighPassInPlace(mono, buffer.sampleRate, 82);
     applyGainSanityInPlace(mono);
@@ -300,6 +341,22 @@
   }
 
   async function runDenoiseStage(samples, sampleRate, settings, stageDurations) {
+    if (!isStageEnabled("aiDenoise")) {
+      warn("ai denoise disabled by pipeline flag");
+      stageDurations.dpdfnetMs = 0;
+      return {
+        samples,
+        meta: {
+          aiDenoiseActive: false,
+          fallbackReason: "AI denoise disabled for testing. Studio chain still active.",
+          processingMode: "compatibility",
+          processingPath: "flag-disabled",
+          modelName: "Voice Mastering Chain",
+          denoiseMix: 0,
+          workerMeta: null,
+        },
+      };
+    }
     if (settings.noiseReduction < 0.02) {
       warn("fallback activated because model disabled by noise reduction control", {
         noiseReduction: settings.noiseReduction,
@@ -372,6 +429,16 @@
   }
 
   function applyRoomControlStage(samples, sampleRate, settings, stageDurations) {
+    if (!isStageEnabled("roomControl")) {
+      info("mild room control skipped by pipeline flag");
+      stageDurations.roomControlMs = 0;
+      return {
+        samples,
+        active: false,
+        averageReductionDb: 0,
+        maxReductionDb: 0,
+      };
+    }
     info("mild room control start", {
       amount: settings.roomControlAmount,
     });
@@ -388,6 +455,16 @@
   }
 
   function applyResidualCleanupStage(samples, sampleRate, settings, stageDurations) {
+    if (!isStageEnabled("residualCleanup")) {
+      info("residual cleanup skipped by pipeline flag");
+      stageDurations.residualCleanupMs = 0;
+      return {
+        samples,
+        active: false,
+        averageReductionDb: 0,
+        maxReductionDb: 0,
+      };
+    }
     info("residual cleanup start", {
       amount: settings.residualCleanupAmount,
     });
@@ -404,6 +481,12 @@
   }
 
   async function applyMasterChain(buffer, settings, stageDurations) {
+    if (!isStageEnabled("masterEQCompressor")) {
+      info("eq/compressor skipped by pipeline flag");
+      stageDurations.eqMs = 0;
+      stageDurations.compressorMs = 0;
+      return buffer;
+    }
     const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     if (!OfflineCtx) {
       return buffer;
@@ -485,6 +568,11 @@
   }
 
   function applyDeEsser(ctx, buffer, settings, stageDurations) {
+    if (!isStageEnabled("deEsser")) {
+      info("de-esser skipped by pipeline flag");
+      stageDurations.deEsserMs = 0;
+      return buffer;
+    }
     info("de-esser start", {
       crossoverHz: settings.deEsser.crossoverHz,
       maxReductionDb: settings.deEsser.maxReductionDb,
@@ -503,6 +591,11 @@
   }
 
   function applyDetailEnhancer(ctx, buffer, settings, stageDurations) {
+    if (!isStageEnabled("detailEnhancer")) {
+      info("detail enhancer skipped by pipeline flag");
+      stageDurations.detailEnhancerMs = 0;
+      return buffer;
+    }
     info("detail enhancer start", {
       presenceAmount: settings.detailEnhancer.presenceAmount,
       airAmount: settings.detailEnhancer.airAmount,
@@ -522,6 +615,15 @@
   }
 
   function applyFinalNormalize(ctx, buffer, settings, stageDurations) {
+    if (!isStageEnabled("loudnessNormalize")) {
+      info("final normalize skipped by pipeline flag");
+      stageDurations.limiterMs = 0;
+      stageDurations.loudnessNormalizeMs = 0;
+      return {
+        buffer,
+        gainDb: 0,
+      };
+    }
     info("limiter start", {
       ceilingDb: settings.ceilingDb,
     });
@@ -1428,9 +1530,29 @@
     return Math.min(max, Math.max(min, value));
   }
 
+  function createBenchmarkSamples(sampleCount, sampleRate) {
+    const samples = new Float32Array(sampleCount);
+    const tonalHz = 180;
+    const airyHz = 3200;
+    for (let i = 0; i < sampleCount; i += 1) {
+      const t = i / sampleRate;
+      const voiceTone = Math.sin(2 * Math.PI * tonalHz * t) * 0.09;
+      const articulation = Math.sin(2 * Math.PI * airyHz * t) * 0.02;
+      const shapedNoise = (((i * 1103515245) + 12345) & 0x7fffffff) / 0x7fffffff;
+      samples[i] = voiceTone + articulation + ((shapedNoise - 0.5) * 0.015);
+    }
+    return samples;
+  }
+
+  function isStageEnabled(flagName) {
+    return PIPELINE_FLAGS[flagName] !== false;
+  }
+
   window.FreeAudioTrimVoiceEnhancer = {
     PRESETS,
+    PIPELINE_FLAGS,
     analyzeVoice,
+    benchmarkPreset,
     enhanceVoice,
     prewarmWorker,
     createProcessor,
