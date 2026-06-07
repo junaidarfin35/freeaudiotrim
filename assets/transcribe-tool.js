@@ -1,9 +1,13 @@
 (function () {
   "use strict";
 
+  var DEBUG_TRANSCRIPTION = false;
+  var RAW_WHISPER_PASSTHROUGH = true;
+  // Experimental only. Production desktop transcription defaults to full-audio sliding-window chunking.
+  var ENABLE_DESKTOP_TRANSCRIPTION_VAD = false;
   var srtContent = "";
   var vttContent = "";
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-05-21-1";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-06-02-2";
   var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-25-24";
   var MOBILE_VAD_WORKER_URL = "/assets/mobile-vad-worker.js?v=2026-05-25-24";
   var MOBILE_VAD_TIMEOUT_MS = 9000;
@@ -31,6 +35,7 @@
       key: "baby-raptor",
       label: "Baby Raptor",
       helper: "Fastest multilingual mode for weaker phones.",
+      longFileHelper: "Recommended for long files.",
       icon: "/assets/transcription-models/baby-raptor.png",
       modelId: "onnx-community/whisper-base_timestamped"
     },
@@ -38,6 +43,7 @@
       key: "triceratop",
       label: "Triceratops",
       helper: "Balanced multilingual mode for most devices.",
+      longFileHelper: "Higher accuracy, may be slower on difficult audio.",
       icon: "/assets/transcription-models/triceratop.png",
       modelId: "onnx-community/whisper-small_timestamped"
     },
@@ -105,6 +111,7 @@
   var showTimestamps = true;
   var previewEditMode = false;
   var pendingSelectedTranscriptionFile = null;
+  var transcriptionSegmentTraceCounter = 0;
   var RTL_LANGS = new Set([
     "ar", "ara",
     "ur", "urd",
@@ -474,10 +481,24 @@
   var MODEL_LOCK_HEARTBEAT_MS = 5000;
   var IDLE_UNLOAD_VISIBLE_MS = 90000;
   var IDLE_UNLOAD_HIDDEN_MS = 15000;
+  var CONTROLLED_WINDOW_MIN_DURATION_SECONDS = 75;
+  var CONTROLLED_WINDOW_LENGTH_SECONDS = 29;
+  var CONTROLLED_WINDOW_STRIDE_SECONDS = 5;
+  var CONTROLLED_FIRST_FALLBACK_SPLIT_SECONDS = 5;
+  var CONTROLLED_FIRST_FALLBACK_OVERLAP_SECONDS = 1;
+  var CONTROLLED_REMAINING_FALLBACK_SPLIT_SECONDS = 8;
+  var CONTROLLED_SMALL_WINDOW_LENGTH_SECONDS = 14;
+  var CONTROLLED_SMALL_WINDOW_OVERLAP_SECONDS = 2;
+  var CONTROLLED_FIRST_SPLIT_MICRO_RETRY_SECONDS = 3;
+  var CONTROLLED_FIRST_SPLIT_MICRO_RETRY_THRESHOLD_MS = 25000;
+  var CONTROLLED_WINDOW_HEARTBEAT_MS = 2500;
+  var RUNAWAY_WINDOW_SUSPICIOUS_TEXT_LENGTH = 350;
+  var RUNAWAY_WINDOW_SEVERE_TEXT_LENGTH = 600;
   var TAB_ID = "tab-" + Date.now() + "-" + Math.random().toString(36).slice(2);
   var lockChannel = typeof BroadcastChannel !== "undefined"
     ? new BroadcastChannel("fat-transcribe-model")
     : null;
+  var activeWindowedTranscriptionController = null;
 
   function createTranscribeWorker() {
     workerGeneration += 1;
@@ -485,6 +506,1528 @@
       type: "module"
     });
     return workerGeneration;
+  }
+
+  function rebuildTranscribeWorkerOnly() {
+    if (worker) {
+      try {
+        worker.terminate();
+      } catch (error) {
+      }
+      worker = null;
+    }
+    var generation = createTranscribeWorker();
+    attachWorkerListeners(worker, generation);
+    return generation;
+  }
+
+  function getControlledWindowTimeoutMs(modelKey) {
+    if (modelKey === "baby-raptor") {
+      return 30000;
+    }
+    if (modelKey === "triceratop") {
+      return 25000;
+    }
+    return 40000;
+  }
+
+  function getControlledWindowExtendedWaitMs(modelKey) {
+    if (modelKey === "triceratop") {
+      return 40000;
+    }
+    if (modelKey === "t-rex") {
+      return 60000;
+    }
+    return 0;
+  }
+
+  function hasUsefulControlledWindowText(text) {
+    var normalized = typeof text === "string"
+      ? text.replace(/["'\u200e\u200f\u202a-\u202e]/g, "").replace(/\s+/g, " ").trim()
+      : "";
+    return normalized.length >= 24;
+  }
+
+  function createTranscriptionSessionId() {
+    return "transcribe-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+  }
+
+  function shouldUseControlledDesktopWindows(audioRecord, resampledData) {
+    if (!audioRecord || audioRecord.phoneOptimized || !resampledData || !resampledData.length) {
+      return false;
+    }
+    return (resampledData.length / 16000) >= CONTROLLED_WINDOW_MIN_DURATION_SECONDS;
+  }
+
+  function buildControlledDesktopWindowPlan(audioLength, sampleRate) {
+    var totalSamples = Math.max(0, Number(audioLength) || 0);
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var windowSamples = Math.max(1, Math.round(CONTROLLED_WINDOW_LENGTH_SECONDS * safeSampleRate));
+    var overlapSamples = Math.max(0, Math.round(CONTROLLED_WINDOW_STRIDE_SECONDS * safeSampleRate));
+    var advanceSamples = Math.max(1, windowSamples - overlapSamples);
+    var windows = [];
+    var startSample = 0;
+
+    while (startSample < totalSamples) {
+      var endSample = Math.min(totalSamples, startSample + windowSamples);
+      windows.push({
+        index: windows.length,
+        startSample: startSample,
+        endSample: endSample,
+        startSec: startSample / safeSampleRate,
+        endSec: endSample / safeSampleRate
+      });
+      if (endSample >= totalSamples) {
+        break;
+      }
+      startSample += advanceSamples;
+    }
+
+    return windows;
+  }
+
+  function inspectControlledWindowSlice(audioData, windowMeta) {
+    var startSample = Math.max(0, Number(windowMeta && windowMeta.startSample) || 0);
+    var endSample = Math.max(startSample, Number(windowMeta && windowMeta.endSample) || startSample);
+    var sampleLength = Math.max(0, endSample - startSample);
+    var hasNonZero = false;
+    var limit = Math.min(endSample, audioData ? audioData.length : 0);
+    var index;
+
+    if (audioData && sampleLength > 0) {
+      for (index = startSample; index < limit; index += 1) {
+        if (audioData[index] !== 0) {
+          hasNonZero = true;
+          break;
+        }
+      }
+    }
+
+    return {
+      windowIndex: Math.max(0, Number(windowMeta && windowMeta.index) || 0),
+      startSec: Number(windowMeta && windowMeta.startSec) || 0,
+      endSec: Number(windowMeta && windowMeta.endSec) || 0,
+      sampleStart: startSample,
+      sampleEnd: endSample,
+      audioSamples: sampleLength,
+      nonZeroSamples: hasNonZero,
+      durationSec: Math.max(0, sampleLength / 16000)
+    };
+  }
+
+  function buildControlledRetrySplitWindows(parentWindowMeta, sampleRate) {
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var windows = [];
+    var startSample = Number(parentWindowMeta.startSample) || 0;
+    var safeEndSample = Number(parentWindowMeta.endSample) || startSample;
+    var firstLengthSamples = Math.max(1, Math.round(CONTROLLED_FIRST_FALLBACK_SPLIT_SECONDS * safeSampleRate));
+    var firstOverlapSamples = Math.max(0, Math.round(CONTROLLED_FIRST_FALLBACK_OVERLAP_SECONDS * safeSampleRate));
+    var remainingLengthSamples = Math.max(1, Math.round(CONTROLLED_REMAINING_FALLBACK_SPLIT_SECONDS * safeSampleRate));
+    var remainingOverlapSamples = Math.max(0, Math.round(CONTROLLED_SMALL_WINDOW_OVERLAP_SECONDS * safeSampleRate));
+    var endSample = Math.min(safeEndSample, startSample + firstLengthSamples);
+
+    windows.push({
+      index: parentWindowMeta.index,
+      subWindowIndex: 0,
+      parentWindowIndex: parentWindowMeta.index,
+      startSample: startSample,
+      endSample: endSample,
+      startSec: startSample / safeSampleRate,
+      endSec: endSample / safeSampleRate
+    });
+
+    if (endSample >= safeEndSample) {
+      return windows;
+    }
+
+    startSample = Math.max(startSample + 1, endSample - firstOverlapSamples);
+    while (startSample < safeEndSample) {
+      endSample = Math.min(safeEndSample, startSample + remainingLengthSamples);
+      windows.push({
+        index: parentWindowMeta.index,
+        subWindowIndex: windows.length,
+        parentWindowIndex: parentWindowMeta.index,
+        startSample: startSample,
+        endSample: endSample,
+        startSec: startSample / safeSampleRate,
+        endSec: endSample / safeSampleRate
+      });
+      if (endSample >= safeEndSample) {
+        break;
+      }
+      startSample = Math.max(startSample + 1, endSample - remainingOverlapSamples);
+    }
+
+    return windows;
+  }
+
+  function buildControlledMicroRetryWindows(parentWindowMeta, sampleRate) {
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var overlapSamples = Math.max(0, Math.round((CONTROLLED_FIRST_FALLBACK_OVERLAP_SECONDS / 2) * safeSampleRate));
+    var targetLengthSamples = Math.max(1, Math.round(CONTROLLED_FIRST_SPLIT_MICRO_RETRY_SECONDS * safeSampleRate));
+    var windows = [];
+    var startSample = Number(parentWindowMeta && parentWindowMeta.startSample) || 0;
+    var safeEndSample = Math.max(startSample, Number(parentWindowMeta && parentWindowMeta.endSample) || startSample);
+
+    while (startSample < safeEndSample) {
+      var endSample = Math.min(safeEndSample, startSample + targetLengthSamples);
+      windows.push({
+        index: Number(parentWindowMeta && parentWindowMeta.index) || 0,
+        subWindowIndex: windows.length,
+        parentWindowIndex: Number(parentWindowMeta && parentWindowMeta.parentWindowIndex) || Number(parentWindowMeta && parentWindowMeta.index) || 0,
+        startSample: startSample,
+        endSample: endSample,
+        startSec: startSample / safeSampleRate,
+        endSec: endSample / safeSampleRate
+      });
+      if (endSample >= safeEndSample) {
+        break;
+      }
+      startSample = Math.max(startSample + 1, endSample - overlapSamples);
+    }
+
+    return windows;
+  }
+
+  function buildControlledSmallWindowsFromParent(parentWindowMeta, sampleRate) {
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var overlapSamples = Math.max(0, Math.round(CONTROLLED_SMALL_WINDOW_OVERLAP_SECONDS * safeSampleRate));
+    var targetLengthSamples = Math.max(1, Math.round(CONTROLLED_SMALL_WINDOW_LENGTH_SECONDS * safeSampleRate));
+    var windows = [];
+    var index = 0;
+    var startSample = Number(parentWindowMeta && parentWindowMeta.startSample) || 0;
+    var safeEndSample = Math.max(startSample, Number(parentWindowMeta && parentWindowMeta.endSample) || startSample);
+
+    while (startSample < safeEndSample) {
+      var endSample = Math.min(safeEndSample, startSample + targetLengthSamples);
+      windows.push({
+        index: Number(parentWindowMeta && parentWindowMeta.index) || 0,
+        subWindowIndex: index,
+        parentWindowIndex: Number(parentWindowMeta && parentWindowMeta.index) || 0,
+        startSample: startSample,
+        endSample: endSample,
+        startSec: startSample / safeSampleRate,
+        endSec: endSample / safeSampleRate
+      });
+      if (endSample >= safeEndSample) {
+        break;
+      }
+      startSample = Math.max(startSample + 1, endSample - overlapSamples);
+      index += 1;
+    }
+
+    return windows;
+  }
+
+  function buildHallucinationLoopRecoveryWindows(parentWindowMeta, sampleRate, loopInfo, speechSpans) {
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var parentStartSample = Math.max(0, Number(parentWindowMeta && parentWindowMeta.startSample) || 0);
+    var parentEndSample = Math.max(parentStartSample, Number(parentWindowMeta && parentWindowMeta.endSample) || parentStartSample);
+    var parentStartSec = parentStartSample / safeSampleRate;
+    var parentEndSec = parentEndSample / safeSampleRate;
+    var loopStartSec;
+    var reliableSpeechStartSec = findSpeechSpanOnset(
+      Array.isArray(speechSpans) ? speechSpans : [],
+      safeSampleRate,
+      parentStartSec,
+      parentEndSec,
+      4
+    );
+    var broadStartSec;
+    var actualStartSec = Number.isFinite(reliableSpeechStartSec)
+      ? Math.max(parentStartSec, Math.min(parentEndSec - 0.5, reliableSpeechStartSec))
+      : parentStartSec;
+    var chunkLengthSamples = Math.max(1, Math.round(CONTROLLED_REMAINING_FALLBACK_SPLIT_SECONDS * safeSampleRate));
+    var overlapSamples = Math.max(0, Math.round(CONTROLLED_SMALL_WINDOW_OVERLAP_SECONDS * safeSampleRate));
+    var windows = [];
+    var startSample = Math.max(parentStartSample, Math.min(parentEndSample - 1, Math.round(actualStartSec * safeSampleRate)));
+    var endSample;
+    var index = 0;
+
+    loopStartSec = Number.isFinite(Number(loopInfo && loopInfo.startSec))
+      ? Number(loopInfo.startSec)
+      : parentStartSec;
+    broadStartSec = Math.max(
+      parentStartSec,
+      Math.min(
+        parentEndSec,
+        Math.max(loopStartSec + 6, parentStartSec + 8)
+      )
+    );
+    if (!Number.isFinite(reliableSpeechStartSec)) {
+      actualStartSec = Math.max(parentStartSec, Math.min(parentEndSec - 0.5, broadStartSec));
+      startSample = Math.max(parentStartSample, Math.min(parentEndSample - 1, Math.round(actualStartSec * safeSampleRate)));
+    }
+
+    while (startSample < parentEndSample) {
+      endSample = Math.min(parentEndSample, startSample + chunkLengthSamples);
+      windows.push({
+        index: Number(parentWindowMeta && parentWindowMeta.index) || 0,
+        subWindowIndex: index,
+        parentWindowIndex: Number(parentWindowMeta && parentWindowMeta.index) || 0,
+        startSample: startSample,
+        endSample: endSample,
+        startSec: startSample / safeSampleRate,
+        endSec: endSample / safeSampleRate
+      });
+      if (endSample >= parentEndSample) {
+        break;
+      }
+      startSample = Math.max(startSample + 1, endSample - overlapSamples);
+      index += 1;
+    }
+
+    return {
+      recoveryMode: "broad_poisoned_region",
+      originalLoopStartSec: loopStartSec,
+      originalLoopEndSec: Number.isFinite(Number(loopInfo && loopInfo.endSec))
+        ? Number(loopInfo.endSec)
+        : parentStartSec,
+      actualStartSec: windows.length ? windows[0].startSec : actualStartSec,
+      actualEndSec: parentEndSec,
+      subwindowCount: windows.length,
+      windows: windows
+    };
+  }
+
+  function getWindowRetryOverrides(language) {
+    var overrides = {
+      condition_on_prev_tokens: false,
+      no_repeat_ngram_size: 3,
+      repetition_penalty: 1.02,
+      do_sample: false,
+      task: "transcribe"
+    };
+    if (language && language !== "auto") {
+      overrides.language = language;
+    }
+    return overrides;
+  }
+
+  function createSkippedWindowReport(windowMeta, elapsedMs, action, reason) {
+    return {
+      windowIndex: windowMeta.index,
+      startSec: windowMeta.startSec,
+      endSec: windowMeta.endSec,
+      elapsedMs: Math.max(0, Math.round(Number(elapsedMs) || 0)),
+      textLength: 0,
+      action: action || "skipped",
+      reason: reason || "window_skipped"
+    };
+  }
+
+  function getRunawayWindowSeverity(textLength) {
+    var safeLength = Math.max(0, Number(textLength) || 0);
+    if (safeLength > RUNAWAY_WINDOW_SEVERE_TEXT_LENGTH) {
+      return "severe";
+    }
+    if (safeLength > RUNAWAY_WINDOW_SUSPICIOUS_TEXT_LENGTH) {
+      return "suspicious";
+    }
+    return "";
+  }
+
+  function buildOverlapDedupPreview(text) {
+    return cleanText(String(text || "")).slice(0, 120);
+  }
+
+  function normalizeOverlapComparisonText(text) {
+    return cleanText(String(text || ""))
+      .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "")
+      .replace(/[\u064B-\u065F\u0670]/g, "")
+      .replace(/\u0640/g, "")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
+  function getOverlapSegmentSimilarityScore(leftText, rightText) {
+    var left = normalizeOverlapComparisonText(leftText);
+    var right = normalizeOverlapComparisonText(rightText);
+    var leftTokens;
+    var rightTokens;
+    var tokenSet;
+    var matches;
+
+    if (!left || !right) {
+      return 0;
+    }
+    if (left === right) {
+      return 1;
+    }
+    if (left.includes(right) || right.includes(left)) {
+      return 0.96;
+    }
+
+    leftTokens = left.split(" ").filter(Boolean);
+    rightTokens = right.split(" ").filter(Boolean);
+    if (!leftTokens.length || !rightTokens.length) {
+      return 0;
+    }
+
+    tokenSet = Object.create(null);
+    leftTokens.forEach(function (token) {
+      tokenSet[token] = (tokenSet[token] || 0) + 1;
+    });
+    matches = 0;
+    rightTokens.forEach(function (token) {
+      if (tokenSet[token]) {
+        tokenSet[token] -= 1;
+        matches += 1;
+      }
+    });
+
+    return matches / Math.max(leftTokens.length, rightTokens.length);
+  }
+
+  function areOverlapSegmentTextsSimilar(leftText, rightText) {
+    return getOverlapSegmentSimilarityScore(leftText, rightText) >= 0.8;
+  }
+
+  function detectLeadingRepeatedIntroLoop(segments) {
+    var sorted = (Array.isArray(segments) ? segments : []).map(function (segment) {
+      var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp : null;
+      return {
+        text: cleanText(segment && typeof segment.text === "string" ? segment.text : ""),
+        normalizedText: normalizeOverlapComparisonText(segment && segment.text),
+        start: timestamp ? Number(timestamp[0]) : NaN,
+        end: timestamp ? Number(timestamp[1]) : NaN
+      };
+    }).filter(function (segment) {
+      return segment.text
+        && segment.normalizedText
+        && Number.isFinite(segment.start)
+        && Number.isFinite(segment.end)
+        && segment.end > segment.start;
+    }).sort(function (left, right) {
+      return left.start - right.start;
+    });
+    var first = sorted.length ? sorted[0] : null;
+    var loopText;
+    var loopCount = 0;
+    var loopEnd = 0;
+    var index;
+    var item;
+
+    if (!first || first.start > 0.35 || (first.end - first.start) > 4) {
+      return null;
+    }
+
+    loopText = first.normalizedText;
+    for (index = 0; index < sorted.length; index += 1) {
+      item = sorted[index];
+      if (item.start > 32) {
+        break;
+      }
+      if ((item.end - item.start) > 4 || getOverlapSegmentSimilarityScore(loopText, item.normalizedText) < 0.92) {
+        continue;
+      }
+      loopCount += 1;
+      loopEnd = Math.max(loopEnd, item.end);
+    }
+
+    if (loopCount >= 4 && loopEnd >= 8) {
+      return {
+        normalizedText: loopText,
+        textPreview: first.text.slice(0, 80),
+        count: loopCount,
+        endSec: loopEnd
+      };
+    }
+
+    return null;
+  }
+
+  function detectWindowHallucinationLoop(segments, windowMeta) {
+    var sorted = (Array.isArray(segments) ? segments : []).map(function (segment) {
+      var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp : null;
+      return {
+        segment: segment,
+        text: cleanText(segment && typeof segment.text === "string" ? segment.text : ""),
+        normalizedText: normalizeOverlapComparisonText(segment && segment.text),
+        start: timestamp ? Number(timestamp[0]) : NaN,
+        end: timestamp ? Number(timestamp[1]) : NaN
+      };
+    }).filter(function (item) {
+      return item.text
+        && item.normalizedText
+        && Number.isFinite(item.start)
+        && Number.isFinite(item.end)
+        && item.end > item.start;
+    }).sort(function (left, right) {
+      return left.start - right.start;
+    });
+    var first = sorted.length ? sorted[0] : null;
+    var windowStart = Number.isFinite(Number(windowMeta && windowMeta.startSec)) ? Number(windowMeta.startSec) : 0;
+    var loopText;
+    var loopCount = 0;
+    var loopStart = null;
+    var loopEnd = null;
+    var realTextAfterLoopDetected = false;
+    var index;
+    var item;
+    var similarity;
+
+    if (!first || first.start > windowStart + 0.75 || (first.end - first.start) > 4) {
+      return null;
+    }
+
+    loopText = first.normalizedText;
+    for (index = 0; index < sorted.length; index += 1) {
+      item = sorted[index];
+      if (item.start > windowStart + 32) {
+        break;
+      }
+      similarity = getOverlapSegmentSimilarityScore(loopText, item.normalizedText);
+      if ((item.end - item.start) <= 4 && similarity >= 0.92) {
+        loopCount += 1;
+        loopStart = Number.isFinite(loopStart) ? Math.min(loopStart, item.start) : item.start;
+        loopEnd = Number.isFinite(loopEnd) ? Math.max(loopEnd, item.end) : item.end;
+      } else if (Number.isFinite(loopEnd) && item.start >= loopEnd - 0.25) {
+        realTextAfterLoopDetected = true;
+      }
+    }
+
+    if (loopCount >= 3 && Number.isFinite(loopStart) && Number.isFinite(loopEnd) && (loopEnd - loopStart) >= 6) {
+      return {
+        normalizedText: loopText,
+        textPreview: first.text.slice(0, 80),
+        count: loopCount,
+        startSec: loopStart,
+        endSec: loopEnd,
+        realTextAfterLoopDetected: realTextAfterLoopDetected
+      };
+    }
+
+    return null;
+  }
+
+  function stripWindowHallucinationLoopSegments(segments, loopInfo, diagnostics) {
+    var output = [];
+    var loopText = loopInfo && loopInfo.textPreview ? loopInfo.textPreview : "";
+    var loopNormalized = loopInfo && loopInfo.normalizedText ? loopInfo.normalizedText : "";
+
+    (Array.isArray(segments) ? segments : []).forEach(function (segment) {
+      var text = cleanText(segment && typeof segment.text === "string" ? segment.text : "");
+      var normalized = normalizeOverlapComparisonText(text);
+      var similarity = loopNormalized ? getOverlapSegmentSimilarityScore(loopNormalized, normalized) : 0;
+      var deltaText;
+      var cloned;
+
+      if (!text) {
+        return;
+      }
+
+      if (similarity >= 0.92) {
+        deltaText = stripLeadingLoopText(loopText, text);
+        if (deltaText) {
+          cloned = Object.assign({}, segment, {
+            text: deltaText
+          });
+          output.push(cloned);
+          recordSegmentLifecycleEvent(diagnostics, segment, {
+            sourceStage: "window_hallucination_loop_cleanup",
+            actionTaken: "stripped_prefix",
+            reason: "preserved_delta_before_recovery",
+            textPreview: deltaText
+          });
+        } else {
+          recordSegmentLifecycleEvent(diagnostics, segment, {
+            sourceStage: "window_hallucination_loop_cleanup",
+            actionTaken: "dropped",
+            reason: "repeated_loop_text_before_recovery",
+            removedByStage: "window_hallucination_loop_cleanup",
+            removalReason: "repeated_loop_text_before_recovery",
+            textPreview: text
+          });
+        }
+        return;
+      }
+
+      output.push(segment);
+    });
+
+    return output;
+  }
+
+  function stripLeadingLoopText(loopText, text) {
+    var sourceTokens = cleanText(String(text || "")).split(/\s+/).filter(Boolean);
+    var loopTokens = cleanText(String(loopText || "")).split(/\s+/).filter(Boolean);
+    var sourceNormalizedTokens = normalizeOverlapComparisonText(text).split(" ").filter(Boolean);
+    var loopNormalizedTokens = normalizeOverlapComparisonText(loopText).split(" ").filter(Boolean);
+    var prefixLength = 0;
+    var index;
+
+    if (!sourceTokens.length || !loopNormalizedTokens.length || sourceNormalizedTokens.length <= loopNormalizedTokens.length) {
+      return "";
+    }
+
+    for (index = 0; index < loopNormalizedTokens.length; index += 1) {
+      if (sourceNormalizedTokens[index] !== loopNormalizedTokens[index]) {
+        return "";
+      }
+      prefixLength += 1;
+    }
+
+    return cleanText(sourceTokens.slice(prefixLength).join(" "));
+  }
+
+  function buildNonDuplicateDeltaText(previousText, incomingText) {
+    var previousOriginalTokens = cleanText(String(previousText || "")).split(/\s+/).filter(Boolean);
+    var incomingOriginalTokens = cleanText(String(incomingText || "")).split(/\s+/).filter(Boolean);
+    var previousNormalizedTokens = normalizeOverlapComparisonText(previousText).split(" ").filter(Boolean);
+    var incomingNormalizedTokens = normalizeOverlapComparisonText(incomingText).split(" ").filter(Boolean);
+    var maxOverlap = Math.min(previousNormalizedTokens.length, incomingNormalizedTokens.length);
+    var overlapLength;
+    var overlapMatches;
+
+    if (!incomingOriginalTokens.length) {
+      return "";
+    }
+    if (getOverlapSegmentSimilarityScore(previousText, incomingText) >= 0.8) {
+      return "";
+    }
+
+    for (overlapLength = maxOverlap; overlapLength > 0; overlapLength -= 1) {
+      overlapMatches = true;
+      for (var index = 0; index < overlapLength; index += 1) {
+        if (previousNormalizedTokens[previousNormalizedTokens.length - overlapLength + index] !== incomingNormalizedTokens[index]) {
+          overlapMatches = false;
+          break;
+        }
+      }
+      if (overlapMatches) {
+        return incomingOriginalTokens.slice(Math.min(overlapLength, incomingOriginalTokens.length)).join(" ");
+      }
+    }
+
+    return cleanText(String(incomingText || ""));
+  }
+
+  function recordOverlapDedupDiagnostic(diagnostics, event) {
+    if (!diagnostics || !event) {
+      return;
+    }
+    diagnostics.overlapEvents = Array.isArray(diagnostics.overlapEvents) ? diagnostics.overlapEvents : [];
+    if (diagnostics.overlapEvents.length < 25) {
+      diagnostics.overlapEvents.push(event);
+    }
+  }
+
+  function buildSegmentLifecycleTextPreview(text) {
+    return cleanText(String(text || "")).slice(0, 140);
+  }
+
+  function getSegmentLifecycleId(segment) {
+    if (!segment) {
+      return "segment-" + (++transcriptionSegmentTraceCounter);
+    }
+    if (!segment.segmentId) {
+      segment.segmentId = "segment-" + (++transcriptionSegmentTraceCounter);
+    }
+    return segment.segmentId;
+  }
+
+  function recordSegmentLifecycleEvent(diagnostics, segment, event) {
+    if (!diagnostics) {
+      return;
+    }
+    var payload = event || {};
+    var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp : null;
+    var start = Number.isFinite(Number(payload.finalStart))
+      ? Number(payload.finalStart)
+      : (timestamp ? Number(timestamp[0]) : null);
+    var end = Number.isFinite(Number(payload.finalEnd))
+      ? Number(payload.finalEnd)
+      : (timestamp ? Number(timestamp[1]) : null);
+    var record = {
+      segmentId: payload.segmentId || getSegmentLifecycleId(segment || {}),
+      parentWindowIndex: Number.isFinite(Number(payload.parentWindowIndex)) ? Number(payload.parentWindowIndex) : null,
+      windowStartSec: Number.isFinite(Number(payload.windowStartSec))
+        ? Number(payload.windowStartSec)
+        : (Number.isFinite(Number(segment && segment.windowStartSec)) ? Number(segment.windowStartSec) : null),
+      windowEndSec: Number.isFinite(Number(payload.windowEndSec)) ? Number(payload.windowEndSec) : null,
+      rawStart: Number.isFinite(Number(payload.rawStart))
+        ? Number(payload.rawStart)
+        : (Array.isArray(segment && segment.rawTimestamp) ? Number(segment.rawTimestamp[0]) : null),
+      rawEnd: Number.isFinite(Number(payload.rawEnd))
+        ? Number(payload.rawEnd)
+        : (Array.isArray(segment && segment.rawTimestamp) ? Number(segment.rawTimestamp[1]) : null),
+      finalStart: Number.isFinite(start) ? start : null,
+      finalEnd: Number.isFinite(end) ? end : null,
+      textPreview: buildSegmentLifecycleTextPreview(payload.textPreview || (segment && (segment.text || segment.originalText || segment.editedText || segment.translatedText))),
+      sourceStage: payload.sourceStage || "",
+      actionTaken: payload.actionTaken || "",
+      reason: payload.reason || "",
+      appearedInLivePreview: !!payload.appearedInLivePreview,
+      appearedInFinalExport: !!payload.appearedInFinalExport,
+      removedAfterLivePreview: !!payload.removedAfterLivePreview,
+      removedByStage: payload.removedByStage || "",
+      removalReason: payload.removalReason || ""
+    };
+
+    diagnostics.segmentLifecycleEvents = Array.isArray(diagnostics.segmentLifecycleEvents)
+      ? diagnostics.segmentLifecycleEvents
+      : [];
+    if (diagnostics.segmentLifecycleEvents.length < 500) {
+      diagnostics.segmentLifecycleEvents.push(record);
+    }
+  }
+
+  function refreshTranscriptionLifecycleDebugReport(diagnostics) {
+    if (!DEBUG_TRANSCRIPTION) {
+      try {
+        delete window.__lastTranscriptionLifecycleReport;
+      } catch (error) {
+      }
+      return;
+    }
+    var events = diagnostics && Array.isArray(diagnostics.segmentLifecycleEvents)
+      ? diagnostics.segmentLifecycleEvents.slice()
+      : [];
+    var liveEvents = events.filter(function (event) {
+      return event && event.appearedInLivePreview;
+    });
+    var finalEvents = events.filter(function (event) {
+      return event && event.appearedInFinalExport;
+    });
+    var droppedEvents = events.filter(function (event) {
+      return event && (event.actionTaken === "dropped" || event.removedAfterLivePreview || event.removedByStage);
+    });
+    var acceptedEvents = events.filter(function (event) {
+      return event && (event.actionTaken === "accepted" || event.sourceStage === "accepted_segment");
+    });
+
+    window.__lastTranscriptionLifecycleReport = {
+      createdAt: Date.now(),
+      rawWorkerSegments: events.filter(function (event) { return event && event.sourceStage === "worker_raw_output"; }),
+      livePreviewFragments: liveEvents,
+      acceptedPostMergeSegments: acceptedEvents,
+      droppedSegments: droppedEvents,
+      finalExportSegments: finalEvents,
+      removedAfterLivePreview: events.filter(function (event) { return event && event.removedAfterLivePreview; }),
+      allEvents: events
+    };
+  }
+
+  function markLivePreviewRemovals(diagnostics, acceptedSegments) {
+    if (!diagnostics || !Array.isArray(diagnostics.segmentLifecycleEvents)) {
+      return;
+    }
+    var acceptedTexts = (Array.isArray(acceptedSegments) ? acceptedSegments : []).map(function (segment) {
+      return normalizeOverlapComparisonText(segment && (segment.text || segment.originalText || segment.editedText));
+    }).filter(Boolean);
+    diagnostics.segmentLifecycleEvents.forEach(function (event) {
+      var normalizedText;
+      var survived;
+      if (!event || !event.appearedInLivePreview || event.appearedInFinalExport || event.removedAfterLivePreview) {
+        return;
+      }
+      normalizedText = normalizeOverlapComparisonText(event.textPreview);
+      if (!normalizedText) {
+        return;
+      }
+      survived = acceptedTexts.some(function (acceptedText) {
+        return getOverlapSegmentSimilarityScore(acceptedText, normalizedText) >= 0.8
+          || acceptedText.indexOf(normalizedText) !== -1
+          || normalizedText.indexOf(acceptedText) !== -1;
+      });
+      if (!survived) {
+        event.removedAfterLivePreview = true;
+        event.removedByStage = event.removedByStage || "final_assembly";
+        event.removalReason = event.removalReason || "live_preview_text_not_found_in_accepted_segments";
+      }
+    });
+  }
+
+  function recordRawSegmentAudit(diagnostics, segment, action, reason) {
+    if (!diagnostics || !segment) {
+      return;
+    }
+    recordSegmentLifecycleEvent(diagnostics, segment, {
+      sourceStage: action === "seen" ? "merge_input" : "merge",
+      actionTaken: action || "seen",
+      reason: reason || "",
+      removedByStage: action === "dropped" ? "overlap_dedup" : "",
+      removalReason: action === "dropped" ? (reason || "") : "",
+      finalStart: Number(segment.start),
+      finalEnd: Number(segment.end),
+      textPreview: segment.text
+    });
+    diagnostics.rawSegmentAuditEvents = Array.isArray(diagnostics.rawSegmentAuditEvents) ? diagnostics.rawSegmentAuditEvents : [];
+    if (diagnostics.rawSegmentAuditEvents.length >= 80) {
+      return;
+    }
+    diagnostics.rawSegmentAuditEvents.push({
+      action: action || "seen",
+      reason: reason || "",
+      start: Number(segment.start),
+      end: Number(segment.end),
+      text: cleanText(segment.text),
+      textPreview: buildOverlapDedupPreview(segment.text)
+    });
+  }
+
+  function computeAudioRms(audioData, startSample, endSample) {
+    var start = Math.max(0, Number(startSample) || 0);
+    var end = Math.max(start, Math.min(audioData ? audioData.length : 0, Number(endSample) || start));
+    var sumSquares = 0;
+    var index;
+
+    if (!audioData || end <= start) {
+      return 0;
+    }
+
+    for (index = start; index < end; index += 1) {
+      sumSquares += audioData[index] * audioData[index];
+    }
+
+    return Math.sqrt(sumSquares / Math.max(1, end - start));
+  }
+
+  function hasSpeechEnergyInRange(audioData, sampleRate, startSec, endSec) {
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var startSample = Math.max(0, Math.floor(Math.max(0, Number(startSec) || 0) * safeSampleRate));
+    var endSample = Math.max(startSample, Math.ceil(Math.max(0, Number(endSec) || 0) * safeSampleRate));
+    return computeAudioRms(audioData, startSample, endSample) >= 0.004;
+  }
+
+  function findSpeechSpanOnset(speechSpans, sampleRate, startSec, endSec, minDelaySec) {
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var safeStartSec = Math.max(0, Number(startSec) || 0);
+    var safeEndSec = Math.max(safeStartSec, Number(endSec) || safeStartSec);
+    var requiredDelay = Math.max(0, Number(minDelaySec) || 0);
+    var spans = Array.isArray(speechSpans) ? speechSpans : [];
+    var index;
+    var spanStartSec;
+    var spanEndSec;
+
+    for (index = 0; index < spans.length; index += 1) {
+      spanStartSec = Math.max(0, Number(spans[index] && spans[index].startSample) || 0) / safeSampleRate;
+      spanEndSec = Math.max(0, Number(spans[index] && spans[index].endSample) || 0) / safeSampleRate;
+      if (spanEndSec <= safeStartSec || spanStartSec >= safeEndSec) {
+        continue;
+      }
+      spanStartSec = Math.max(spanStartSec, safeStartSec);
+      if (spanStartSec >= safeStartSec + requiredDelay && spanStartSec < safeEndSec) {
+        return spanStartSec;
+      }
+    }
+
+    return null;
+  }
+
+  function findConfirmedSpeechOnset(audioData, sampleRate, startSec, endSec, options) {
+    var config = options || {};
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var safeStartSec = Math.max(0, Number(startSec) || 0);
+    var safeEndSec = Math.max(safeStartSec, Number(endSec) || safeStartSec);
+    var startSample = Math.max(0, Math.floor(safeStartSec * safeSampleRate));
+    var endSample = Math.max(startSample, Math.min(audioData ? audioData.length : 0, Math.ceil(safeEndSec * safeSampleRate)));
+    var searchEndSample = Math.min(endSample, startSample + Math.round((Number(config.maxSearchSec) || 15) * safeSampleRate));
+    var frameSamples = Math.max(160, Math.round((Number(config.frameSec) || 0.08) * safeSampleRate));
+    var hopSamples = Math.max(80, Math.round((Number(config.hopSec) || 0.04) * safeSampleRate));
+    var minQuietSec = Number(config.minQuietSec) || 1.25;
+    var minDelaySec = Number(config.minDelaySec) || 1.5;
+    var frameRms = [];
+    var peakRms = 0;
+    var frameIndex;
+    var threshold;
+    var quietFrameCount = 0;
+    var requiredQuietFrames = Math.max(1, Math.ceil(minQuietSec / (hopSamples / safeSampleRate)));
+    var consecutiveSpeechFrames = 0;
+    var requiredSpeechFrames = Math.max(2, Math.ceil((Number(config.minSpeechSec) || 0.18) / (hopSamples / safeSampleRate)));
+    var frame;
+
+    if (!audioData || searchEndSample - startSample < frameSamples) {
+      return null;
+    }
+
+    for (frameIndex = startSample; frameIndex + frameSamples <= searchEndSample; frameIndex += hopSamples) {
+      var rms = computeAudioRms(audioData, frameIndex, frameIndex + frameSamples);
+      frame = {
+        sample: frameIndex,
+        sec: frameIndex / safeSampleRate,
+        rms: rms
+      };
+      frameRms.push(frame);
+      if (rms > peakRms) {
+        peakRms = rms;
+      }
+    }
+
+    if (!(peakRms >= 0.006)) {
+      return null;
+    }
+
+    threshold = Math.max(0.004, peakRms * 0.22);
+    for (var quietIndex = 0; quietIndex < frameRms.length; quietIndex += 1) {
+      if ((frameRms[quietIndex].sec - safeStartSec) > minQuietSec) {
+        break;
+      }
+      if (frameRms[quietIndex].rms < threshold * 0.65) {
+        quietFrameCount += 1;
+      }
+    }
+
+    if (quietFrameCount < requiredQuietFrames) {
+      return null;
+    }
+
+    for (var speechIndex = 0; speechIndex < frameRms.length; speechIndex += 1) {
+      frame = frameRms[speechIndex];
+      if (frame.sec < safeStartSec + minDelaySec) {
+        continue;
+      }
+      if (frame.rms >= threshold) {
+        consecutiveSpeechFrames += 1;
+        if (consecutiveSpeechFrames >= requiredSpeechFrames) {
+          return Math.max(safeStartSec, frame.sec - ((requiredSpeechFrames - 1) * hopSamples / safeSampleRate));
+        }
+      } else {
+        consecutiveSpeechFrames = 0;
+      }
+    }
+
+    return null;
+  }
+
+  function findSpeechLikeSegmentStart(audioData, sampleRate, startSec, endSec) {
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var safeStartSec = Math.max(0, Number(startSec) || 0);
+    var safeEndSec = Math.max(safeStartSec, Number(endSec) || safeStartSec);
+    var startSample = Math.max(0, Math.floor(safeStartSec * safeSampleRate));
+    var endSample = Math.max(startSample, Math.min(audioData ? audioData.length : 0, Math.ceil(safeEndSec * safeSampleRate)));
+    var searchEndSample = Math.min(endSample, startSample + Math.round(8 * safeSampleRate));
+    var frameSamples = Math.max(160, Math.round(0.05 * safeSampleRate));
+    var hopSamples = Math.max(80, Math.round(frameSamples / 2));
+    var peakRms = 0;
+    var frameIndex;
+    var speechThreshold;
+    var rms;
+    var sumSquares;
+    var sampleIndex;
+
+    if (!audioData || searchEndSample - startSample < frameSamples) {
+      return null;
+    }
+
+    for (frameIndex = startSample; frameIndex + frameSamples <= searchEndSample; frameIndex += hopSamples) {
+      sumSquares = 0;
+      for (sampleIndex = frameIndex; sampleIndex < frameIndex + frameSamples; sampleIndex += 1) {
+        sumSquares += audioData[sampleIndex] * audioData[sampleIndex];
+      }
+      rms = Math.sqrt(sumSquares / frameSamples);
+      if (rms > peakRms) {
+        peakRms = rms;
+      }
+    }
+
+    if (!(peakRms > 0.006)) {
+      return null;
+    }
+
+    speechThreshold = Math.max(0.0035, peakRms * 0.18);
+    for (frameIndex = startSample; frameIndex + frameSamples <= searchEndSample; frameIndex += hopSamples) {
+      sumSquares = 0;
+      for (sampleIndex = frameIndex; sampleIndex < frameIndex + frameSamples; sampleIndex += 1) {
+        sumSquares += audioData[sampleIndex] * audioData[sampleIndex];
+      }
+      rms = Math.sqrt(sumSquares / frameSamples);
+      if (rms >= speechThreshold) {
+        if ((frameIndex / safeSampleRate) <= safeStartSec + 0.08) {
+          return null;
+        }
+        return frameIndex / safeSampleRate;
+      }
+    }
+
+    return null;
+  }
+
+  function finalizeAcceptedSegmentsForTimeline(segments, options) {
+    var config = options || {};
+    var audioData = config.audioData || null;
+    var sampleRate = Math.max(1, Number(config.sampleRate) || 16000);
+    var diagnostics = config.diagnostics || null;
+    var speechSpans = Array.isArray(config.speechSpans) ? config.speechSpans : [];
+    var leadingRepeatedIntroLoop = detectLeadingRepeatedIntroLoop(segments);
+    var result = [];
+    var previousEnd = null;
+    var previousNormalizedText = "";
+
+    (Array.isArray(segments) ? segments : []).forEach(function (segment) {
+      var text = cleanText(segment && typeof segment.text === "string" ? segment.text : "");
+      var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp.slice(0, 2) : null;
+      var start;
+      var end;
+      var shiftedStart;
+      var normalizedText;
+      var similarityToPrevious;
+      var validated;
+      var originalStart;
+      var timestampSource;
+      var segmentWasClampedToWindowStart;
+      var localTimestampOffsetApplied;
+      var rawTimestamp;
+      var windowStartSec;
+      var leadingLoopSimilarity;
+      var leadingLoopDeltaText;
+
+      if (!text || !timestamp || timestamp.length < 2) {
+        return;
+      }
+
+      start = Math.max(0, Number(timestamp[0]) || 0);
+      end = Math.max(0, Number(timestamp[1]) || 0);
+      originalStart = start;
+      timestampSource = segment && segment.timestampSource ? segment.timestampSource : "";
+      segmentWasClampedToWindowStart = !!(segment && segment.firstSegmentWasClampedToWindowStart);
+      localTimestampOffsetApplied = !!(segment && segment.localTimestampOffsetApplied);
+      rawTimestamp = Array.isArray(segment && segment.rawTimestamp) ? segment.rawTimestamp : null;
+      windowStartSec = Number.isFinite(Number(segment && segment.windowStartSec)) ? Number(segment.windowStartSec) : 0;
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        return;
+      }
+
+      normalizedText = normalizeOverlapComparisonText(text);
+      if (leadingRepeatedIntroLoop && start < leadingRepeatedIntroLoop.endSec) {
+        leadingLoopSimilarity = getOverlapSegmentSimilarityScore(leadingRepeatedIntroLoop.normalizedText, normalizedText);
+        if (leadingLoopSimilarity >= 0.92) {
+          leadingLoopDeltaText = stripLeadingLoopText(leadingRepeatedIntroLoop.textPreview, text);
+          if (leadingLoopDeltaText) {
+            text = leadingLoopDeltaText;
+            normalizedText = normalizeOverlapComparisonText(text);
+            if (diagnostics) {
+              diagnostics.leadingMusicHallucinationStrippedCount = (diagnostics.leadingMusicHallucinationStrippedCount || 0) + 1;
+              diagnostics.leadingMusicHallucinationLoopText = leadingRepeatedIntroLoop.textPreview;
+              diagnostics.leadingMusicHallucinationLoopEndSec = leadingRepeatedIntroLoop.endSec;
+              recordOverlapDedupDiagnostic(diagnostics, {
+                action: "stripped_leading_music_hallucination_prefix",
+                reason: "preserved_non_duplicate_delta_after_intro_loop",
+                textPreview: buildOverlapDedupPreview(text),
+                previousTextPreview: leadingRepeatedIntroLoop.textPreview,
+                droppedSegmentStart: start,
+                droppedSegmentEnd: end,
+                overlapSimilarityScore: leadingLoopSimilarity,
+                loopCount: leadingRepeatedIntroLoop.count,
+                loopEndSec: leadingRepeatedIntroLoop.endSec
+              });
+              recordSegmentLifecycleEvent(diagnostics, segment, {
+                sourceStage: "hallucination_cleanup",
+                actionTaken: "stripped_prefix",
+                reason: "preserved_non_duplicate_delta_after_intro_loop",
+                finalStart: start,
+                finalEnd: end,
+                textPreview: text
+              });
+            }
+          } else {
+            if (diagnostics) {
+              diagnostics.leadingMusicHallucinationDroppedCount = (diagnostics.leadingMusicHallucinationDroppedCount || 0) + 1;
+              diagnostics.leadingMusicHallucinationLoopText = leadingRepeatedIntroLoop.textPreview;
+              diagnostics.leadingMusicHallucinationLoopEndSec = leadingRepeatedIntroLoop.endSec;
+              recordOverlapDedupDiagnostic(diagnostics, {
+                action: "dropped_leading_music_hallucination_loop",
+                reason: "repeated_intro_phrase_before_real_speech",
+                textPreview: buildOverlapDedupPreview(text),
+                droppedSegmentStart: start,
+                droppedSegmentEnd: end,
+                overlapSimilarityScore: leadingLoopSimilarity,
+                loopCount: leadingRepeatedIntroLoop.count,
+                loopEndSec: leadingRepeatedIntroLoop.endSec
+              });
+              recordSegmentLifecycleEvent(diagnostics, segment, {
+                sourceStage: "hallucination_cleanup",
+                actionTaken: "dropped",
+                reason: "repeated_intro_phrase_before_real_speech",
+                removedByStage: "hallucination_cleanup",
+                removalReason: "repeated_intro_phrase_before_real_speech",
+                finalStart: start,
+                finalEnd: end,
+                textPreview: text
+              });
+            }
+            return;
+          }
+        }
+      }
+
+      shiftedStart = null;
+      if (!result.length && start <= 0.25) {
+        if (diagnostics) {
+          diagnostics.firstSegmentRawStart = rawTimestamp && Number.isFinite(Number(rawTimestamp[0])) ? Number(rawTimestamp[0]) : null;
+          diagnostics.firstSegmentRawEnd = rawTimestamp && Number.isFinite(Number(rawTimestamp[1])) ? Number(rawTimestamp[1]) : null;
+          diagnostics.firstSegmentFinalStart = start;
+          diagnostics.firstSegmentWasClampedToWindowStart = segmentWasClampedToWindowStart;
+          diagnostics.firstSpeechTimestampFromWorker = rawTimestamp && Number.isFinite(Number(rawTimestamp[0])) ? Number(rawTimestamp[0]) : null;
+          diagnostics.firstWindowStartSec = windowStartSec;
+          diagnostics.localTimestampOffsetApplied = localTimestampOffsetApplied;
+          diagnostics.firstSegmentOriginalStart = originalStart;
+        }
+        shiftedStart = findSpeechSpanOnset(speechSpans, sampleRate, 0, end, 0.5);
+        if (diagnostics && Number.isFinite(shiftedStart)) {
+          diagnostics.firstSpeechOnsetSec = shiftedStart;
+          diagnostics.speechOnsetSource = "timing_vad";
+        }
+        if (!Number.isFinite(shiftedStart) && segmentWasClampedToWindowStart) {
+          shiftedStart = findConfirmedSpeechOnset(audioData, sampleRate, 0, end, {
+            maxSearchSec: Math.min(18, Math.max(4, end)),
+            minQuietSec: 1.5,
+            minDelaySec: 1.8,
+            minSpeechSec: 0.2
+          });
+          if (diagnostics) {
+            diagnostics.firstSpeechOnsetSec = Number.isFinite(shiftedStart) ? shiftedStart : null;
+            if (Number.isFinite(shiftedStart)) {
+              diagnostics.speechOnsetSource = "energy_fallback_for_clamped_timestamp";
+            }
+          }
+        }
+      }
+      if (!Number.isFinite(shiftedStart) && (end - start) >= 12) {
+        shiftedStart = findSpeechSpanOnset(speechSpans, sampleRate, start, end, 1.5);
+        if (diagnostics && Number.isFinite(shiftedStart)) {
+          diagnostics.speechOnsetSource = "timing_vad";
+        }
+      }
+      if (!Number.isFinite(shiftedStart) && segmentWasClampedToWindowStart) {
+        shiftedStart = findConfirmedSpeechOnset(audioData, sampleRate, start, end, {
+          maxSearchSec: Math.min(15, Math.max(4, end - start)),
+          minQuietSec: (end - start) >= 12 ? 1.5 : 1.0,
+          minDelaySec: (end - start) >= 12 ? 2.0 : 1.25,
+          minSpeechSec: 0.18
+        });
+      }
+      if (!Number.isFinite(shiftedStart) && segmentWasClampedToWindowStart) {
+        shiftedStart = findSpeechLikeSegmentStart(audioData, sampleRate, start, end);
+      }
+      if (Number.isFinite(shiftedStart) && shiftedStart > start && shiftedStart < end) {
+        start = shiftedStart;
+        if (diagnostics) {
+          diagnostics.segmentStartShiftedFromSilenceCount = (diagnostics.segmentStartShiftedFromSilenceCount || 0) + 1;
+          if (!result.length) {
+            diagnostics.leadingSilenceShiftApplied = true;
+            diagnostics.firstSegmentAdjustedStart = start;
+            diagnostics.leadingSilenceReason = segmentWasClampedToWindowStart
+              ? "first_segment_used_fallback_window_start_then_corrected_to_detected_speech_onset"
+              : "worker_timestamp_started_before_timing_vad_speech_onset";
+            diagnostics.speechOnsetCorrectionApplied = true;
+            diagnostics.firstSegmentFinalStart = start;
+          }
+          if ((end - originalStart) >= 12 && (start - originalStart) >= 2) {
+            diagnostics.longSegmentSilenceStartDetected = true;
+            diagnostics.longSegmentOriginalStart = originalStart;
+            diagnostics.longSegmentAdjustedStart = start;
+            diagnostics.speechDetectedInsideSegmentAt = start;
+            diagnostics.longSegmentSpeechOnsetReason = "segment_started_before_speech_like_onset";
+          }
+          recordOverlapDedupDiagnostic(diagnostics, {
+            action: "shifted_segment_start_to_speech_onset",
+            reason: segmentWasClampedToWindowStart ? "fallback_window_start_corrected" : "speech_detected_later_inside_segment",
+            textPreview: buildOverlapDedupPreview(text),
+            previousSegmentStart: result.length ? result[result.length - 1].timestamp[0] : null,
+            previousSegmentEnd: result.length ? result[result.length - 1].timestamp[1] : null,
+            droppedSegmentStart: originalStart,
+            droppedSegmentEnd: end,
+            adjustedStart: start,
+            timestampSource: timestampSource,
+            firstSegmentWasClampedToWindowStart: segmentWasClampedToWindowStart,
+            localTimestampOffsetApplied: localTimestampOffsetApplied
+          });
+        }
+      }
+
+      if (Number.isFinite(previousEnd) && start < previousEnd) {
+        start = previousEnd + 0.001;
+      }
+      if (!(end > start)) {
+        if (diagnostics) {
+          diagnostics.invalidTimestampPreventedCount = (diagnostics.invalidTimestampPreventedCount || 0) + 1;
+        }
+        return;
+      }
+
+      similarityToPrevious = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) : 0;
+      if (previousNormalizedText && similarityToPrevious >= 0.8) {
+        if (diagnostics) {
+          diagnostics.adjacentDuplicateWarnings = (diagnostics.adjacentDuplicateWarnings || 0) + 1;
+          recordOverlapDedupDiagnostic(diagnostics, {
+            action: "dropped_adjacent_duplicate",
+            reason: "normalized_adjacent_similarity",
+            textPreview: buildOverlapDedupPreview(text),
+            previousTextPreview: result.length ? buildOverlapDedupPreview(result[result.length - 1].text) : "",
+            previousSegmentStart: result.length ? result[result.length - 1].timestamp[0] : null,
+            previousSegmentEnd: result.length ? result[result.length - 1].timestamp[1] : null,
+            droppedSegmentStart: start,
+            droppedSegmentEnd: end,
+            overlapSimilarityScore: similarityToPrevious
+          });
+          recordSegmentLifecycleEvent(diagnostics, segment, {
+            sourceStage: "final_timeline_validation",
+            actionTaken: "dropped",
+            reason: "normalized_adjacent_similarity",
+            removedByStage: "final_timeline_validation",
+            removalReason: "normalized_adjacent_similarity",
+            finalStart: start,
+            finalEnd: end,
+            textPreview: text
+          });
+        }
+        return;
+      }
+
+      if (Number.isFinite(previousEnd) && (start - previousEnd) >= 2.5 && diagnostics) {
+        var gapStart = previousEnd;
+        var originalGapStart = gapStart;
+        var gapEnd = start;
+        var rawSegmentsInGap = (Array.isArray(diagnostics.rawSegmentAuditEvents) ? diagnostics.rawSegmentAuditEvents : []).filter(function (event) {
+          return event && Number(event.start) < gapEnd && Number(event.end) > gapStart;
+        });
+        var droppedSegmentsInGap = rawSegmentsInGap.filter(function (event) {
+          return event.action === "dropped";
+        });
+        var speechEnergyPresent = hasSpeechEnergyInRange(audioData, sampleRate, gapStart, gapEnd);
+        var reinsertedSegmentsInGap = [];
+        droppedSegmentsInGap.forEach(function (event) {
+          var candidateText = cleanText(event && event.text);
+          var candidateNormalized = normalizeOverlapComparisonText(candidateText);
+          var previousSimilarity = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, candidateNormalized) : 0;
+          var nextSimilarity = getOverlapSegmentSimilarityScore(candidateNormalized, normalizedText);
+          var insertStart = Math.max(gapStart + 0.001, Number(event.start) || gapStart);
+          var insertEnd = Math.min(gapEnd - 0.001, Number(event.end) || gapEnd);
+
+          if (!candidateText || !candidateNormalized || previousSimilarity >= 0.8 || nextSimilarity >= 0.8) {
+            return;
+          }
+          if (!(insertEnd > insertStart)) {
+            insertStart = gapStart + 0.001;
+            insertEnd = gapEnd - 0.001;
+          }
+          if (!(insertEnd > insertStart)) {
+            return;
+          }
+
+          result.push({
+            text: candidateText,
+            timestamp: [insertStart, insertEnd]
+          });
+          reinsertedSegmentsInGap.push({
+            start: insertStart,
+            end: insertEnd,
+            textPreview: buildOverlapDedupPreview(candidateText),
+            reason: event.reason || ""
+          });
+          previousEnd = insertEnd;
+          previousNormalizedText = candidateNormalized;
+          diagnostics.reinsertedDroppedGapSegmentCount = (diagnostics.reinsertedDroppedGapSegmentCount || 0) + 1;
+          recordOverlapDedupDiagnostic(diagnostics, {
+            action: "reinserted_dropped_gap_segment",
+            reason: event.reason || "dropped_raw_segment_inside_gap",
+            textPreview: buildOverlapDedupPreview(candidateText),
+            previousSegmentStart: result.length > 1 ? result[result.length - 2].timestamp[0] : null,
+            previousSegmentEnd: gapStart,
+            droppedSegmentStart: Number(event.start),
+            droppedSegmentEnd: Number(event.end),
+            adjustedStart: insertStart,
+            adjustedEnd: insertEnd
+          });
+        });
+        if (Number.isFinite(previousEnd) && start < previousEnd) {
+          start = previousEnd + 0.001;
+        }
+        if (!(end > start)) {
+          if (diagnostics) {
+            diagnostics.invalidTimestampPreventedCount = (diagnostics.invalidTimestampPreventedCount || 0) + 1;
+          }
+          return;
+        }
+        gapStart = previousEnd;
+        diagnostics.missingGapWarnings = (diagnostics.missingGapWarnings || 0) + 1;
+        diagnostics.gapAuditEvents = Array.isArray(diagnostics.gapAuditEvents) ? diagnostics.gapAuditEvents : [];
+        if (diagnostics.gapAuditEvents.length < 20) {
+          diagnostics.gapAuditEvents.push({
+            gapStart: originalGapStart,
+            gapEnd: gapEnd,
+            rawSegmentsInGap: rawSegmentsInGap.map(function (event) {
+              return {
+                start: event.start,
+                end: event.end,
+                textPreview: event.textPreview,
+                action: event.action,
+                reason: event.reason
+              };
+            }),
+            droppedSegmentsInGap: droppedSegmentsInGap.map(function (event) {
+              return {
+                start: event.start,
+                end: event.end,
+                textPreview: event.textPreview,
+                reasonDropped: event.reason
+              };
+            }),
+            reinsertedSegmentsInGap: reinsertedSegmentsInGap,
+            reasonDropped: droppedSegmentsInGap.length ? droppedSegmentsInGap.map(function (event) { return event.reason; }).filter(Boolean).join(",") : "",
+            wasSpeechEnergyPresent: speechEnergyPresent,
+            reason: reinsertedSegmentsInGap.length ? "dropped_raw_text_reinserted" : (rawSegmentsInGap.length ? "raw_segments_existed_in_gap" : (speechEnergyPresent ? "model_missed_text" : "gap_has_low_energy"))
+          });
+        }
+        recordOverlapDedupDiagnostic(diagnostics, {
+          action: "missing_gap_warning",
+          reason: reinsertedSegmentsInGap.length ? "dropped_raw_text_reinserted" : (rawSegmentsInGap.length ? "raw_segments_existed_in_gap" : (speechEnergyPresent ? "model_missed_text" : "gap_has_low_energy")),
+          textPreview: buildOverlapDedupPreview(text),
+          previousSegmentStart: result.length ? result[result.length - 1].timestamp[0] : null,
+          previousSegmentEnd: previousEnd,
+          droppedSegmentStart: start,
+          droppedSegmentEnd: end,
+          gapStart: originalGapStart,
+          gapEnd: gapEnd,
+          rawSegmentsInGap: rawSegmentsInGap.length,
+          droppedSegmentsInGap: droppedSegmentsInGap.length,
+          wasSpeechEnergyPresent: speechEnergyPresent
+        });
+      }
+
+      similarityToPrevious = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) : 0;
+      if (previousNormalizedText && similarityToPrevious >= 0.8) {
+        if (diagnostics) {
+          diagnostics.adjacentDuplicateWarnings = (diagnostics.adjacentDuplicateWarnings || 0) + 1;
+          recordOverlapDedupDiagnostic(diagnostics, {
+            action: "dropped_adjacent_duplicate_after_gap_recovery",
+            reason: "normalized_adjacent_similarity_after_reinsert",
+            textPreview: buildOverlapDedupPreview(text),
+            previousTextPreview: result.length ? buildOverlapDedupPreview(result[result.length - 1].text) : "",
+            previousSegmentStart: result.length ? result[result.length - 1].timestamp[0] : null,
+            previousSegmentEnd: result.length ? result[result.length - 1].timestamp[1] : null,
+            droppedSegmentStart: start,
+            droppedSegmentEnd: end,
+            overlapSimilarityScore: similarityToPrevious
+          });
+        }
+        return;
+      }
+
+      validated = {
+        segmentId: getSegmentLifecycleId(segment),
+        text: text,
+        timestamp: [start, end],
+        rawTimestamp: rawTimestamp ? rawTimestamp.slice(0, 2) : null,
+        timestampSource: timestampSource,
+        windowStartSec: windowStartSec,
+        firstSegmentWasClampedToWindowStart: segmentWasClampedToWindowStart,
+        localTimestampOffsetApplied: localTimestampOffsetApplied
+      };
+      recordSegmentLifecycleEvent(diagnostics, validated, {
+        sourceStage: "accepted_segment",
+        actionTaken: "accepted",
+        reason: "final_timeline_ready",
+        finalStart: start,
+        finalEnd: end,
+        textPreview: text
+      });
+      result.push(validated);
+      previousEnd = end;
+      previousNormalizedText = normalizedText;
+    });
+
+    return result;
+  }
+
+  function mergeControlledWindowSegments(targetSegments, incomingSegments, overlapDiagnostics) {
+    var target = Array.isArray(targetSegments) ? targetSegments : [];
+    (Array.isArray(incomingSegments) ? incomingSegments : []).forEach(function (segment) {
+      var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp.slice(0, 2) : null;
+      var text = segment && typeof segment.text === "string" ? segment.text : "";
+      if (!timestamp || timestamp.length < 2 || !text) {
+        return;
+      }
+
+      var start = Number(timestamp[0]);
+      var end = Number(timestamp[1]);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        return;
+      }
+      var rawAuditSegment = {
+        segmentId: getSegmentLifecycleId(segment),
+        start: start,
+        end: end,
+        text: text,
+        timestamp: [start, end],
+        rawTimestamp: Array.isArray(segment && segment.rawTimestamp) ? segment.rawTimestamp.slice(0, 2) : null,
+        windowStartSec: Number.isFinite(Number(segment && segment.windowStartSec)) ? Number(segment.windowStartSec) : null
+      };
+      recordRawSegmentAudit(overlapDiagnostics, rawAuditSegment, "seen", "incoming_before_merge");
+
+      var lastSegment = target.length ? target[target.length - 1] : null;
+      var lastEnd = lastSegment && Array.isArray(lastSegment.timestamp) ? Number(lastSegment.timestamp[1]) : null;
+      if (Number.isFinite(lastEnd)) {
+        var hasOverlap = start < lastEnd;
+        var similarityScore = getOverlapSegmentSimilarityScore(lastSegment && lastSegment.text, text);
+        var textsAreSimilar = similarityScore >= 0.8;
+        var adjustedStartCandidate = hasOverlap ? lastEnd + 0.001 : start;
+        if (end <= lastEnd + 0.12 && textsAreSimilar) {
+          if (overlapDiagnostics) {
+            overlapDiagnostics.droppedOverlapDuplicateCount = (overlapDiagnostics.droppedOverlapDuplicateCount || 0) + 1;
+            overlapDiagnostics.droppedNearDuplicateOverlapCount = (overlapDiagnostics.droppedNearDuplicateOverlapCount || 0) + 1;
+            recordOverlapDedupDiagnostic(overlapDiagnostics, {
+              action: "dropped_overlap_duplicate",
+              reason: "timestamp_overlap_and_similar_text",
+              textPreview: buildOverlapDedupPreview(text),
+              previousTextPreview: buildOverlapDedupPreview(lastSegment && lastSegment.text),
+              droppedSegmentStart: start,
+              droppedSegmentEnd: end,
+              previousSegmentStart: lastSegment && lastSegment.timestamp ? lastSegment.timestamp[0] : null,
+              previousSegmentEnd: lastEnd,
+              overlapSimilarityScore: similarityScore
+            });
+          }
+          recordRawSegmentAudit(overlapDiagnostics, rawAuditSegment, "dropped", "timestamp_overlap_and_similar_text");
+          return;
+        }
+        if (hasOverlap && end <= adjustedStartCandidate) {
+          var deltaText;
+          var deltaTokenCount;
+          if (overlapDiagnostics) {
+            overlapDiagnostics.invalidTimestampPreventedCount = (overlapDiagnostics.invalidTimestampPreventedCount || 0) + 1;
+          }
+          if (textsAreSimilar) {
+            if (overlapDiagnostics) {
+              overlapDiagnostics.droppedNearDuplicateOverlapCount = (overlapDiagnostics.droppedNearDuplicateOverlapCount || 0) + 1;
+              recordOverlapDedupDiagnostic(overlapDiagnostics, {
+                action: "prevented_invalid_overlap_duplicate",
+                reason: "adjustment_would_make_invalid_timestamp",
+                textPreview: buildOverlapDedupPreview(text),
+                previousTextPreview: buildOverlapDedupPreview(lastSegment && lastSegment.text),
+                proposedAdjustedStart: adjustedStartCandidate,
+                droppedSegmentEnd: end,
+                previousSegmentStart: lastSegment && lastSegment.timestamp ? lastSegment.timestamp[0] : null,
+                previousSegmentEnd: lastEnd,
+                overlapSimilarityScore: similarityScore
+              });
+            }
+            recordRawSegmentAudit(overlapDiagnostics, rawAuditSegment, "dropped", "adjustment_would_make_invalid_timestamp_duplicate");
+            return;
+          }
+          deltaText = lastSegment && typeof lastSegment.text === "string"
+            ? buildNonDuplicateDeltaText(lastSegment.text, text)
+            : "";
+          deltaTokenCount = cleanText(deltaText).split(/\s+/).filter(Boolean).length;
+          if (lastSegment && typeof lastSegment.text === "string") {
+            if (deltaText && deltaTokenCount > 0 && deltaTokenCount <= 2 && deltaText.length <= 24 && similarityScore < 0.5) {
+              lastSegment.text = cleanText((lastSegment.text || "") + " " + deltaText);
+              if (overlapDiagnostics) {
+                overlapDiagnostics.mergedOverlapDifferentTextCount = (overlapDiagnostics.mergedOverlapDifferentTextCount || 0) + 1;
+                recordSegmentLifecycleEvent(overlapDiagnostics, rawAuditSegment, {
+                  sourceStage: "overlap_dedup",
+                  actionTaken: "merged_tiny_delta",
+                  reason: "preserved_short_non_duplicate_delta_from_invalid_overlap",
+                  finalStart: lastSegment && lastSegment.timestamp ? lastSegment.timestamp[0] : null,
+                  finalEnd: lastSegment && lastSegment.timestamp ? lastSegment.timestamp[1] : null,
+                  textPreview: deltaText
+                });
+                recordOverlapDedupDiagnostic(overlapDiagnostics, {
+                  action: "merged_overlap_different_text",
+                  reason: "adjustment_would_make_invalid_timestamp",
+                  textPreview: buildOverlapDedupPreview(deltaText),
+                  previousTextPreview: buildOverlapDedupPreview(lastSegment.text),
+                  proposedAdjustedStart: adjustedStartCandidate,
+                  droppedSegmentEnd: end,
+                  previousSegmentStart: lastSegment && lastSegment.timestamp ? lastSegment.timestamp[0] : null,
+                  previousSegmentEnd: lastEnd,
+                  overlapSimilarityScore: similarityScore
+                });
+              }
+              recordRawSegmentAudit(overlapDiagnostics, rawAuditSegment, "merged", "non_duplicate_delta_merged");
+              return;
+            }
+          }
+          if (overlapDiagnostics) {
+            overlapDiagnostics.unresolvedOverlapConflictCount = (overlapDiagnostics.unresolvedOverlapConflictCount || 0) + 1;
+            recordSegmentLifecycleEvent(overlapDiagnostics, rawAuditSegment, {
+              sourceStage: "overlap_dedup",
+              actionTaken: "dropped",
+              reason: "unresolved_overlap_conflict",
+              removedByStage: "overlap_dedup",
+              removalReason: deltaText ? "invalid_timestamp_no_safe_merge" : "non_duplicate_delta_empty",
+              textPreview: deltaText || text
+            });
+            recordOverlapDedupDiagnostic(overlapDiagnostics, {
+              action: "unresolved_overlap_conflict",
+              reason: deltaText ? "invalid_timestamp_no_safe_merge" : "non_duplicate_delta_empty",
+              textPreview: buildOverlapDedupPreview(deltaText || text),
+              previousTextPreview: buildOverlapDedupPreview(lastSegment && lastSegment.text),
+              proposedAdjustedStart: adjustedStartCandidate,
+              droppedSegmentStart: start,
+              droppedSegmentEnd: end,
+              previousSegmentStart: lastSegment && lastSegment.timestamp ? lastSegment.timestamp[0] : null,
+              previousSegmentEnd: lastEnd,
+              overlapSimilarityScore: similarityScore
+            });
+          }
+          recordRawSegmentAudit(overlapDiagnostics, rawAuditSegment, "dropped", deltaText ? "unresolved_overlap_conflict" : "non_duplicate_delta_empty");
+          return;
+        }
+        if (hasOverlap && !textsAreSimilar && overlapDiagnostics) {
+          overlapDiagnostics.keptOverlapDifferentTextCount = (overlapDiagnostics.keptOverlapDifferentTextCount || 0) + 1;
+          recordOverlapDedupDiagnostic(overlapDiagnostics, {
+            action: "kept_overlap_different_text",
+            reason: "timestamp_overlap_but_text_differs",
+            textPreview: buildOverlapDedupPreview(text),
+            previousTextPreview: buildOverlapDedupPreview(lastSegment && lastSegment.text),
+            droppedSegmentStart: start,
+            droppedSegmentEnd: end,
+            previousSegmentStart: lastSegment && lastSegment.timestamp ? lastSegment.timestamp[0] : null,
+            previousSegmentEnd: lastEnd,
+            overlapSimilarityScore: similarityScore
+          });
+        }
+        if (hasOverlap) {
+          start = adjustedStartCandidate;
+          if (overlapDiagnostics) {
+            overlapDiagnostics.adjustedOverlapTimestampCount = (overlapDiagnostics.adjustedOverlapTimestampCount || 0) + 1;
+            recordOverlapDedupDiagnostic(overlapDiagnostics, {
+              action: "adjusted_overlap_timestamp",
+              reason: textsAreSimilar ? "monotonic_after_overlap_similar_text" : "monotonic_after_overlap_different_text",
+              textPreview: buildOverlapDedupPreview(text),
+              previousTextPreview: buildOverlapDedupPreview(lastSegment && lastSegment.text),
+              adjustedStart: start,
+              droppedSegmentEnd: end,
+              previousSegmentStart: lastSegment && lastSegment.timestamp ? lastSegment.timestamp[0] : null,
+              previousSegmentEnd: lastEnd,
+              overlapSimilarityScore: similarityScore
+            });
+          }
+        }
+      }
+
+      target.push({
+        segmentId: rawAuditSegment.segmentId,
+        text: text,
+        timestamp: [start, end],
+        rawTimestamp: Array.isArray(segment && segment.rawTimestamp) ? segment.rawTimestamp.slice(0, 2) : null,
+        timestampSource: segment && segment.timestampSource ? segment.timestampSource : "",
+        windowStartSec: Number.isFinite(Number(segment && segment.windowStartSec)) ? Number(segment.windowStartSec) : null,
+        firstSegmentWasClampedToWindowStart: !!(segment && segment.firstSegmentWasClampedToWindowStart),
+        localTimestampOffsetApplied: !!(segment && segment.localTimestampOffsetApplied)
+      });
+      recordRawSegmentAudit(overlapDiagnostics, rawAuditSegment, "kept", "accepted_after_merge");
+    });
+    return target;
+  }
+
+  function getControlledWindowTranscriptText(segments) {
+    return (Array.isArray(segments) ? segments : [])
+      .map(function (segment) {
+        return segment && typeof segment.text === "string" ? segment.text : "";
+      })
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  }
+
+  function rebuildCanonicalTranscriptFromSegments(segments, useTranslatedText) {
+    return getSegmentsParagraphText(Array.isArray(segments) ? segments : [], !!useTranslatedText);
   }
 
   function rejectPendingMobileVadRequests(message) {
@@ -611,13 +2154,12 @@
     return normalized;
   }
 
-  function shouldUseMobileVad(audioRecord, resampledData) {
+  function shouldUseTranscriptionVad(audioRecord, resampledData) {
     return !!(
-      audioRecord
-      && audioRecord.phoneOptimized
+      ENABLE_DESKTOP_TRANSCRIPTION_VAD
+      && audioRecord
       && audioRecord.file
       && !audioRecord.phoneRiskReason
-      && !isVideoMediaFile(audioRecord.file)
       && resampledData
       && resampledData.length > 16000 * 12
     );
@@ -823,7 +2365,7 @@
     var dir = getTextDirectionFromLanguage(selectedLanguage);
 
     if (dir === "rtl") {
-      return "\u200F" + String(text || "");
+      return "\u200F" + applyBidiIsolation(String(text || ""), selectedLanguage);
     }
 
     if (dir === "ltr") {
@@ -840,6 +2382,24 @@
         return line ? applyExportDirectionMark(line, selectedLanguage) : line;
       })
       .join("\n");
+  }
+
+  function applyBidiIsolation(text, selectedLanguage) {
+    var value = String(text || "");
+    if (getTextDirectionFromLanguage(selectedLanguage) !== "rtl") {
+      return value;
+    }
+
+    return value.replace(
+      /([A-Za-z0-9](?:[A-Za-z0-9@./:_+#&%=-]*[A-Za-z0-9])?)/g,
+      function (match) {
+        return "\u2066" + match + "\u2069";
+      }
+    );
+  }
+
+  function getDisplayTranscriptText(text, selectedLanguage) {
+    return applyBidiIsolation(String(text || ""), selectedLanguage);
   }
 
   function createCapabilityDecision(enabled, reason) {
@@ -1291,6 +2851,31 @@
         "</button>"
       ].join("");
     }).join("");
+  }
+
+  function getModelHelperText(model) {
+    var audioDuration = window.transcriptionAudio ? Number(window.transcriptionAudio.duration) || 0 : 0;
+    if (audioDuration >= 180) {
+      if (model && model.key === "baby-raptor" && model.longFileHelper) {
+        return model.longFileHelper;
+      }
+      if (model && model.key === "triceratop" && model.longFileHelper) {
+        return model.longFileHelper;
+      }
+    }
+    return model && model.helper ? model.helper : "";
+  }
+
+  function refreshTranscriptionModelHelperCopy(root) {
+    var container = root || document;
+    TRANSCRIPTION_MODELS.forEach(function (model) {
+      var card = container.querySelector('[data-role="modelCard"][data-model-key="' + model.key + '"]');
+      var helperEl = card ? card.querySelector(".at-model-card__helper") : null;
+      if (!helperEl) {
+        return;
+      }
+      helperEl.textContent = getModelHelperText(model);
+    });
   }
 
   function hasWebGPUAcceleration() {
@@ -2241,6 +3826,14 @@
       if (!text) {
         return result;
       }
+      recordSegmentLifecycleEvent(window.__lastTranscriptionRunDiagnostics || null, segment, {
+        sourceStage: "translate_handoff",
+        actionTaken: "sent_to_translation",
+        reason: "translate_transcript_clicked",
+        finalStart: timestamp && timestamp.length >= 2 ? timestamp[0] : null,
+        finalEnd: timestamp && timestamp.length >= 2 ? timestamp[1] : null,
+        textPreview: text
+      });
 
       result.push({
         text: text,
@@ -2248,7 +3841,8 @@
       });
       return result;
     }, []);
-    var transcriptText = getSegmentsParagraphText(segments);
+    refreshTranscriptionLifecycleDebugReport(window.__lastTranscriptionRunDiagnostics || null);
+    var transcriptText = rebuildCanonicalTranscriptFromSegments(segments, false);
     var displayedFileName = "";
     var sessionId;
     var payload;
@@ -2874,6 +4468,9 @@
       '  <div class="at-row is-hidden" data-role="processingInfo">',
       '    <div class="at-help" data-role="processingHint">Transcription runs entirely in your browser, so your media never leaves your device.</div>',
       '    <div class="at-help at-help-session is-hidden" data-role="sessionPath"></div>',
+      '    <div class="at-help at-live-preview is-hidden" data-role="livePreviewRow">',
+      '      <strong>Live preview:</strong> <span data-role="livePreviewText"></span>',
+      "    </div>",
       '    <button class="at-btn at-btn-soft is-hidden" type="button" data-role="extractAudioCta">Open audio extractor</button>',
       "  </div>",
       '  <div class="at-row transcribe-controls is-hidden" data-role="modelRow">',
@@ -3012,30 +4609,6 @@
     return Math.max(0, Math.min(100, parseFloat(bar.style.width) || 0));
   }
 
-  function startFakeProgress(start, end, label) {
-    var value = Math.max(start == null ? 0 : start, getProgressValue());
-    var limit = end == null ? 92 : end;
-    var message = label || "Transcribing in browser...";
-
-    stopFakeProgress();
-    progressInterval = setInterval(function () {
-      if (value < 40) {
-        value += 1.1 + Math.random() * 0.9;
-      } else if (value < 75) {
-        value += 0.55 + Math.random() * 0.55;
-      } else {
-        value += 0.18 + Math.random() * 0.28;
-      }
-      if (value >= limit) {
-        value = limit;
-      }
-      setProgress(Math.max(getProgressValue(), value));
-      if (activeTranscriptionContext && activeTranscriptionContext.statusEl) {
-        setStatus(activeTranscriptionContext.statusEl, normalizeIncomingText(message) + " " + Math.round(Math.max(getProgressValue(), value)) + "%", "processing");
-      }
-    }, 500);
-  }
-
   function stopFakeProgress() {
     if (progressInterval) {
       clearInterval(progressInterval);
@@ -3071,6 +4644,210 @@
     element.classList.toggle("is-hidden", !visible);
   }
 
+  function clearLivePreview(root) {
+    var activeRoot = root || getPrimaryTranscribeRoot();
+    if (!activeRoot) {
+      return;
+    }
+
+    activeRoot.__livePreviewText = "";
+    var livePreviewText = activeRoot.querySelector('[data-role="livePreviewText"]');
+    if (livePreviewText) {
+      livePreviewText.textContent = "";
+    }
+  }
+
+  function clearResultTransition(root) {
+    var activeRoot = root || getPrimaryTranscribeRoot();
+    if (!activeRoot) {
+      return;
+    }
+
+    if (activeRoot.__resultTransitionTimer) {
+      window.clearTimeout(activeRoot.__resultTransitionTimer);
+      activeRoot.__resultTransitionTimer = null;
+    }
+
+    activeRoot.__resultTransitionState = "";
+    activeRoot.classList.remove("is-transitioning-result");
+  }
+
+  function ensureGlobalResultConfettiLauncher() {
+    var existingCanvas = document.querySelector('[data-role="globalResultConfettiCanvas"]');
+    if (!window.confetti || typeof window.confetti.create !== "function") {
+      return null;
+    }
+
+    if (!existingCanvas) {
+      existingCanvas = document.createElement("canvas");
+      existingCanvas.className = "at-global-confetti-canvas";
+      existingCanvas.setAttribute("data-role", "globalResultConfettiCanvas");
+      existingCanvas.setAttribute("aria-hidden", "true");
+      document.body.appendChild(existingCanvas);
+    }
+
+    if (!window.__fatResultConfetti || window.__fatResultConfettiCanvas !== existingCanvas) {
+      window.__fatResultConfettiCanvas = existingCanvas;
+      window.__fatResultConfetti = window.confetti.create(existingCanvas, {
+        resize: true,
+        useWorker: true,
+        disableForReducedMotion: true
+      });
+    }
+
+    return window.__fatResultConfetti;
+  }
+
+  function getResultConfettiOrigins(root) {
+    var activeRoot = root || getPrimaryTranscribeRoot();
+    var transcriptTarget = activeRoot && (
+      activeRoot.querySelector('[data-role="transcriptRow"]')
+      || activeRoot.querySelector('[data-role="livePreviewRow"]')
+      || activeRoot.querySelector('[data-role="processingInfo"]')
+    );
+    var viewportWidth;
+    var viewportHeight;
+    var rect;
+    var leftX;
+    var centerX;
+    var rightX;
+    var anchorY;
+
+    if (!transcriptTarget || typeof transcriptTarget.getBoundingClientRect !== "function") {
+      return [
+        { x: 0.18, y: 0.18 },
+        { x: 0.82, y: 0.18 },
+        { x: 0.5, y: 0.08 }
+      ];
+    }
+
+    viewportWidth = Math.max(window.innerWidth || 0, 1);
+    viewportHeight = Math.max(window.innerHeight || 0, 1);
+    rect = transcriptTarget.getBoundingClientRect();
+    leftX = Math.max(0.08, Math.min(0.92, (rect.left + (rect.width * 0.18)) / viewportWidth));
+    centerX = Math.max(0.08, Math.min(0.92, (rect.left + (rect.width * 0.5)) / viewportWidth));
+    rightX = Math.max(0.08, Math.min(0.92, (rect.left + (rect.width * 0.82)) / viewportWidth));
+    anchorY = Math.max(0.06, Math.min(0.72, (rect.top + Math.min(rect.height * 0.2, 56)) / viewportHeight));
+
+    return [
+      { x: leftX, y: anchorY },
+      { x: rightX, y: anchorY },
+      { x: centerX, y: Math.max(0.04, anchorY - 0.06) }
+    ];
+  }
+
+  function fireResultConfetti(root, tone) {
+    var launch = ensureGlobalResultConfettiLauncher();
+    var origins = getResultConfettiOrigins(root);
+    var colors = tone === "warning"
+      ? ["#f59e0b", "#fb923c", "#fbbf24", "#fdba74"]
+      : ["#6c7bff", "#22c55e", "#f97316", "#ec4899", "#14b8a6", "#eab308"];
+
+    if (!launch) {
+      return;
+    }
+
+    launch({
+      particleCount: tone === "warning" ? 56 : 84,
+      spread: tone === "warning" ? 112 : 132,
+      startVelocity: tone === "warning" ? 40 : 48,
+      decay: 0.935,
+      gravity: 0.94,
+      drift: -0.08,
+      scalar: 1.22,
+      ticks: 420,
+      zIndex: 9999,
+      colors: colors,
+      shapes: ["square", "circle"],
+      origin: origins[0]
+    });
+
+    launch({
+      particleCount: tone === "warning" ? 56 : 84,
+      spread: tone === "warning" ? 112 : 132,
+      startVelocity: tone === "warning" ? 40 : 48,
+      decay: 0.935,
+      gravity: 0.94,
+      drift: 0.08,
+      scalar: 1.22,
+      ticks: 420,
+      zIndex: 9999,
+      colors: colors,
+      shapes: ["square", "circle"],
+      origin: origins[1]
+    });
+
+    launch({
+      particleCount: tone === "warning" ? 34 : 52,
+      spread: tone === "warning" ? 140 : 160,
+      startVelocity: tone === "warning" ? 30 : 36,
+      decay: 0.945,
+      gravity: 1.02,
+      drift: 0,
+      scalar: 1.34,
+      ticks: 460,
+      zIndex: 9999,
+      colors: colors,
+      shapes: ["circle"],
+      origin: origins[2]
+    });
+
+    launch({
+      particleCount: tone === "warning" ? 22 : 34,
+      spread: 180,
+      startVelocity: tone === "warning" ? 22 : 28,
+      decay: 0.955,
+      gravity: 1.08,
+      scalar: 1.5,
+      ticks: 520,
+      zIndex: 9999,
+      colors: colors,
+      shapes: ["circle"],
+      origin: {
+        x: origins[2].x,
+        y: Math.max(0.04, origins[2].y - 0.02)
+      }
+    });
+  }
+
+  function triggerResultTransition(root, resultState) {
+    var activeRoot = root || getPrimaryTranscribeRoot();
+    var tone = resultState === "warning" ? "warning" : "ready";
+
+    if (!activeRoot) {
+      return;
+    }
+
+    clearResultTransition(activeRoot);
+    activeRoot.__resultTransitionState = tone;
+    activeRoot.classList.add("is-transitioning-result");
+    fireResultConfetti(activeRoot, tone);
+    refreshTranscribeLayout();
+    activeRoot.__resultTransitionTimer = window.setTimeout(function () {
+      clearResultTransition(activeRoot);
+      clearLivePreview(activeRoot);
+      refreshTranscribeLayout();
+    }, 1400);
+  }
+
+  function setLivePreview(root, text, language) {
+    var activeRoot = root || getPrimaryTranscribeRoot();
+    if (!activeRoot) {
+      return;
+    }
+
+    var normalized = typeof text === "string" ? text : "";
+    activeRoot.__livePreviewText = normalized;
+    var livePreviewText = activeRoot.querySelector('[data-role="livePreviewText"]');
+    if (livePreviewText) {
+      livePreviewText.textContent = getDisplayTranscriptText(normalized, language);
+      applyTranscriptDirection(
+        livePreviewText,
+        language || window.transcriptionDetectedLanguage || window.transcriptionSourceLanguage
+      );
+    }
+  }
+
   function hasTranscriptResults() {
     return !!(window.currentTranscript || getActiveSegments().length);
   }
@@ -3102,7 +4879,7 @@
       sessionPathEl.textContent = transcriptionSessionPathLabel
         ? "Current session: " + transcriptionSessionPathLabel
         : "";
-      setElementVisible(sessionPathEl, !!transcriptionSessionPathLabel);
+      setElementVisible(sessionPathEl, !processingLocked && !!transcriptionSessionPathLabel);
     }
 
     if (extractAudioBtn) {
@@ -3290,6 +5067,8 @@
       return;
     }
 
+    refreshTranscriptionModelHelperCopy(root);
+
     var toolCard = root.querySelector(".at-root");
     var audioPlayer = getTranscriptAudioPlayer();
     var hasAudioReady = hasLoadedTranscriptionFile(window.transcriptionAudio);
@@ -3308,13 +5087,20 @@
     var showTranslateEntry = showResults && builtInTranslationAllowed;
     var showChatgptEntry = showResults;
     var hasTranscriptPlayback = !!(audioPlayer && audioPlayer.getAttribute("src"));
+    var livePreviewText = typeof root.__livePreviewText === "string" ? root.__livePreviewText.trim() : "";
+    var isResultTransitionActive = !!root.__resultTransitionState;
+    var processingHintEl = root.querySelector('[data-role="processingHint"]');
+    var sessionPathEl = root.querySelector('[data-role="sessionPath"]');
 
     if (!showResults) {
       root.__translationSetupOpen = false;
     }
 
-    setElementVisible(root.querySelector('[data-role="progressRow"]'), isPreparing || isProcessing || isModelLoading);
-    setElementVisible(root.querySelector('[data-role="processingInfo"]'), showSetup || isProcessing || isModelLoading);
+    setElementVisible(root.querySelector('[data-role="progressRow"]'), isPreparing || isModelLoading);
+    setElementVisible(root.querySelector('[data-role="processingInfo"]'), showSetup || isProcessing || isModelLoading || isResultTransitionActive);
+    setElementVisible(root.querySelector('[data-role="livePreviewRow"]'), (isProcessing || isResultTransitionActive) && !!livePreviewText);
+    setElementVisible(processingHintEl, !isProcessing && (showSetup || isModelLoading || isResultTransitionActive));
+    setElementVisible(sessionPathEl, !isProcessing && !!transcriptionSessionPathLabel);
     setElementVisible(root.querySelector('[data-role="modelRow"]'), showSetup);
     setElementVisible(root.querySelector('[data-role="languageRow"]'), showSetup);
     setElementVisible(root.querySelector('[data-role="enhanceRow"]'), showSetup);
@@ -3946,8 +5732,15 @@
     return /^(?:subscribe(?: to (?:the )?channel)?|subtitles by\b.*)[.!?]*$/i.test(cleaned);
   }
 
+  function stripTranscriptWrapperQuotes(text) {
+    return cleanText(text)
+      .replace(/^[\s"'`“”‘’«»]+/, "")
+      .replace(/[\s"'`“”‘’«»]+$/, "")
+      .trim();
+  }
+
   function finalizeTranscriptSegmentText(text, language, isLastSegment) {
-    var cleaned = fixPunctuation(cleanText(text));
+    var cleaned = stripTranscriptWrapperQuotes(fixPunctuation(cleanText(text)));
 
     if (!cleaned || isKnownTranscriptArtifact(cleaned, language)) {
       return "";
@@ -4135,7 +5928,7 @@ function generateVTT(segments) {
   function getActiveTranscript() {
     var activeSegments = getActiveSegments();
     if (activeSegments.length) {
-      return getSegmentsParagraphText(activeSegments, window.currentTab === "translated");
+      return rebuildCanonicalTranscriptFromSegments(activeSegments, window.currentTab === "translated");
     }
     if (window.currentTab === "translated") {
       return window.translatedTranscript || "";
@@ -4145,6 +5938,116 @@ function generateVTT(segments) {
 
   function getActiveSegments() {
     return window.currentSegments || [];
+  }
+
+  function buildExportReadySegments(useTranslatedText) {
+    var sourceSegments = getActiveSegments();
+    var diagnostics = window.__lastTranscriptionRunDiagnostics || null;
+    var previousEnd = null;
+    var previousNormalizedText = "";
+    var prepared = [];
+
+    sourceSegments.forEach(function (segment) {
+      var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp.slice(0, 2) : null;
+      var start;
+      var end;
+      var text;
+      var normalizedText;
+
+      if (!timestamp || timestamp.length < 2) {
+        recordSegmentLifecycleEvent(diagnostics, segment, {
+          sourceStage: "final_export",
+          actionTaken: "dropped",
+          reason: "missing_timestamp",
+          removedByStage: "final_export",
+          removalReason: "missing_timestamp",
+          textPreview: segment && (segment.text || segment.originalText || segment.editedText || segment.translatedText)
+        });
+        return;
+      }
+
+      start = Math.max(0, Number(timestamp[0]) || 0);
+      end = Math.max(0, Number(timestamp[1]) || 0);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        recordSegmentLifecycleEvent(diagnostics, segment, {
+          sourceStage: "final_export",
+          actionTaken: "dropped",
+          reason: "invalid_timestamp",
+          removedByStage: "final_export",
+          removalReason: "invalid_timestamp",
+          finalStart: start,
+          finalEnd: end,
+          textPreview: segment && (segment.text || segment.originalText || segment.editedText || segment.translatedText)
+        });
+        return;
+      }
+
+      if (Number.isFinite(previousEnd) && start < previousEnd) {
+        start = previousEnd + 0.001;
+      }
+      if (!(end > start)) {
+        recordSegmentLifecycleEvent(diagnostics, segment, {
+          sourceStage: "final_export",
+          actionTaken: "dropped",
+          reason: "unresolved_timing_conflict",
+          removedByStage: "final_export",
+          removalReason: "unresolved_timing_conflict",
+          finalStart: start,
+          finalEnd: end,
+          textPreview: segment && (segment.text || segment.originalText || segment.editedText || segment.translatedText)
+        });
+        return;
+      }
+
+      text = getSegmentText(segment, !!useTranslatedText);
+      normalizedText = normalizeOverlapComparisonText(text);
+      if (!text || !normalizedText) {
+        recordSegmentLifecycleEvent(diagnostics, segment, {
+          sourceStage: "final_export",
+          actionTaken: "dropped",
+          reason: "empty_text",
+          removedByStage: "final_export",
+          removalReason: "empty_text",
+          finalStart: start,
+          finalEnd: end,
+          textPreview: text
+        });
+        return;
+      }
+      if (previousNormalizedText && getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) >= 0.8) {
+        recordSegmentLifecycleEvent(diagnostics, segment, {
+          sourceStage: "final_export",
+          actionTaken: "dropped",
+          reason: "adjacent_export_duplicate",
+          removedByStage: "final_export",
+          removalReason: "adjacent_export_duplicate",
+          finalStart: start,
+          finalEnd: end,
+          textPreview: text
+        });
+        return;
+      }
+
+      prepared.push({
+        segmentId: getSegmentLifecycleId(segment),
+        text: text,
+        timestamp: [start, end]
+      });
+      recordSegmentLifecycleEvent(diagnostics, segment, {
+        sourceStage: "final_export",
+        actionTaken: "exported",
+        reason: useTranslatedText ? "translated_export_ready" : "original_export_ready",
+        appearedInFinalExport: true,
+        finalStart: start,
+        finalEnd: end,
+        textPreview: text
+      });
+      previousEnd = end;
+      previousNormalizedText = normalizedText;
+    });
+
+    refreshTranscriptionLifecycleDebugReport(diagnostics);
+    return prepared;
   }
 
   function getTranscriptAudioPlayer() {
@@ -4495,7 +6398,9 @@ function generateVTT(segments) {
     var edited = cleanText(segment && segment.editedText);
     var original = cleanText(segment && (segment.originalText || segment.text));
 
-    return fixPunctuation(useTranslatedText && translated ? translated : (edited || original));
+    return stripTranscriptWrapperQuotes(
+      fixPunctuation(useTranslatedText && translated ? translated : (edited || original))
+    );
   }
 
   function getSegmentsParagraphText(segments, useTranslatedText) {
@@ -4698,9 +6603,10 @@ function generateVTT(segments) {
 
   function renderSegments(container, heading, segments, useTranslatedText, contentLanguage) {
     var items = Array.isArray(segments) ? segments : [];
+    var effectiveLanguage = contentLanguage || "auto";
 
     container.textContent = "";
-    applyTranscriptDirection(container, contentLanguage);
+    applyTranscriptDirection(container, effectiveLanguage);
 
     if (heading) {
       var headingEl = document.createElement("div");
@@ -4709,7 +6615,7 @@ function generateVTT(segments) {
       var headingText = document.createElement("div");
       headingText.className = "ts-text";
       headingText.setAttribute("data-transcript-text", "1");
-      headingText.textContent = heading;
+      headingText.textContent = getDisplayTranscriptText(heading, effectiveLanguage);
 
       headingEl.appendChild(headingText);
       container.appendChild(headingEl);
@@ -4747,7 +6653,7 @@ function generateVTT(segments) {
         wrapper.appendChild(timeEl);
       }
 
-      textEl.textContent = lineText;
+      textEl.textContent = getDisplayTranscriptText(lineText, effectiveLanguage);
       wrapper.appendChild(textEl);
 
       paragraphEl.appendChild(wrapper);
@@ -4755,7 +6661,7 @@ function generateVTT(segments) {
     });
 
     container.appendChild(paragraphEl);
-    applyTranscriptDirection(container, contentLanguage);
+    applyTranscriptDirection(container, effectiveLanguage);
   }
 
   function updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn) {
@@ -4848,6 +6754,7 @@ function generateVTT(segments) {
 
   function copyActiveTranscript(statusEl) {
     var activeText = getActiveTranscript();
+    buildExportReadySegments(window.currentTab === "translated");
     if (!activeText || !navigator.clipboard || !navigator.clipboard.writeText) {
       return;
     }
@@ -4861,6 +6768,7 @@ function generateVTT(segments) {
   function downloadActiveTXT() {
     var activeText = getActiveTranscript();
     var activeLanguage = getActiveTranscriptContentLanguage();
+    buildExportReadySegments(window.currentTab === "translated");
     if (!activeText) {
       return;
     }
@@ -4871,46 +6779,87 @@ function generateVTT(segments) {
 
   function downloadActiveSRT() {
     var activeText = getActiveTranscript();
-    var activeSegments = getActiveSegments();
+    var activeSegments = buildExportReadySegments(window.currentTab === "translated");
     var activeLanguage = getActiveTranscriptContentLanguage();
     if (!activeText || !activeSegments.length) {
       return;
     }
 
-    var srt = generateSRT(activeSegments.map(function (segment) {
-      return {
-        text: getSegmentText(segment, window.currentTab === "translated"),
-        timestamp: Array.isArray(segment.timestamp)
-          ? segment.timestamp
-          : [segment.start || 0, segment.end || segment.start || 0]
-      };
-    }), activeLanguage);
+    var srt = generateSRT(activeSegments, activeLanguage);
     var type = window.currentTab === "translated" ? "Translation" : "Transcription";
     downloadBlob(buildExportFileName(type, "srt"), srt);
   }
 
   function downloadActiveVTT() {
     var activeText = getActiveTranscript();
-    var activeSegments = getActiveSegments();
+    var activeSegments = buildExportReadySegments(window.currentTab === "translated");
     if (!activeText || !activeSegments.length) {
       return;
     }
 
-    var vtt = generateVTT(activeSegments.map(function (segment) {
-      return {
-        text: getSegmentText(segment, window.currentTab === "translated"),
-        timestamp: Array.isArray(segment.timestamp)
-          ? segment.timestamp
-          : [segment.start || 0, segment.end || segment.start || 0]
-      };
-    }));
+    var vtt = generateVTT(activeSegments);
     var type = window.currentTab === "translated" ? "Translation" : "Transcription";
     downloadBlob(buildExportFileName(type, "vtt"), vtt);
   }
 
   function handleTranscriptionResult(text, segments, warnings) {
     var context = activeTranscriptionContext;
+    var transitionRoot;
+    var transitionState;
     if (!context) {
+      return;
+    }
+    transitionRoot = getPrimaryTranscribeRoot();
+
+    if (RAW_WHISPER_PASSTHROUGH) {
+      previewEditMode = false;
+      window.currentSegments = Array.isArray(segments) ? segments.slice() : [];
+      window.currentRawTranscript = typeof text === "string" ? text : "";
+      window.currentTranscript = rebuildCanonicalTranscriptFromSegments(window.currentSegments, false) || window.currentRawTranscript || "";
+      window.translatedTranscript = "";
+      window.translatedTitle = "";
+      window.translatedSubtitles = [];
+      window.translatedTranscriptLanguage = "";
+      window.transcriptionSourceLanguage = context.language;
+      window.transcriptionDetectedLanguage = getLangCode(context.detectedLanguage || "");
+      window.currentTranscriptDuration = context.duration || 0;
+      window.currentTab = "original";
+      syncTranslationSourceSelection(document.querySelector("#translate-source-language"), false);
+      if (document.querySelector("#translate-language")) {
+        document.querySelector("#translate-language").value = "";
+      }
+      context.transcriptEl.textContent = getDisplayTranscriptText(
+        window.currentTranscript,
+        getEffectiveTranscriptionContentLanguage() || context.language
+      );
+      setExportButtonsState(context.copyBtn, context.txtBtn, context.srtBtn, context.vttBtn, true);
+      setTranslationButtonsState(context.translateBtn, null, null, null, false);
+      var rawChatgptBtn = document.getElementById("chatgptTranslateBtn");
+      if (rawChatgptBtn) {
+        rawChatgptBtn.disabled = false;
+      }
+      syncTranslationReadyState();
+      updateTranscriptView(context.transcriptEl, context.originalTabBtn, context.translatedTabBtn, context.editBtn);
+      updateExportLabels(context.txtBtn, context.srtBtn, context.vttBtn);
+      setProgressMessage("Transcription complete");
+      setProgress(100);
+      transitionState = warnings && warnings.length ? "warning" : "ready";
+      setStatus(context.statusEl, "Transcript ready.", transitionState);
+      triggerResultTransition(transitionRoot, transitionState);
+      setTranscribeButtonState(context.startBtn, true);
+      setEnhanceToggleState(document.getElementById("enhance-audio"), true);
+      clearPendingTranscriptionStart();
+      clearTranscriptionRecoveryState();
+      processingLocked = false;
+      activeTranscriptionContext = null;
+      if (typeof context.afterRunCleanup === "function") {
+        context.afterRunCleanup({
+          keepResults: true,
+          preserveInputValue: true
+        });
+      }
+      syncTranscribeReadyState();
+      refreshTranscribeLayout();
       return;
     }
 
@@ -4930,7 +6879,8 @@ function generateVTT(segments) {
     if (formattedText) {
       previewEditMode = false;
       window.currentSegments = normalizePreviewSegments(segments || []);
-      window.currentTranscript = getSegmentsParagraphText(window.currentSegments) || formattedText;
+      window.currentRawTranscript = rawText;
+      window.currentTranscript = rebuildCanonicalTranscriptFromSegments(window.currentSegments, false) || formattedText;
       window.translatedTranscript = "";
       window.translatedTitle = "";
       window.translatedSubtitles = [];
@@ -4943,7 +6893,10 @@ function generateVTT(segments) {
       if (document.querySelector("#translate-language")) {
         document.querySelector("#translate-language").value = "";
       }
-      context.transcriptEl.textContent = window.currentTranscript;
+      context.transcriptEl.textContent = getDisplayTranscriptText(
+        window.currentTranscript,
+        getEffectiveTranscriptionContentLanguage() || context.language
+      );
       setExportButtonsState(context.copyBtn, context.txtBtn, context.srtBtn, context.vttBtn, true);
       setTranslationButtonsState(context.translateBtn, null, null, null, false);
       var chatgptBtn = document.getElementById("chatgptTranslateBtn");
@@ -4957,9 +6910,11 @@ function generateVTT(segments) {
       setProgress(100);
       var feedback = getTranscriptionFeedback(formattedText, warnings, context);
       setStatus(context.statusEl, feedback.message, feedback.state);
+      triggerResultTransition(transitionRoot, feedback.state);
     } else {
       previewEditMode = false;
       window.currentTranscript = "";
+      window.currentRawTranscript = "";
       window.currentSegments = [];
       window.translatedTranscript = "";
       window.translatedTitle = "";
@@ -5010,6 +6965,8 @@ function generateVTT(segments) {
     modelWarmState = "error";
     setProgress(0);
     setProgressMessage("");
+    clearResultTransition(getPrimaryTranscribeRoot());
+    clearLivePreview(getPrimaryTranscribeRoot());
 
     if (context) {
       setStatus(context.statusEl, failureMessage, "error");
@@ -5029,6 +6986,1369 @@ function generateVTT(segments) {
     activeTranscriptionContext = null;
     syncTranscribeReadyState();
     refreshTranscribeLayout();
+  }
+
+  function isBusyWorkerError(workerData) {
+    var message = normalizeIncomingText(workerData && workerData.message);
+    return message === "Worker is busy";
+  }
+
+  function recoverFromBusyWorker(context) {
+    var selectedState = getSelectedModelState();
+    var loadedFileStillPresent = hasLoadedTranscriptionFile(window.transcriptionAudio);
+
+    stopFakeProgress();
+    stopProgressMessages();
+    clearResultTransition(getPrimaryTranscribeRoot());
+    clearLivePreview(getPrimaryTranscribeRoot());
+    clearPendingTranscriptionStart();
+    clearTranscriptionRecoveryState();
+    processingLocked = false;
+    activeTranscriptionContext = null;
+
+    if (context && typeof context.afterRunCleanup === "function") {
+      context.afterRunCleanup({
+        keepResults: true,
+        preserveInputValue: true
+      });
+    }
+
+    resetSessionWorker({
+      rebuild: true
+    });
+
+    modelWarmState = selectedState.enabled ? "idle" : "disabled";
+    if (selectedTranscriptionModelKey) {
+      setModelUiState(
+        selectedTranscriptionModelKey,
+        selectedState.enabled ? "idle" : "disabled"
+      );
+    }
+
+    if (context) {
+      setStatus(
+        context.statusEl,
+        "The previous run was still active. The model was reset and your file is still loaded.",
+        "warning"
+      );
+      setTranscribeButtonState(context.startBtn, false);
+    }
+
+    syncTranscribeReadyState();
+    refreshTranscribeLayout();
+
+    if (loadedFileStillPresent && selectedState.enabled) {
+      requestModelWarmup();
+    }
+  }
+
+  function createControlledWindowTranscriptionController(config) {
+    var controller = {
+      sessionId: config.sessionId || createTranscriptionSessionId(),
+      modelKey: config.modelKey,
+      language: config.language || "auto",
+      statusEl: config.statusEl,
+      windows: config.windows || [],
+      audioData: config.audioData,
+      sampleRate: config.sampleRate || 16000,
+      releaseDecodedAudio: !!config.releaseDecodedAudio,
+      sourceAudioRecord: config.sourceAudioRecord,
+      timingSpeechSpans: Array.isArray(config.timingSpeechSpans) ? config.timingSpeechSpans.slice() : [],
+      completedWindows: 0,
+      currentWindowIndex: 0,
+      currentAttempt: 0,
+      currentWindowStartMs: 0,
+      currentWindowHeartbeat: null,
+      currentWindowTimeout: null,
+      currentAttemptType: "main_window",
+      currentParentWindowIndex: -1,
+      currentSubWindowIndex: -1,
+      currentAttemptId: "",
+      currentWindowHasUsefulText: false,
+      currentWindowPartialTextLength: 0,
+      currentWindowExtendedWaitStarted: false,
+      splitFallbackCount: 0,
+      leadingHallucinationRecoveryDone: false,
+      adaptiveSmallWindowsEnabled: false,
+      fullWindowFallbackEvents: [],
+      activeFallbackEvent: null,
+      overlapDedupDiagnostics: {
+        leadingSilenceShiftApplied: false,
+        leadingSilenceReason: "",
+        firstSpeechOnsetSec: null,
+        firstSegmentRawStart: null,
+        firstSegmentRawEnd: null,
+        firstSegmentFinalStart: null,
+        firstSegmentWasClampedToWindowStart: false,
+        firstSpeechTimestampFromWorker: null,
+        firstWindowStartSec: null,
+        localTimestampOffsetApplied: false,
+        speechOnsetCorrectionApplied: false,
+        firstSegmentOriginalStart: null,
+        firstSegmentAdjustedStart: null,
+        longSegmentSilenceStartDetected: false,
+        longSegmentOriginalStart: null,
+        longSegmentAdjustedStart: null,
+        speechDetectedInsideSegmentAt: null,
+        longSegmentSpeechOnsetReason: "",
+        speechOnsetSource: "",
+        speechTimingVadUsed: false,
+        speechTimingVadSpanCount: 0,
+        leadingMusicHallucinationDroppedCount: 0,
+        leadingMusicHallucinationStrippedCount: 0,
+        leadingMusicHallucinationLoopText: "",
+        leadingMusicHallucinationLoopEndSec: null,
+        firstWindowRawSegments: [],
+        firstWindowLivePreviewFragments: [],
+        firstWindowAcceptedSegments: [],
+        firstWindowDroppedSegments: [],
+        firstWindowHallucinationLoopDetected: false,
+        firstWindowLoopStartSec: null,
+        firstWindowLoopEndSec: null,
+        firstWindowRealTextAfterLoopDetected: false,
+        hallucinationLoopRecoveryTriggered: false,
+        hallucinationLoopRecoveryMode: "",
+        hallucinationLoopRecoveryOriginalLoopStartSec: null,
+        hallucinationLoopRecoveryOriginalLoopEndSec: null,
+        hallucinationLoopRecoveryActualStartSec: null,
+        hallucinationLoopRecoveryActualEndSec: null,
+        hallucinationLoopRecoverySubwindowCount: 0,
+        hallucinationLoopRecoveryStartSec: null,
+        hallucinationLoopRecoveryEndSec: null,
+        hallucinationLoopRecoveryTextLength: 0,
+        hallucinationLoopRecoveryAcceptedSegments: [],
+        hallucinationLoopRecoveryFailedReason: "",
+        recoveredSegmentsInsideLoopRangeCount: 0,
+        recoveredTextBeforeLoopEndCount: 0,
+        segmentStartShiftedFromSilenceCount: 0,
+        droppedOverlapDuplicateCount: 0,
+        droppedNearDuplicateOverlapCount: 0,
+        keptOverlapDifferentTextCount: 0,
+        mergedOverlapDifferentTextCount: 0,
+        adjustedOverlapTimestampCount: 0,
+        invalidTimestampPreventedCount: 0,
+        unresolvedOverlapConflictCount: 0,
+        missingGapWarnings: 0,
+        adjacentDuplicateWarnings: 0,
+        reinsertedDroppedGapSegmentCount: 0,
+        overlapEvents: [],
+        segmentLifecycleEvents: [],
+        rawSegmentAuditEvents: [],
+        gapAuditEvents: []
+      },
+      aggregateSegments: [],
+      warningSet: Object.create(null),
+      runReports: [],
+      sliceReports: Array.isArray(config.sliceReports) ? config.sliceReports.slice() : [],
+      finalDiagnostics: null,
+      consecutiveEmptyWindows: 0,
+      jobStartedAt: Date.now(),
+      finalAssemblyMs: 0,
+      ignoredLateResultCount: 0,
+      abandonedFullWindowElapsedMs: 0,
+      resolve: null,
+      reject: null,
+      pushRunReport: function (payload) {
+        this.runReports.push({
+          attemptType: this.currentAttemptType || "main_window",
+          parentWindowIndex: Number.isFinite(this.currentParentWindowIndex) ? this.currentParentWindowIndex : -1,
+          subWindowIndex: Number.isFinite(this.currentSubWindowIndex) ? this.currentSubWindowIndex : -1,
+          windowIndex: Math.max(0, Number(payload && payload.windowIndex) || 0),
+          startSec: Number(payload && payload.startSec) || 0,
+          endSec: Number(payload && payload.endSec) || 0,
+          elapsedMs: Math.max(0, Math.round(Number(payload && payload.elapsedMs) || 0)),
+          textLength: Math.max(0, Math.round(Number(payload && payload.textLength) || 0)),
+          action: payload && payload.action ? payload.action : "",
+          reason: payload && payload.reason ? payload.reason : ""
+        });
+      },
+      getWindowMeta: function () {
+        return this.windows[this.currentWindowIndex] || null;
+      },
+      getBaseProgress: function () {
+        if (!this.windows.length) {
+          return 0;
+        }
+        return Math.round((this.completedWindows / this.windows.length) * 100);
+      },
+      buildFinalDiagnostics: function () {
+        var diagnostics = this.finalDiagnostics || {};
+        diagnostics.chunkingMode = "app_controlled_windows";
+        diagnostics.chunkCount = this.windows.length;
+        diagnostics.chunkLengthSec = CONTROLLED_WINDOW_LENGTH_SECONDS;
+        diagnostics.strideLengthSec = CONTROLLED_WINDOW_STRIDE_SECONDS;
+        diagnostics.coveragePercent = 100;
+        diagnostics.windowReports = this.runReports.slice();
+        diagnostics.windowSlices = this.sliceReports.slice();
+        diagnostics.windowRetryCount = this.runReports.filter(function (item) {
+          return item && item.action === "retry";
+        }).length;
+        diagnostics.windowSkipCount = this.runReports.filter(function (item) {
+          return item && item.action === "skip";
+        }).length;
+        diagnostics.jobWallClockMs = Math.max(0, Date.now() - this.jobStartedAt);
+        diagnostics.totalWindowElapsedMs = this.runReports.reduce(function (sum, item) {
+          return sum + Math.max(0, Number(item && item.elapsedMs) || 0);
+        }, 0);
+        diagnostics.totalRetryElapsedMs = this.runReports.reduce(function (sum, item) {
+          if (!item || item.action !== "retry") {
+            return sum;
+          }
+          return sum + Math.max(0, Number(item.elapsedMs) || 0);
+        }, 0);
+        diagnostics.finalAssemblyMs = Math.max(0, Math.round(Number(this.finalAssemblyMs) || 0));
+        diagnostics.abandonedFullWindowElapsedMs = Math.max(0, Math.round(Number(this.abandonedFullWindowElapsedMs) || 0));
+        diagnostics.ignoredLateResultCount = Math.max(0, Math.round(Number(this.ignoredLateResultCount) || 0));
+        diagnostics.splitFallbackCount = Math.max(0, Math.round(Number(this.splitFallbackCount) || 0));
+        diagnostics.adaptiveSmallWindowsEnabled = !!this.adaptiveSmallWindowsEnabled;
+        diagnostics.fullWindowFallbackEvents = this.fullWindowFallbackEvents.slice();
+        diagnostics.droppedOverlapDuplicateCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.droppedOverlapDuplicateCount) || 0));
+        diagnostics.droppedNearDuplicateOverlapCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.droppedNearDuplicateOverlapCount) || 0));
+        diagnostics.keptOverlapDifferentTextCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.keptOverlapDifferentTextCount) || 0));
+        diagnostics.mergedOverlapDifferentTextCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.mergedOverlapDifferentTextCount) || 0));
+        diagnostics.adjustedOverlapTimestampCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.adjustedOverlapTimestampCount) || 0));
+        diagnostics.invalidTimestampPreventedCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.invalidTimestampPreventedCount) || 0));
+        diagnostics.leadingSilenceShiftApplied = !!this.overlapDedupDiagnostics.leadingSilenceShiftApplied;
+        diagnostics.leadingSilenceReason = this.overlapDedupDiagnostics.leadingSilenceReason || "";
+        diagnostics.firstSpeechOnsetSec = Number.isFinite(this.overlapDedupDiagnostics.firstSpeechOnsetSec)
+          ? this.overlapDedupDiagnostics.firstSpeechOnsetSec
+          : null;
+        diagnostics.firstSegmentRawStart = Number.isFinite(this.overlapDedupDiagnostics.firstSegmentRawStart)
+          ? this.overlapDedupDiagnostics.firstSegmentRawStart
+          : null;
+        diagnostics.firstSegmentRawEnd = Number.isFinite(this.overlapDedupDiagnostics.firstSegmentRawEnd)
+          ? this.overlapDedupDiagnostics.firstSegmentRawEnd
+          : null;
+        diagnostics.firstSegmentFinalStart = Number.isFinite(this.overlapDedupDiagnostics.firstSegmentFinalStart)
+          ? this.overlapDedupDiagnostics.firstSegmentFinalStart
+          : null;
+        diagnostics.firstSegmentWasClampedToWindowStart = !!this.overlapDedupDiagnostics.firstSegmentWasClampedToWindowStart;
+        diagnostics.firstSpeechTimestampFromWorker = Number.isFinite(this.overlapDedupDiagnostics.firstSpeechTimestampFromWorker)
+          ? this.overlapDedupDiagnostics.firstSpeechTimestampFromWorker
+          : null;
+        diagnostics.firstWindowStartSec = Number.isFinite(this.overlapDedupDiagnostics.firstWindowStartSec)
+          ? this.overlapDedupDiagnostics.firstWindowStartSec
+          : null;
+        diagnostics.localTimestampOffsetApplied = !!this.overlapDedupDiagnostics.localTimestampOffsetApplied;
+        diagnostics.speechOnsetCorrectionApplied = !!this.overlapDedupDiagnostics.speechOnsetCorrectionApplied;
+        diagnostics.firstSegmentOriginalStart = Number.isFinite(this.overlapDedupDiagnostics.firstSegmentOriginalStart)
+          ? this.overlapDedupDiagnostics.firstSegmentOriginalStart
+          : null;
+        diagnostics.firstSegmentAdjustedStart = Number.isFinite(this.overlapDedupDiagnostics.firstSegmentAdjustedStart)
+          ? this.overlapDedupDiagnostics.firstSegmentAdjustedStart
+          : null;
+        diagnostics.longSegmentSilenceStartDetected = !!this.overlapDedupDiagnostics.longSegmentSilenceStartDetected;
+        diagnostics.longSegmentOriginalStart = Number.isFinite(this.overlapDedupDiagnostics.longSegmentOriginalStart)
+          ? this.overlapDedupDiagnostics.longSegmentOriginalStart
+          : null;
+        diagnostics.longSegmentAdjustedStart = Number.isFinite(this.overlapDedupDiagnostics.longSegmentAdjustedStart)
+          ? this.overlapDedupDiagnostics.longSegmentAdjustedStart
+          : null;
+        diagnostics.speechDetectedInsideSegmentAt = Number.isFinite(this.overlapDedupDiagnostics.speechDetectedInsideSegmentAt)
+          ? this.overlapDedupDiagnostics.speechDetectedInsideSegmentAt
+          : null;
+        diagnostics.longSegmentSpeechOnsetReason = this.overlapDedupDiagnostics.longSegmentSpeechOnsetReason || "";
+        diagnostics.speechOnsetSource = this.overlapDedupDiagnostics.speechOnsetSource || "";
+        diagnostics.speechTimingVadUsed = !!this.overlapDedupDiagnostics.speechTimingVadUsed;
+        diagnostics.speechTimingVadSpanCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.speechTimingVadSpanCount) || 0));
+        diagnostics.leadingMusicHallucinationDroppedCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.leadingMusicHallucinationDroppedCount) || 0));
+        diagnostics.leadingMusicHallucinationStrippedCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.leadingMusicHallucinationStrippedCount) || 0));
+        diagnostics.leadingMusicHallucinationLoopText = this.overlapDedupDiagnostics.leadingMusicHallucinationLoopText || "";
+        diagnostics.leadingMusicHallucinationLoopEndSec = Number.isFinite(this.overlapDedupDiagnostics.leadingMusicHallucinationLoopEndSec)
+          ? this.overlapDedupDiagnostics.leadingMusicHallucinationLoopEndSec
+          : null;
+        diagnostics.firstWindowRawSegments = Array.isArray(this.overlapDedupDiagnostics.firstWindowRawSegments)
+          ? this.overlapDedupDiagnostics.firstWindowRawSegments.slice()
+          : [];
+        diagnostics.firstWindowLivePreviewFragments = Array.isArray(this.overlapDedupDiagnostics.firstWindowLivePreviewFragments)
+          ? this.overlapDedupDiagnostics.firstWindowLivePreviewFragments.slice()
+          : [];
+        diagnostics.firstWindowAcceptedSegments = Array.isArray(this.overlapDedupDiagnostics.firstWindowAcceptedSegments)
+          ? this.overlapDedupDiagnostics.firstWindowAcceptedSegments.slice()
+          : [];
+        diagnostics.firstWindowDroppedSegments = Array.isArray(this.overlapDedupDiagnostics.firstWindowDroppedSegments)
+          ? this.overlapDedupDiagnostics.firstWindowDroppedSegments.slice()
+          : [];
+        diagnostics.firstWindowHallucinationLoopDetected = !!this.overlapDedupDiagnostics.firstWindowHallucinationLoopDetected;
+        diagnostics.firstWindowLoopStartSec = Number.isFinite(this.overlapDedupDiagnostics.firstWindowLoopStartSec)
+          ? this.overlapDedupDiagnostics.firstWindowLoopStartSec
+          : null;
+        diagnostics.firstWindowLoopEndSec = Number.isFinite(this.overlapDedupDiagnostics.firstWindowLoopEndSec)
+          ? this.overlapDedupDiagnostics.firstWindowLoopEndSec
+          : null;
+        diagnostics.firstWindowRealTextAfterLoopDetected = !!this.overlapDedupDiagnostics.firstWindowRealTextAfterLoopDetected;
+        diagnostics.hallucinationLoopRecoveryTriggered = !!this.overlapDedupDiagnostics.hallucinationLoopRecoveryTriggered;
+        diagnostics.hallucinationLoopRecoveryMode = this.overlapDedupDiagnostics.hallucinationLoopRecoveryMode || "";
+        diagnostics.hallucinationLoopRecoveryOriginalLoopStartSec = Number.isFinite(this.overlapDedupDiagnostics.hallucinationLoopRecoveryOriginalLoopStartSec)
+          ? this.overlapDedupDiagnostics.hallucinationLoopRecoveryOriginalLoopStartSec
+          : null;
+        diagnostics.hallucinationLoopRecoveryOriginalLoopEndSec = Number.isFinite(this.overlapDedupDiagnostics.hallucinationLoopRecoveryOriginalLoopEndSec)
+          ? this.overlapDedupDiagnostics.hallucinationLoopRecoveryOriginalLoopEndSec
+          : null;
+        diagnostics.hallucinationLoopRecoveryActualStartSec = Number.isFinite(this.overlapDedupDiagnostics.hallucinationLoopRecoveryActualStartSec)
+          ? this.overlapDedupDiagnostics.hallucinationLoopRecoveryActualStartSec
+          : null;
+        diagnostics.hallucinationLoopRecoveryActualEndSec = Number.isFinite(this.overlapDedupDiagnostics.hallucinationLoopRecoveryActualEndSec)
+          ? this.overlapDedupDiagnostics.hallucinationLoopRecoveryActualEndSec
+          : null;
+        diagnostics.hallucinationLoopRecoverySubwindowCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.hallucinationLoopRecoverySubwindowCount) || 0));
+        diagnostics.hallucinationLoopRecoveryStartSec = Number.isFinite(this.overlapDedupDiagnostics.hallucinationLoopRecoveryStartSec)
+          ? this.overlapDedupDiagnostics.hallucinationLoopRecoveryStartSec
+          : null;
+        diagnostics.hallucinationLoopRecoveryEndSec = Number.isFinite(this.overlapDedupDiagnostics.hallucinationLoopRecoveryEndSec)
+          ? this.overlapDedupDiagnostics.hallucinationLoopRecoveryEndSec
+          : null;
+        diagnostics.hallucinationLoopRecoveryTextLength = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.hallucinationLoopRecoveryTextLength) || 0));
+        diagnostics.hallucinationLoopRecoveryAcceptedSegments = Array.isArray(this.overlapDedupDiagnostics.hallucinationLoopRecoveryAcceptedSegments)
+          ? this.overlapDedupDiagnostics.hallucinationLoopRecoveryAcceptedSegments.slice()
+          : [];
+        diagnostics.hallucinationLoopRecoveryFailedReason = this.overlapDedupDiagnostics.hallucinationLoopRecoveryFailedReason || "";
+        diagnostics.recoveredSegmentsInsideLoopRangeCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.recoveredSegmentsInsideLoopRangeCount) || 0));
+        diagnostics.recoveredTextBeforeLoopEndCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.recoveredTextBeforeLoopEndCount) || 0));
+        diagnostics.segmentStartShiftedFromSilenceCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.segmentStartShiftedFromSilenceCount) || 0));
+        diagnostics.unresolvedOverlapConflictCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.unresolvedOverlapConflictCount) || 0));
+        diagnostics.missingGapWarnings = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.missingGapWarnings) || 0));
+        diagnostics.adjacentDuplicateWarnings = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.adjacentDuplicateWarnings) || 0));
+        diagnostics.reinsertedDroppedGapSegmentCount = Math.max(0, Math.round(Number(this.overlapDedupDiagnostics.reinsertedDroppedGapSegmentCount) || 0));
+        diagnostics.overlapDedupEvents = Array.isArray(this.overlapDedupDiagnostics.overlapEvents)
+          ? this.overlapDedupDiagnostics.overlapEvents.slice()
+          : [];
+        diagnostics.gapAuditEvents = Array.isArray(this.overlapDedupDiagnostics.gapAuditEvents)
+          ? this.overlapDedupDiagnostics.gapAuditEvents.slice()
+          : [];
+        diagnostics.rawSegmentAuditEvents = Array.isArray(this.overlapDedupDiagnostics.rawSegmentAuditEvents)
+          ? this.overlapDedupDiagnostics.rawSegmentAuditEvents.map(function (event) {
+            return {
+              action: event.action || "",
+              reason: event.reason || "",
+              start: Number(event.start),
+              end: Number(event.end),
+              textPreview: event.textPreview || ""
+            };
+          })
+          : [];
+        diagnostics.segmentLifecycleEvents = Array.isArray(this.overlapDedupDiagnostics.segmentLifecycleEvents)
+          ? this.overlapDedupDiagnostics.segmentLifecycleEvents.slice()
+          : [];
+        refreshTranscriptionLifecycleDebugReport(diagnostics);
+        diagnostics.sessionId = this.sessionId;
+        return diagnostics;
+      },
+      updateHeartbeat: function () {
+        var windowMeta = this.getWindowMeta();
+        var message;
+        if (!windowMeta || !this.statusEl) {
+          return;
+        }
+        message = "Still transcribing window " + (windowMeta.index + 1) + " of " + this.windows.length + "...";
+        setStatus(this.statusEl, message, "processing");
+        setProgressMessage(message);
+        setProgress(Math.max(this.getBaseProgress(), Math.min(98, this.getBaseProgress() + 1)));
+      },
+      clearTimers: function () {
+        if (this.currentWindowHeartbeat) {
+          clearInterval(this.currentWindowHeartbeat);
+          this.currentWindowHeartbeat = null;
+        }
+        if (this.currentWindowTimeout) {
+          clearTimeout(this.currentWindowTimeout);
+          this.currentWindowTimeout = null;
+        }
+      },
+      markWarning: function (warningCode) {
+        if (warningCode) {
+          this.warningSet[warningCode] = true;
+        }
+      },
+      fail: function (error) {
+        this.clearTimers();
+        activeWindowedTranscriptionController = null;
+        if (typeof this.reject === "function") {
+          this.reject(error);
+        }
+      },
+      finish: function () {
+        var assemblyStart = Date.now();
+        this.overlapDedupDiagnostics.speechTimingVadUsed = this.timingSpeechSpans.length > 0;
+        this.overlapDedupDiagnostics.speechTimingVadSpanCount = this.timingSpeechSpans.length;
+        var finalSegments = finalizeAcceptedSegmentsForTimeline(this.aggregateSegments, {
+          audioData: this.audioData,
+          sampleRate: this.sampleRate,
+          speechSpans: this.timingSpeechSpans,
+          diagnostics: this.overlapDedupDiagnostics
+        });
+        markLivePreviewRemovals(this.overlapDedupDiagnostics, finalSegments);
+        this.clearTimers();
+        activeWindowedTranscriptionController = null;
+        this.aggregateSegments = finalSegments;
+        if (this.releaseDecodedAudio && this.sourceAudioRecord) {
+          this.sourceAudioRecord.data = null;
+          this.sourceAudioRecord.sampleRate = 0;
+          this.sourceAudioRecord.needsDecode = true;
+        }
+        this.finalAssemblyMs = Date.now() - assemblyStart;
+        if (typeof this.resolve === "function") {
+          this.resolve({
+            text: getControlledWindowTranscriptText(finalSegments),
+            segments: finalSegments.slice(),
+            warnings: Object.keys(this.warningSet),
+            diagnostics: this.buildFinalDiagnostics(),
+            partialMessage: ""
+          });
+        }
+      },
+      finishPartial: function (reasonMessage) {
+        var assemblyStart = Date.now();
+        this.overlapDedupDiagnostics.speechTimingVadUsed = this.timingSpeechSpans.length > 0;
+        this.overlapDedupDiagnostics.speechTimingVadSpanCount = this.timingSpeechSpans.length;
+        var finalSegments = finalizeAcceptedSegmentsForTimeline(this.aggregateSegments, {
+          audioData: this.audioData,
+          sampleRate: this.sampleRate,
+          speechSpans: this.timingSpeechSpans,
+          diagnostics: this.overlapDedupDiagnostics
+        });
+        markLivePreviewRemovals(this.overlapDedupDiagnostics, finalSegments);
+        this.clearTimers();
+        activeWindowedTranscriptionController = null;
+        this.markWarning("weak_audio");
+        this.markWarning("partial_transcript");
+        this.aggregateSegments = finalSegments;
+        if (this.releaseDecodedAudio && this.sourceAudioRecord) {
+          this.sourceAudioRecord.data = null;
+          this.sourceAudioRecord.sampleRate = 0;
+          this.sourceAudioRecord.needsDecode = true;
+        }
+        this.finalAssemblyMs = Date.now() - assemblyStart;
+        if (typeof this.resolve === "function") {
+          this.resolve({
+            text: getControlledWindowTranscriptText(finalSegments),
+            segments: finalSegments.slice(),
+            warnings: Object.keys(this.warningSet),
+            diagnostics: this.buildFinalDiagnostics(),
+            partialMessage: reasonMessage || "Transcription stopped after repeated empty windows. Accepted text was kept."
+          });
+        }
+      },
+      buildWindowPayload: function (windowMeta, useRetryOverrides) {
+        var windowAudio = new Float32Array(this.audioData.subarray(windowMeta.startSample, windowMeta.endSample));
+        return {
+          type: "transcribe",
+          sessionId: this.sessionId,
+          attemptId: this.currentAttemptId,
+          modelKey: this.modelKey,
+          audio: windowAudio.buffer,
+          selectedLanguage: this.language,
+          timelineOffset: windowMeta.startSec,
+          requestConfig: {
+            chunkingMode: "app_controlled_windows",
+            disablePromptIds: !!useRetryOverrides,
+            overrides: useRetryOverrides ? getWindowRetryOverrides(this.language) : null
+          }
+        };
+      },
+      recordAdaptiveSmallWindowsEnabled: function (windowMeta) {
+        if (this.adaptiveSmallWindowsEnabled || this.modelKey !== "triceratop") {
+          return;
+        }
+        this.adaptiveSmallWindowsEnabled = true;
+        this.pushRunReport({
+          windowIndex: windowMeta ? windowMeta.index : -1,
+          startSec: windowMeta ? windowMeta.startSec : 0,
+          endSec: windowMeta ? windowMeta.endSec : 0,
+          elapsedMs: 0,
+          textLength: 0,
+          action: "adaptive_small_windows_enabled",
+          reason: "repeated_split_fallback"
+        });
+      },
+      finalizeSplitWindowResult: function (splitResult) {
+        var self = this;
+        splitResult.reports.forEach(function (report) {
+          self.runReports.push(report);
+        });
+        if (splitResult.success) {
+          splitResult.segments.forEach(function (segment) {
+            recordSegmentLifecycleEvent(self.overlapDedupDiagnostics, segment, {
+              sourceStage: "worker_raw_output",
+              actionTaken: "received",
+              reason: "split_window_result",
+              parentWindowIndex: segment && Number.isFinite(Number(segment.parentWindowIndex)) ? Number(segment.parentWindowIndex) : null,
+              textPreview: segment && segment.text
+            });
+          });
+          mergeControlledWindowSegments(this.aggregateSegments, splitResult.segments, this.overlapDedupDiagnostics);
+          splitResult.warnings.forEach(this.markWarning.bind(this));
+          this.consecutiveEmptyWindows = 0;
+          this.completedWindows += 1;
+          this.currentWindowIndex += 1;
+          this.currentAttempt = 0;
+          this.dispatchCurrentWindow();
+          return;
+        }
+
+        this.markWarning("weak_audio");
+        this.markWarning("repetition");
+        this.consecutiveEmptyWindows += 1;
+        if (this.consecutiveEmptyWindows >= 2) {
+          this.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
+          return;
+        }
+        this.completedWindows += 1;
+        this.currentWindowIndex += 1;
+        this.currentAttempt = 0;
+        this.dispatchCurrentWindow();
+      },
+      runDirectSplitWindow: function (windowMeta, reason) {
+        var self = this;
+        this.clearTimers();
+        setStatus(this.statusEl, "Transcribing smaller windows for the remaining difficult region...", "processing");
+        setProgressMessage("Transcribing smaller windows for the remaining difficult region...");
+        this.retryAsSplitWindows(windowMeta, reason, buildControlledSmallWindowsFromParent(windowMeta, this.sampleRate)).then(function (splitResult) {
+          self.finalizeSplitWindowResult(splitResult);
+        }).catch(function () {
+          self.markWarning("weak_audio");
+          self.markWarning("repetition");
+          self.consecutiveEmptyWindows += 1;
+          if (self.consecutiveEmptyWindows >= 2) {
+            self.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
+            return;
+          }
+          self.completedWindows += 1;
+          self.currentWindowIndex += 1;
+          self.currentAttempt = 0;
+          self.dispatchCurrentWindow();
+        });
+      },
+      retryFirstSplitAsMicroWindows: async function (windowMeta, splitWindow, reason) {
+        var microWindows = buildControlledMicroRetryWindows(splitWindow, this.sampleRate);
+        var index;
+        var segments = [];
+        var reports = [];
+        var warnings = [];
+        var payload;
+        var startMs;
+        var elapsedMs;
+        var result;
+        var text;
+        for (index = 0; index < microWindows.length; index += 1) {
+          this.currentAttemptType = "retry_split_micro_window";
+          this.currentParentWindowIndex = windowMeta.index;
+          this.currentSubWindowIndex = index;
+          this.currentAttemptId = createTranscriptionSessionId();
+          payload = this.buildWindowPayload(microWindows[index], true);
+          startMs = Date.now();
+          result = null;
+          text = "";
+          try {
+            setStatus(this.statusEl, "Retrying the first difficult split as micro-windows...", "processing");
+            setProgressMessage("Retrying the first difficult split as micro-windows...");
+            worker.postMessage(payload, [payload.audio]);
+            result = await this.waitForSingleWindowResult();
+            text = result && typeof result.text === "string" ? result.text : "";
+            mergeControlledWindowSegments(segments, Array.isArray(result && result.segments) ? result.segments : [], this.overlapDedupDiagnostics);
+            (Array.isArray(result && result.warnings) ? result.warnings : []).forEach(function (warning) {
+              warnings.push(warning);
+            });
+            elapsedMs = Date.now() - startMs;
+            reports.push({
+              attemptType: "retry_split_micro_window",
+              parentWindowIndex: windowMeta.index,
+              subWindowIndex: index,
+              windowIndex: microWindows[index].index,
+              startSec: microWindows[index].startSec,
+              endSec: microWindows[index].endSec,
+              elapsedMs: elapsedMs,
+              textLength: text.length,
+              action: "accepted",
+              reason: reason || "retry_split_micro_window"
+            });
+          } catch (error) {
+            elapsedMs = Date.now() - startMs;
+            reports.push({
+              attemptType: "retry_split_micro_window",
+              parentWindowIndex: windowMeta.index,
+              subWindowIndex: index,
+              windowIndex: microWindows[index].index,
+              startSec: microWindows[index].startSec,
+              endSec: microWindows[index].endSec,
+              elapsedMs: elapsedMs,
+              textLength: 0,
+              action: "empty",
+              reason: error && error.message ? error.message : "retry_split_micro_window_failed"
+            });
+          }
+        }
+        this.currentAttemptType = "retry_split_window";
+        this.currentParentWindowIndex = windowMeta.index;
+        this.currentSubWindowIndex = 0;
+        return {
+          segments: segments,
+          warnings: warnings,
+          reports: reports,
+          success: segments.length > 0
+        };
+      },
+      dispatchCurrentWindow: function () {
+        var windowMeta = this.getWindowMeta();
+        var payload;
+        var timeoutMs;
+        if (!windowMeta) {
+          this.finish();
+          return;
+        }
+        if (this.adaptiveSmallWindowsEnabled && this.modelKey === "triceratop" && this.currentAttempt === 0) {
+          this.runDirectSplitWindow(windowMeta, "adaptive_small_windows");
+          return;
+        }
+
+        this.currentAttemptType = this.currentAttempt > 0 ? "retry_full_window" : "main_window";
+        this.currentParentWindowIndex = this.currentAttemptType === "retry_full_window" ? windowMeta.index : -1;
+        this.currentSubWindowIndex = -1;
+        this.currentAttemptId = createTranscriptionSessionId();
+        this.currentWindowHasUsefulText = false;
+        this.currentWindowPartialTextLength = 0;
+        this.currentWindowExtendedWaitStarted = false;
+        payload = this.buildWindowPayload(windowMeta, this.currentAttempt > 0);
+        timeoutMs = getControlledWindowTimeoutMs(this.modelKey);
+        this.currentWindowStartMs = Date.now();
+        this.clearTimers();
+        this.currentWindowHeartbeat = setInterval(this.updateHeartbeat.bind(this), CONTROLLED_WINDOW_HEARTBEAT_MS);
+        this.currentWindowTimeout = setTimeout(this.handleTimeout.bind(this), timeoutMs);
+        setStatus(this.statusEl, "Transcribing window " + (windowMeta.index + 1) + " of " + this.windows.length + "...", "processing");
+        setProgressMessage("Transcribing window " + (windowMeta.index + 1) + " of " + this.windows.length + "...");
+        setProgress(Math.max(0, Math.min(98, this.getBaseProgress())));
+        worker.postMessage(payload, [payload.audio]);
+      },
+      handleTimeout: function () {
+        var windowMeta = this.getWindowMeta();
+        var elapsedMs = Math.max(0, Date.now() - this.currentWindowStartMs);
+        var extendedWaitMs;
+        var remainingMs;
+        var warningMessage;
+        if (!windowMeta) {
+          return;
+        }
+        if ((this.modelKey === "triceratop" || this.modelKey === "t-rex") && this.currentAttemptType === "main_window") {
+          if (!this.currentWindowHasUsefulText) {
+            this.abandonedFullWindowElapsedMs += elapsedMs;
+            this.pushRunReport({
+              windowIndex: windowMeta.index,
+              startSec: windowMeta.startSec,
+              endSec: windowMeta.endSec,
+              elapsedMs: elapsedMs,
+              textLength: this.currentWindowPartialTextLength,
+              action: "split_fallback_started",
+              reason: "no_useful_output_before_threshold"
+            });
+            this.startSplitFallback(windowMeta, "no_useful_output_before_threshold");
+            return;
+          }
+          extendedWaitMs = getControlledWindowExtendedWaitMs(this.modelKey);
+          if (!this.currentWindowExtendedWaitStarted && extendedWaitMs > elapsedMs) {
+            this.currentWindowExtendedWaitStarted = true;
+            this.pushRunReport({
+              windowIndex: windowMeta.index,
+              startSec: windowMeta.startSec,
+              endSec: windowMeta.endSec,
+              elapsedMs: elapsedMs,
+              textLength: this.currentWindowPartialTextLength,
+              action: "slow_window_warning",
+              reason: "useful_output_continuing"
+            });
+            warningMessage = "Still transcribing window " + (windowMeta.index + 1) + " of " + this.windows.length + "... This region is producing text, so we are giving it a bit more time.";
+            setStatus(this.statusEl, warningMessage, "processing");
+            setProgressMessage(warningMessage);
+            remainingMs = Math.max(1000, extendedWaitMs - elapsedMs);
+            this.currentWindowTimeout = setTimeout(this.handleTimeout.bind(this), remainingMs);
+            return;
+          }
+          this.abandonedFullWindowElapsedMs += elapsedMs;
+          this.pushRunReport({
+            windowIndex: windowMeta.index,
+            startSec: windowMeta.startSec,
+            endSec: windowMeta.endSec,
+            elapsedMs: elapsedMs,
+            textLength: this.currentWindowPartialTextLength,
+            action: "split_fallback_started",
+            reason: this.currentWindowExtendedWaitStarted ? "extended_wait_exhausted" : "window_timeout_soft"
+          });
+          this.startSplitFallback(windowMeta, this.currentWindowExtendedWaitStarted ? "extended_wait_exhausted" : "window_timeout_soft");
+          return;
+        }
+        this.pushRunReport({
+          windowIndex: windowMeta.index,
+          startSec: windowMeta.startSec,
+          endSec: windowMeta.endSec,
+          elapsedMs: elapsedMs,
+          textLength: 0,
+          action: "slow_window_warning",
+          reason: "window_timeout_soft"
+        });
+        warningMessage = "Still transcribing window " + (windowMeta.index + 1) + " of " + this.windows.length + "... This region is taking longer than usual.";
+        setStatus(this.statusEl, warningMessage, "processing");
+        setProgressMessage(warningMessage);
+      },
+      retryAsSplitWindows: async function (windowMeta, reason, splitWindows) {
+        splitWindows = Array.isArray(splitWindows) && splitWindows.length
+          ? splitWindows
+          : buildControlledRetrySplitWindows(windowMeta, this.sampleRate);
+        var index;
+        var segments = [];
+        var reports = [];
+        var warnings = [];
+        var payload;
+        var startMs;
+        var elapsedMs;
+        var result;
+        var text;
+        var splitWindow;
+        var microRetry;
+        for (index = 0; index < splitWindows.length; index += 1) {
+          splitWindow = splitWindows[index];
+          this.currentAttemptType = "retry_split_window";
+          this.currentParentWindowIndex = windowMeta.index;
+          this.currentSubWindowIndex = index;
+          this.currentAttemptId = createTranscriptionSessionId();
+          payload = this.buildWindowPayload(splitWindow, true);
+          startMs = Date.now();
+          result = null;
+          text = "";
+          try {
+            setStatus(this.statusEl, "Retrying difficult region " + (windowMeta.index + 1) + " as smaller parts...", "processing");
+            setProgressMessage("Retrying difficult region " + (windowMeta.index + 1) + " as smaller parts...");
+            worker.postMessage(payload, [payload.audio]);
+            result = await this.waitForSingleWindowResult();
+            text = result && typeof result.text === "string" ? result.text : "";
+            elapsedMs = Date.now() - startMs;
+            if (index === 0 && elapsedMs > CONTROLLED_FIRST_SPLIT_MICRO_RETRY_THRESHOLD_MS) {
+              reports.push({
+                attemptType: "retry_split_window",
+                parentWindowIndex: windowMeta.index,
+                subWindowIndex: index,
+                windowIndex: splitWindow.index,
+                startSec: splitWindow.startSec,
+                endSec: splitWindow.endSec,
+                elapsedMs: elapsedMs,
+                textLength: text.length,
+                action: "retry",
+                reason: "first_split_slow_micro_retry"
+              });
+              microRetry = await this.retryFirstSplitAsMicroWindows(windowMeta, splitWindow, "first_split_slow_micro_retry");
+              microRetry.reports.forEach(function (report) {
+                reports.push(report);
+              });
+              if (microRetry.success) {
+                mergeControlledWindowSegments(segments, microRetry.segments, this.overlapDedupDiagnostics);
+                microRetry.warnings.forEach(function (warning) {
+                  warnings.push(warning);
+                });
+                continue;
+              }
+            }
+            mergeControlledWindowSegments(segments, Array.isArray(result && result.segments) ? result.segments : [], this.overlapDedupDiagnostics);
+            (Array.isArray(result && result.warnings) ? result.warnings : []).forEach(function (warning) {
+              warnings.push(warning);
+            });
+            reports.push({
+              attemptType: "retry_split_window",
+              parentWindowIndex: windowMeta.index,
+              subWindowIndex: index,
+              windowIndex: splitWindow.index,
+              startSec: splitWindow.startSec,
+              endSec: splitWindow.endSec,
+              elapsedMs: elapsedMs,
+              textLength: text.length,
+              action: "accepted",
+              reason: reason || "retry_split_window"
+            });
+          } catch (error) {
+            elapsedMs = Date.now() - startMs;
+            reports.push({
+              attemptType: "retry_split_window",
+              parentWindowIndex: windowMeta.index,
+              subWindowIndex: index,
+              windowIndex: splitWindow.index,
+              startSec: splitWindow.startSec,
+              endSec: splitWindow.endSec,
+              elapsedMs: elapsedMs,
+              textLength: 0,
+              action: "empty",
+              reason: error && error.message ? error.message : "retry_split_window_failed"
+            });
+          }
+        }
+        this.currentAttemptType = "main_window";
+        this.currentParentWindowIndex = -1;
+        this.currentSubWindowIndex = -1;
+        return {
+          segments: segments,
+          warnings: warnings,
+          reports: reports,
+          success: segments.length > 0
+        };
+      },
+      waitForSingleWindowResult: function () {
+        var self = this;
+        return new Promise(function (resolve, reject) {
+          self._pendingSplitResolve = resolve;
+          self._pendingSplitReject = reject;
+        });
+      },
+      abandonCurrentAttemptAndSwapWorker: function () {
+        var staleWorker = worker;
+        var staleAttemptId = this.currentAttemptId;
+        var staleSessionId = this.sessionId;
+        var self = this;
+        var fallbackEvent = this.activeFallbackEvent;
+        if (staleWorker) {
+          staleWorker.onerror = function () {};
+          staleWorker.onmessageerror = function () {};
+          staleWorker.onmessage = function (event) {
+            var payload = event && event.data ? event.data : {};
+            if ((payload.sessionId || "") !== staleSessionId) {
+              return;
+            }
+            if ((payload.attemptId || "") !== staleAttemptId) {
+              return;
+            }
+            if (payload.type === "result" || payload.type === "error") {
+              self.ignoredLateResultCount += 1;
+              if (fallbackEvent) {
+                fallbackEvent.fullWindowSettledMs = Math.max(0, Date.now() - fallbackEvent.splitFallbackStartMs);
+                fallbackEvent.fullWindowLateResultReceived = true;
+                fallbackEvent.ignoredLateResultCount = self.ignoredLateResultCount;
+                if (payload.type === "result") {
+                  fallbackEvent.fullWindowPromiseResolvedAfterFallback = true;
+                } else {
+                  fallbackEvent.fullWindowPromiseRejectedAfterFallback = true;
+                }
+              }
+              try {
+                staleWorker.terminate();
+              } catch (error) {
+              }
+            }
+          };
+        }
+        if (fallbackEvent) {
+          fallbackEvent.workerRecycleRequested = true;
+          fallbackEvent.workerRecycleStartedMs = Date.now();
+        }
+        rebuildTranscribeWorkerOnly();
+        if (fallbackEvent) {
+          fallbackEvent.workerRecycleCompletedMs = Date.now();
+        }
+      },
+      startSplitFallback: function (windowMeta, reason) {
+        var self = this;
+        var fallbackEvent = {
+          parentWindowIndex: windowMeta ? windowMeta.index : -1,
+          fullWindowAttemptId: this.currentAttemptId || "",
+          splitFallbackReason: reason || "split_fallback",
+          splitFallbackStartMs: Date.now(),
+          firstSplitDurationSec: CONTROLLED_FIRST_FALLBACK_SPLIT_SECONDS,
+          firstSplitOverlapSec: CONTROLLED_FIRST_FALLBACK_OVERLAP_SECONDS,
+          fullWindowSettledMs: null,
+          fullWindowLateResultReceived: false,
+          fullWindowPromiseResolvedAfterFallback: false,
+          fullWindowPromiseRejectedAfterFallback: false,
+          ignoredLateResultCount: this.ignoredLateResultCount,
+          workerRecycleRequested: false,
+          workerRecycleStartedMs: null,
+          workerRecycleCompletedMs: null
+        };
+        this.clearTimers();
+        this.currentAttempt += 1;
+        this.splitFallbackCount += 1;
+        this.activeFallbackEvent = fallbackEvent;
+        this.fullWindowFallbackEvents.push(fallbackEvent);
+        this.abandonCurrentAttemptAndSwapWorker();
+        if (this.modelKey === "triceratop" && this.splitFallbackCount >= 2) {
+          this.recordAdaptiveSmallWindowsEnabled(windowMeta);
+        }
+        this.retryAsSplitWindows(windowMeta, reason).then(function (splitResult) {
+          fallbackEvent.splitFallbackFinishedMs = Date.now();
+          fallbackEvent.firstSplitWindowElapsedMs = splitResult.reports.length
+            ? Math.max(0, Number(splitResult.reports[0].elapsedMs) || 0)
+            : 0;
+          fallbackEvent.firstSplitMicroRetryUsed = splitResult.reports.some(function (report) {
+            return report && report.attemptType === "retry_split_micro_window";
+          });
+          fallbackEvent.firstSplitMicroRetryElapsedMs = splitResult.reports.reduce(function (sum, report) {
+            if (!report || report.attemptType !== "retry_split_micro_window") {
+              return sum;
+            }
+            return sum + Math.max(0, Number(report.elapsedMs) || 0);
+          }, 0);
+          self.activeFallbackEvent = null;
+          self.finalizeSplitWindowResult(splitResult);
+        }).catch(function () {
+          fallbackEvent.splitFallbackFinishedMs = Date.now();
+          self.activeFallbackEvent = null;
+          self.markWarning("weak_audio");
+          self.markWarning("repetition");
+          self.consecutiveEmptyWindows += 1;
+          if (self.consecutiveEmptyWindows >= 2) {
+            self.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
+            return;
+          }
+          self.completedWindows += 1;
+          self.currentWindowIndex += 1;
+          self.currentAttempt = 0;
+          self.dispatchCurrentWindow();
+        });
+      },
+      recoverLeadingHallucinationLoop: function (windowMeta, payload, loopInfo, elapsedMs) {
+        var self = this;
+        var originalSegments = Array.isArray(payload && payload.segments) ? payload.segments : [];
+        var filteredSegments = stripWindowHallucinationLoopSegments(originalSegments, loopInfo, this.overlapDedupDiagnostics);
+        var recoveryPlan = buildHallucinationLoopRecoveryWindows(windowMeta, this.sampleRate, loopInfo, this.timingSpeechSpans);
+        var recoveryStartMs;
+        var recoveryText;
+        var recoverySegments;
+        var recoveredInsideLoopCount;
+        var recoveredBeforeLoopEndCount;
+
+        this.leadingHallucinationRecoveryDone = true;
+        this.clearTimers();
+        this.currentAttemptType = "hallucination_loop_recovery";
+        this.currentParentWindowIndex = windowMeta.index;
+        this.currentSubWindowIndex = 0;
+        this.currentAttemptId = createTranscriptionSessionId();
+        this.overlapDedupDiagnostics.firstWindowHallucinationLoopDetected = true;
+        this.overlapDedupDiagnostics.firstWindowLoopStartSec = loopInfo.startSec;
+        this.overlapDedupDiagnostics.firstWindowLoopEndSec = loopInfo.endSec;
+        this.overlapDedupDiagnostics.firstWindowRealTextAfterLoopDetected = !!loopInfo.realTextAfterLoopDetected;
+        this.overlapDedupDiagnostics.firstWindowDroppedSegments = originalSegments.reduce(function (items, segment) {
+          if (
+            getOverlapSegmentSimilarityScore(loopInfo.normalizedText, segment && segment.text) >= 0.92
+            && !stripLeadingLoopText(loopInfo.textPreview, segment && segment.text)
+          ) {
+            items.push({
+              textPreview: buildSegmentLifecycleTextPreview(segment && segment.text),
+              start: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[0]) : null,
+              end: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[1]) : null,
+              reason: "leading_repeated_short_phrase_loop"
+            });
+          }
+          return items;
+        }, []);
+        this.overlapDedupDiagnostics.hallucinationLoopRecoveryTriggered = true;
+        this.overlapDedupDiagnostics.hallucinationLoopRecoveryMode = recoveryPlan && recoveryPlan.recoveryMode ? recoveryPlan.recoveryMode : "tail_only";
+        this.overlapDedupDiagnostics.hallucinationLoopRecoveryOriginalLoopStartSec = Number.isFinite(Number(recoveryPlan && recoveryPlan.originalLoopStartSec))
+          ? Number(recoveryPlan.originalLoopStartSec)
+          : null;
+        this.overlapDedupDiagnostics.hallucinationLoopRecoveryOriginalLoopEndSec = Number.isFinite(Number(recoveryPlan && recoveryPlan.originalLoopEndSec))
+          ? Number(recoveryPlan.originalLoopEndSec)
+          : null;
+        this.overlapDedupDiagnostics.hallucinationLoopRecoveryActualStartSec = Number.isFinite(Number(recoveryPlan && recoveryPlan.actualStartSec))
+          ? Number(recoveryPlan.actualStartSec)
+          : null;
+        this.overlapDedupDiagnostics.hallucinationLoopRecoveryActualEndSec = Number.isFinite(Number(recoveryPlan && recoveryPlan.actualEndSec))
+          ? Number(recoveryPlan.actualEndSec)
+          : null;
+        this.overlapDedupDiagnostics.hallucinationLoopRecoverySubwindowCount = Math.max(0, Math.round(Number(recoveryPlan && recoveryPlan.subwindowCount) || 0));
+        this.overlapDedupDiagnostics.hallucinationLoopRecoveryStartSec = this.overlapDedupDiagnostics.hallucinationLoopRecoveryActualStartSec;
+        this.overlapDedupDiagnostics.hallucinationLoopRecoveryEndSec = this.overlapDedupDiagnostics.hallucinationLoopRecoveryActualEndSec;
+        this.pushRunReport({
+          windowIndex: windowMeta.index,
+          startSec: windowMeta.startSec,
+          endSec: windowMeta.endSec,
+          elapsedMs: elapsedMs,
+          textLength: payload && typeof payload.text === "string" ? payload.text.length : 0,
+          action: "hallucination_loop_recovery_started",
+          reason: "leading_repeated_short_phrase_loop"
+        });
+        if (!recoveryPlan || !Array.isArray(recoveryPlan.windows) || !recoveryPlan.windows.length) {
+          this.overlapDedupDiagnostics.hallucinationLoopRecoveryFailedReason = "no_recovery_windows_built";
+          recordOverlapDedupDiagnostic(this.overlapDedupDiagnostics, {
+            action: "model_missed_after_hallucination_loop",
+            reason: "no_recovery_windows_built",
+            droppedSegmentStart: windowMeta.startSec,
+            droppedSegmentEnd: windowMeta.endSec
+          });
+          mergeControlledWindowSegments(this.aggregateSegments, filteredSegments, this.overlapDedupDiagnostics);
+          this.completedWindows += 1;
+          this.currentWindowIndex += 1;
+          this.currentAttempt = 0;
+          this.currentAttemptType = "main_window";
+          this.currentParentWindowIndex = -1;
+          this.currentSubWindowIndex = -1;
+          this.dispatchCurrentWindow();
+          return;
+        }
+        recoveryStartMs = Date.now();
+        setStatus(this.statusEl, "Recovering speech after a repeated intro loop...", "processing");
+        setProgressMessage("Recovering speech after a repeated intro loop...");
+        this.retryAsSplitWindows(windowMeta, "leading_hallucination_loop_recovery", recoveryPlan.windows).then(function (splitResult) {
+          splitResult = splitResult || {};
+          recoverySegments = Array.isArray(splitResult.segments) ? splitResult.segments : [];
+          recoveryText = getControlledWindowTranscriptText(recoverySegments);
+          recoveredInsideLoopCount = recoverySegments.filter(function (segment) {
+            var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp : null;
+            var start = timestamp ? Number(timestamp[0]) : NaN;
+            var end = timestamp ? Number(timestamp[1]) : NaN;
+            return Number.isFinite(start)
+              && Number.isFinite(end)
+              && end > (Number(loopInfo && loopInfo.startSec) || 0)
+              && start < (Number(loopInfo && loopInfo.endSec) || 0);
+          }).length;
+          recoveredBeforeLoopEndCount = recoverySegments.filter(function (segment) {
+            var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp : null;
+            var start = timestamp ? Number(timestamp[0]) : NaN;
+            return Number.isFinite(start) && start < (Number(loopInfo && loopInfo.endSec) || 0);
+          }).length;
+          self.overlapDedupDiagnostics.hallucinationLoopRecoveryTextLength = recoveryText.length;
+          self.overlapDedupDiagnostics.recoveredSegmentsInsideLoopRangeCount = recoveredInsideLoopCount;
+          self.overlapDedupDiagnostics.recoveredTextBeforeLoopEndCount = recoveredBeforeLoopEndCount;
+          self.overlapDedupDiagnostics.hallucinationLoopRecoveryAcceptedSegments = recoverySegments.map(function (segment) {
+            return {
+              textPreview: buildSegmentLifecycleTextPreview(segment && segment.text),
+              start: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[0]) : null,
+              end: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[1]) : null
+            };
+          });
+          (Array.isArray(splitResult.reports) ? splitResult.reports : []).forEach(function (report) {
+            self.pushRunReport(report);
+          });
+          self.pushRunReport({
+            attemptType: "hallucination_loop_recovery",
+            parentWindowIndex: windowMeta.index,
+            subWindowIndex: 0,
+            windowIndex: windowMeta.index,
+            startSec: recoveryPlan.actualStartSec,
+            endSec: recoveryPlan.actualEndSec,
+            elapsedMs: Date.now() - recoveryStartMs,
+            textLength: recoveryText.length,
+            action: recoverySegments.length ? "accepted" : "empty",
+            reason: "leading_hallucination_loop_recovery"
+          });
+          mergeControlledWindowSegments(self.aggregateSegments, filteredSegments, self.overlapDedupDiagnostics);
+          mergeControlledWindowSegments(self.aggregateSegments, recoverySegments, self.overlapDedupDiagnostics);
+          self.overlapDedupDiagnostics.firstWindowAcceptedSegments = filteredSegments.concat(recoverySegments).map(function (segment) {
+            return {
+              textPreview: buildSegmentLifecycleTextPreview(segment && segment.text),
+              start: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[0]) : null,
+              end: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[1]) : null
+            };
+          });
+          (Array.isArray(splitResult.warnings) ? splitResult.warnings : []).forEach(self.markWarning.bind(self));
+          self.consecutiveEmptyWindows = filteredSegments.length || recoverySegments.length ? 0 : self.consecutiveEmptyWindows + 1;
+          self.completedWindows += 1;
+          self.currentWindowIndex += 1;
+          self.currentAttempt = 0;
+          self.currentAttemptType = "main_window";
+          self.currentParentWindowIndex = -1;
+          self.currentSubWindowIndex = -1;
+          self.dispatchCurrentWindow();
+        }).catch(function (error) {
+          self.overlapDedupDiagnostics.hallucinationLoopRecoveryFailedReason = error && error.message ? error.message : "hallucination_loop_recovery_failed";
+          self.pushRunReport({
+            attemptType: "hallucination_loop_recovery",
+            parentWindowIndex: windowMeta.index,
+            subWindowIndex: 0,
+            windowIndex: windowMeta.index,
+            startSec: recoveryPlan && Number.isFinite(Number(recoveryPlan.actualStartSec)) ? Number(recoveryPlan.actualStartSec) : windowMeta.startSec,
+            endSec: recoveryPlan && Number.isFinite(Number(recoveryPlan.actualEndSec)) ? Number(recoveryPlan.actualEndSec) : windowMeta.endSec,
+            elapsedMs: Date.now() - recoveryStartMs,
+            textLength: 0,
+            action: "empty",
+            reason: self.overlapDedupDiagnostics.hallucinationLoopRecoveryFailedReason || "hallucination_loop_recovery_failed"
+          });
+          recordOverlapDedupDiagnostic(self.overlapDedupDiagnostics, {
+            action: "model_missed_after_hallucination_loop",
+            reason: self.overlapDedupDiagnostics.hallucinationLoopRecoveryFailedReason || "recovery_failed",
+            droppedSegmentStart: recoveryPlan && Number.isFinite(Number(recoveryPlan.actualStartSec)) ? Number(recoveryPlan.actualStartSec) : windowMeta.startSec,
+            droppedSegmentEnd: recoveryPlan && Number.isFinite(Number(recoveryPlan.actualEndSec)) ? Number(recoveryPlan.actualEndSec) : windowMeta.endSec
+          });
+          mergeControlledWindowSegments(self.aggregateSegments, filteredSegments, self.overlapDedupDiagnostics);
+          self.completedWindows += 1;
+          self.currentWindowIndex += 1;
+          self.currentAttempt = 0;
+          self.currentAttemptType = "main_window";
+          self.currentParentWindowIndex = -1;
+          self.currentSubWindowIndex = -1;
+          self.dispatchCurrentWindow();
+        });
+      },
+      acceptWindowResult: function (payload) {
+        var diagnostics = payload && payload.diagnostics ? payload.diagnostics : null;
+        var windowMeta = this.getWindowMeta();
+        var text = payload && typeof payload.text === "string" ? payload.text : "";
+        var segments = Array.isArray(payload && payload.segments) ? payload.segments : [];
+        var elapsedMs = Math.max(0, Date.now() - this.currentWindowStartMs);
+        var severity = getRunawayWindowSeverity(text.length);
+        var shouldSplitRetry = severity === "severe"
+          || (this.modelKey === "triceratop" && elapsedMs > 60000);
+        var leadingLoopInfo = null;
+        this.clearTimers();
+        if (diagnostics) {
+          this.finalDiagnostics = diagnostics;
+        }
+        segments.forEach(function (segment) {
+          recordSegmentLifecycleEvent(this.overlapDedupDiagnostics, segment, {
+            sourceStage: "worker_raw_output",
+            actionTaken: "received",
+            reason: "worker_result",
+            parentWindowIndex: windowMeta ? windowMeta.index : null,
+            windowStartSec: windowMeta ? windowMeta.startSec : null,
+            windowEndSec: windowMeta ? windowMeta.endSec : null,
+            textPreview: segment && segment.text
+          });
+        }, this);
+        if (windowMeta && windowMeta.index === 0) {
+          this.overlapDedupDiagnostics.firstWindowRawSegments = segments.map(function (segment) {
+            return {
+              textPreview: buildSegmentLifecycleTextPreview(segment && segment.text),
+              start: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[0]) : null,
+              end: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[1]) : null
+            };
+          });
+        }
+
+        if (this._pendingSplitResolve) {
+          var pendingResolve = this._pendingSplitResolve;
+          this._pendingSplitResolve = null;
+          this._pendingSplitReject = null;
+          pendingResolve(payload);
+          return;
+        }
+
+        if (
+          windowMeta
+          && windowMeta.index === 0
+          && this.currentAttemptType === "main_window"
+          && !this.leadingHallucinationRecoveryDone
+        ) {
+          leadingLoopInfo = detectWindowHallucinationLoop(segments, windowMeta);
+          if (leadingLoopInfo) {
+            this.recoverLeadingHallucinationLoop(windowMeta, payload, leadingLoopInfo, elapsedMs);
+            return;
+          }
+        }
+
+        if (shouldSplitRetry && this.currentAttempt < 1) {
+          var splitReason = severity === "severe" ? "runaway_text_severe" : "slow_full_window";
+          this.pushRunReport({
+            windowIndex: windowMeta.index,
+            startSec: windowMeta.startSec,
+            endSec: windowMeta.endSec,
+            elapsedMs: elapsedMs,
+            textLength: text.length,
+            action: "retry",
+            reason: splitReason
+          });
+          if (typeof this.startSplitFallback === "function") {
+            this.startSplitFallback(windowMeta, splitReason);
+          } else {
+            console.error("Controlled split fallback is unavailable for window", windowMeta && windowMeta.index, splitReason);
+            this.markWarning("weak_audio");
+            this.markWarning("repetition");
+            this.completedWindows += 1;
+            this.currentWindowIndex += 1;
+            this.currentAttempt = 0;
+            this.dispatchCurrentWindow();
+          }
+          return;
+        }
+
+        this.pushRunReport({
+          windowIndex: windowMeta.index,
+          startSec: windowMeta.startSec,
+          endSec: windowMeta.endSec,
+          elapsedMs: elapsedMs,
+          textLength: text.length,
+          action: "accepted",
+          reason: severity ? ("runaway_text_" + severity) : ""
+        });
+        mergeControlledWindowSegments(this.aggregateSegments, segments, this.overlapDedupDiagnostics);
+        (Array.isArray(payload && payload.warnings) ? payload.warnings : []).forEach(this.markWarning.bind(this));
+        if (severity) {
+          this.markWarning("repetition");
+        }
+        if (!text && !segments.length) {
+          this.consecutiveEmptyWindows += 1;
+        } else {
+          this.consecutiveEmptyWindows = 0;
+        }
+        if (this.consecutiveEmptyWindows >= 2) {
+          this.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
+          return;
+        }
+        this.completedWindows += 1;
+        this.currentWindowIndex += 1;
+        this.currentAttempt = 0;
+        this.dispatchCurrentWindow();
+      },
+      handleWindowError: function (payload) {
+        var windowMeta = this.getWindowMeta();
+        var elapsedMs = Math.max(0, Date.now() - this.currentWindowStartMs);
+        var errorMessage = payload && payload.message ? payload.message : "Window transcription failed";
+        if (!windowMeta) {
+          this.fail(new Error(errorMessage));
+          return;
+        }
+
+        this.clearTimers();
+        if (this._pendingSplitReject) {
+          var pendingReject = this._pendingSplitReject;
+          this._pendingSplitResolve = null;
+          this._pendingSplitReject = null;
+          pendingReject(new Error(errorMessage));
+          return;
+        }
+        if (this.currentAttempt < 1) {
+          this.pushRunReport({
+            windowIndex: windowMeta.index,
+            startSec: windowMeta.startSec,
+            endSec: windowMeta.endSec,
+            elapsedMs: elapsedMs,
+            textLength: 0,
+            action: "retry",
+            reason: errorMessage
+          });
+          this.currentAttempt += 1;
+          this.dispatchCurrentWindow();
+          return;
+        }
+
+        this.pushRunReport({
+          windowIndex: windowMeta.index,
+          startSec: windowMeta.startSec,
+          endSec: windowMeta.endSec,
+          elapsedMs: elapsedMs,
+          textLength: 0,
+          action: "empty",
+          reason: errorMessage
+        });
+        this.markWarning("weak_audio");
+        this.markWarning("repetition");
+        this.consecutiveEmptyWindows += 1;
+        if (this.consecutiveEmptyWindows >= 2) {
+          this.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
+          return;
+        }
+        this.completedWindows += 1;
+        this.currentWindowIndex += 1;
+        this.currentAttempt = 0;
+        this.dispatchCurrentWindow();
+      },
+      handleWorkerMessage: function (event, generation) {
+        var payload;
+        var type;
+        var windowMeta;
+        var baseProgress;
+        var percent;
+        var aggregateText;
+        var partialText;
+        if (!activeWindowedTranscriptionController || activeWindowedTranscriptionController !== this) {
+          return false;
+        }
+        if (generation !== workerGeneration) {
+          return false;
+        }
+
+        payload = event && event.data ? event.data : {};
+        if ((payload.sessionId || "") !== this.sessionId) {
+          return true;
+        }
+        if ((payload.attemptId || "") && this.currentAttemptId && (payload.attemptId !== this.currentAttemptId)) {
+          this.ignoredLateResultCount += 1;
+          return true;
+        }
+        type = payload.type;
+        windowMeta = this.getWindowMeta();
+        baseProgress = this.getBaseProgress();
+        if (!type || !windowMeta) {
+          return false;
+        }
+
+        if (type === "status") {
+          setStatus(this.statusEl, payload.message || ("Transcribing window " + (windowMeta.index + 1) + " of " + this.windows.length + "..."), "processing");
+          setProgressMessage(payload.message || "");
+          if (typeof payload.progress === "number") {
+            setProgress(Math.max(baseProgress, Math.min(98, Math.round(baseProgress + ((payload.progress / 100) * (100 / this.windows.length))))));
+          }
+          return true;
+        }
+
+        if (type === "progress") {
+          percent = typeof payload.value === "number"
+            ? Math.round(payload.value)
+            : Math.round((payload.current / payload.total) * 100);
+          setStatus(this.statusEl, "Transcribing window " + (windowMeta.index + 1) + " of " + this.windows.length + "...", "processing");
+          setProgressMessage(payload.message || ("Still transcribing window " + (windowMeta.index + 1) + " of " + this.windows.length + "..."));
+          setProgress(Math.max(baseProgress, Math.min(98, Math.round(baseProgress + ((percent / 100) * (100 / this.windows.length))))));
+          return true;
+        }
+
+        if (type === "update") {
+          aggregateText = getControlledWindowTranscriptText(this.aggregateSegments);
+          partialText = typeof payload.text === "string" ? payload.text : "";
+          (Array.isArray(payload && payload.segments) ? payload.segments : []).forEach(function (segment) {
+            if (windowMeta && windowMeta.index === 0 && this.overlapDedupDiagnostics.firstWindowLivePreviewFragments.length < 80) {
+              this.overlapDedupDiagnostics.firstWindowLivePreviewFragments.push({
+                textPreview: buildSegmentLifecycleTextPreview(segment && segment.text),
+                start: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[0]) : null,
+                end: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[1]) : null
+              });
+            }
+            recordSegmentLifecycleEvent(this.overlapDedupDiagnostics, segment, {
+              sourceStage: "live_preview",
+              actionTaken: "shown",
+              reason: "progressive_worker_update",
+              appearedInLivePreview: true,
+              parentWindowIndex: windowMeta.index,
+              windowStartSec: windowMeta.startSec,
+              windowEndSec: windowMeta.endSec,
+              textPreview: segment && segment.text
+            });
+          }, this);
+          this.currentWindowPartialTextLength = Math.max(this.currentWindowPartialTextLength, partialText.trim().length);
+          if (!this.currentWindowHasUsefulText && hasUsefulControlledWindowText(partialText)) {
+            this.currentWindowHasUsefulText = true;
+          }
+          partialText = (aggregateText ? (aggregateText + " " + partialText) : partialText).trim();
+          if (partialText) {
+            setLivePreview(
+              getPrimaryTranscribeRoot(),
+              partialText,
+              this.language || window.transcriptionDetectedLanguage || window.transcriptionSourceLanguage
+            );
+            refreshTranscribeLayout();
+          }
+          setStatus(this.statusEl, "Transcribing window " + (windowMeta.index + 1) + " of " + this.windows.length + "...", "processing");
+          return true;
+        }
+
+        if (type === "result") {
+          this.acceptWindowResult(payload);
+          return true;
+        }
+
+        if (type === "error") {
+          this.handleWindowError(payload);
+          return true;
+        }
+
+        if (type === "backend_status" || type === "model_ready" || type === "model_download_progress") {
+          return true;
+        }
+
+        return false;
+      },
+      start: function () {
+        var self = this;
+        activeWindowedTranscriptionController = this;
+        return new Promise(function (resolve, reject) {
+          self.resolve = resolve;
+          self.reject = reject;
+          self.dispatchCurrentWindow();
+        });
+      }
+    };
+
+    return controller;
   }
 
   function attachWorkerListeners(targetWorker, generation) {
@@ -5073,6 +8393,14 @@ function generateVTT(segments) {
         return;
       }
 
+      if (
+        activeWindowedTranscriptionController
+        && typeof activeWindowedTranscriptionController.handleWorkerMessage === "function"
+        && activeWindowedTranscriptionController.handleWorkerMessage(e, generation)
+      ) {
+        return;
+      }
+
       var type = e.data.type;
       var text = normalizeIncomingText(e.data.text);
       var segments = normalizeIncomingSegments(e.data.segments);
@@ -5081,8 +8409,25 @@ function generateVTT(segments) {
       var modelKey = e.data.modelKey || selectedTranscriptionModelKey;
       var model = getTranscriptionModeByKey(modelKey);
       var modelState = ensureTranscriptionModelState(modelKey);
+      var diagnostics = e.data && e.data.diagnostics ? e.data.diagnostics : null;
+      var messageSessionId = e.data && e.data.sessionId ? String(e.data.sessionId) : "";
+      var activeSessionId = activeTranscriptionContext && activeTranscriptionContext.sessionId
+        ? String(activeTranscriptionContext.sessionId)
+        : "";
+
+      if (messageSessionId && activeSessionId && messageSessionId !== activeSessionId) {
+        return;
+      }
 
       if (type === "loading") {
+        return;
+      }
+
+      if (type === "backend_status") {
+        window.__lastTranscriptionBackendStatus = diagnostics || e.data || null;
+        if (DEBUG_TRANSCRIPTION && window.console && typeof window.console.info === "function") {
+          console.info("[transcription-backend-status]", window.__lastTranscriptionBackendStatus);
+        }
         return;
       }
 
@@ -5159,9 +8504,6 @@ function generateVTT(segments) {
           setStatus(activeTranscriptionContext.statusEl, getModelStartStatus(e.data.loadState), "processing");
           setProgress(0);
           setProgressMessage("Transcribing in browser...");
-          if (!progressInterval) {
-            startFakeProgress(4, 90, "Transcribing in browser...");
-          }
         } else if (modelKey === selectedTranscriptionModelKey) {
           var warmupStatusEl = getPrimaryTranscribeStatusEl();
           if (warmupStatusEl) {
@@ -5191,8 +8533,9 @@ function generateVTT(segments) {
           setProgress(0);
           setProgressMessage("");
           syncTranscribeReadyState();
-          refreshTranscribeLayout();
-        }
+    refreshTranscribeLayout();
+  }
+
         return;
       }
 
@@ -5226,13 +8569,6 @@ function generateVTT(segments) {
       if (type === "status") {
         if (activeTranscriptionContext) {
           setStatus(activeTranscriptionContext.statusEl, message || "Transcribing in browser...", "processing");
-          if (message) {
-            if (String(message).indexOf("Finalizing") !== -1) {
-              startFakeProgress(getProgressValue(), 98, message);
-            } else if (!progressInterval) {
-              startFakeProgress(getProgressValue(), 90, message);
-            }
-          }
         }
         setProgressMessage(message || "");
         if (typeof progress === "number") {
@@ -5249,9 +8585,6 @@ function generateVTT(segments) {
         if (activeTranscriptionContext) {
           setStatus(activeTranscriptionContext.statusEl, "Transcribing in browser... " + percent + "%", "processing");
           setProgressMessage(progressMessage);
-          if (!progressInterval && percent < 100) {
-            startFakeProgress(percent, percent >= 90 ? 98 : 90, progressMessage);
-          }
         }
         setProgress(Math.max(0, Math.min(100, percent)));
         return;
@@ -5259,15 +8592,29 @@ function generateVTT(segments) {
 
       if (type === "update") {
         if (activeTranscriptionContext) {
-          var partialText = normalizeTranscriptTextForDisplay(text, activeTranscriptionContext.language);
-          if (partialText && activeTranscriptionContext.transcriptEl) {
-            activeTranscriptionContext.transcriptEl.textContent = partialText;
-            applyTranscriptDirection(
-              activeTranscriptionContext.transcriptEl,
+          var partialText = RAW_WHISPER_PASSTHROUGH
+            ? (typeof text === "string" ? text : "")
+            : normalizeTranscriptTextForDisplay(text, activeTranscriptionContext.language);
+          if (partialText) {
+            setLivePreview(
+              getPrimaryTranscribeRoot(),
+              partialText,
               activeTranscriptionContext.language || window.transcriptionDetectedLanguage || window.transcriptionSourceLanguage
             );
+            refreshTranscribeLayout();
           }
           setStatus(activeTranscriptionContext.statusEl, "Transcribing in browser...", "processing");
+        }
+        return;
+      }
+
+      if (type === "arabic_prompt_debug") {
+        var promptPayload = e.data && e.data.payload ? e.data.payload : null;
+        if (promptPayload) {
+          if (promptPayload.inspectionType === "runtime_capabilities") {
+            window.__lastArabicPromptInspection = promptPayload;
+          }
+          window.__lastArabicPromptStatus = promptPayload;
         }
         return;
       }
@@ -5275,11 +8622,19 @@ function generateVTT(segments) {
       if (type === "result") {
         stopFakeProgress();
         stopProgressMessages(false);
+        window.__lastTranscriptionRunDiagnostics = diagnostics || null;
+        if (DEBUG_TRANSCRIPTION && window.console && typeof window.console.info === "function" && diagnostics) {
+          console.info("[transcription-run-diagnostics]", diagnostics);
+        }
         var activeLanguage = activeTranscriptionContext && activeTranscriptionContext.language;
-        const finalSegments = buildSubtitles(segments || [], activeLanguage);
+        const finalSegments = RAW_WHISPER_PASSTHROUGH
+          ? (Array.isArray(segments) ? segments : [])
+          : buildSubtitles(segments || [], activeLanguage);
         window.currentSegments = finalSegments;
         handleTranscriptionResult(
-          normalizeTranscriptTextForDisplay(text, activeLanguage),
+          RAW_WHISPER_PASSTHROUGH
+            ? (typeof text === "string" ? text : "")
+            : normalizeTranscriptTextForDisplay(text, activeLanguage),
           finalSegments,
           e.data.warnings
         );
@@ -5287,7 +8642,17 @@ function generateVTT(segments) {
       }
 
       if (type === "error") {
+        clearResultTransition(getPrimaryTranscribeRoot());
+        clearLivePreview(getPrimaryTranscribeRoot());
+        window.__lastTranscriptionRunDiagnostics = diagnostics || null;
+        if (DEBUG_TRANSCRIPTION && window.console && typeof window.console.info === "function" && diagnostics) {
+          console.info("[transcription-run-diagnostics]", diagnostics);
+        }
         var context = activeTranscriptionContext;
+        if (isBusyWorkerError(e.data || {})) {
+          recoverFromBusyWorker(context);
+          return;
+        }
         if (context && tryKnownTranscriptionFallback(context, e.data || {})) {
           return;
         }
@@ -5304,6 +8669,7 @@ function generateVTT(segments) {
     var selectedModel = getTranscriptionModeByKey(modelKey) || getSelectedTranscriptionMode();
     var isPreparedModelReady = activePreparedModelKey === modelKey && modelWarmState === "ready";
     var keepLoadedAudioOnFailure = false;
+    var transcriptionSessionId = createTranscriptionSessionId();
 
     // Prevent concurrent processing
     if (!audio || activeTranscriptionContext || (processingLocked && !isPreparedModelReady)) {
@@ -5350,6 +8716,8 @@ function generateVTT(segments) {
     setTranscribeButtonState(startBtn, false);
     setTranslationButtonsState(translateBtn, null, null, null, false);
     input.disabled = true;
+    clearResultTransition(getPrimaryTranscribeRoot());
+    clearLivePreview(getPrimaryTranscribeRoot());
 
     try {
       await ensureTranscriptionAudioContextReady(audioContext);
@@ -5413,6 +8781,7 @@ function generateVTT(segments) {
         input: input,
         audioContext: audioContext,
         duration: audio.duration,
+        sessionId: transcriptionSessionId,
         afterRunCleanup: afterRunCleanup
       };
 
@@ -5420,22 +8789,72 @@ function generateVTT(segments) {
       var shouldReleaseDecodedAudio = !!audio.phoneOptimized || isSafariLikeBrowser();
       var transferBuffer = resampled.buffer;
       var mobileVadSpans = [];
+      var timingSpeechSpans = [];
       var sessionPathLabel = audio.phoneOptimized
         ? "Standard mobile chunking."
-        : "Desktop browser path.";
+        : "Transformers.js sliding-window chunking.";
 
-      if (shouldUseMobileVad(audio, resampled)) {
+      if (shouldUseTranscriptionVad(audio, resampled)) {
         try {
           setStatus(statusEl, "Analyzing speech regions...", "processing");
           setProgressMessage("Analyzing speech regions...");
           setProgress(Math.max(6, getProgressValue()));
           mobileVadSpans = await requestMobileVadSpans(resampled);
           if (mobileVadSpans.length) {
-            sessionPathLabel = "VAD-assisted speech chunking.";
+            sessionPathLabel = "Experimental VAD-selected chunks.";
           }
         } catch (vadError) {
           mobileVadSpans = [];
         }
+      }
+
+      if (!mobileVadSpans.length && shouldUseControlledDesktopWindows(audio, resampled)) {
+        var controlledWindows = buildControlledDesktopWindowPlan(resampled.length, 16000);
+        var controlledController;
+        var controlledResult;
+        var controlledSlices = controlledWindows.map(function (windowMeta) {
+          return inspectControlledWindowSlice(resampled, windowMeta);
+        });
+        try {
+          setStatus(statusEl, "Checking speech timing...", "processing");
+          setProgressMessage("Checking speech timing...");
+          setProgress(Math.max(6, getProgressValue()));
+          timingSpeechSpans = await requestMobileVadSpans(resampled);
+        } catch (timingVadError) {
+          timingSpeechSpans = [];
+        }
+        sessionPathLabel = "App-controlled 29s desktop windows.";
+        setTranscriptionSessionPathLabel(sessionPathLabel);
+        controlledController = createControlledWindowTranscriptionController({
+          sessionId: transcriptionSessionId,
+          modelKey: modelKey,
+          language: selectedLanguage,
+          statusEl: statusEl,
+          windows: controlledWindows,
+          sliceReports: controlledSlices,
+          audioData: resampled,
+          sampleRate: 16000,
+          timingSpeechSpans: timingSpeechSpans,
+          releaseDecodedAudio: shouldReleaseDecodedAudio,
+          sourceAudioRecord: audio
+        });
+        controlledResult = await controlledController.start();
+        stopFakeProgress();
+        stopProgressMessages(false);
+        window.__lastTranscriptionRunDiagnostics = controlledResult && controlledResult.diagnostics ? controlledResult.diagnostics : null;
+        window.currentSegments = Array.isArray(controlledResult && controlledResult.segments) ? controlledResult.segments : [];
+        handleTranscriptionResult(
+          controlledResult && typeof controlledResult.text === "string" ? controlledResult.text : "",
+          window.currentSegments,
+          controlledResult && Array.isArray(controlledResult.warnings) ? controlledResult.warnings : []
+        );
+        if (controlledResult && controlledResult.partialMessage) {
+          setStatus(statusEl, controlledResult.partialMessage, "warning");
+        }
+        scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
+        processedData = null;
+        resampled = null;
+        return;
       }
 
       setTranscriptionSessionPathLabel(sessionPathLabel);
@@ -5444,6 +8863,7 @@ function generateVTT(segments) {
         mobileVadSpans.length
           ? {
               type: "transcribe_vad_chunks",
+              sessionId: transcriptionSessionId,
               modelKey: modelKey,
               audio: transferBuffer,
               speechSpans: mobileVadSpans,
@@ -5451,6 +8871,7 @@ function generateVTT(segments) {
             }
           : {
               type: "transcribe",
+              sessionId: transcriptionSessionId,
               modelKey: modelKey,
               audio: transferBuffer,
               selectedLanguage: selectedLanguage
@@ -5495,7 +8916,14 @@ function generateVTT(segments) {
         processingLocked = false;
         setTranscribeButtonState(startBtn, false);
         setEnhanceToggleState(document.getElementById("enhance-audio"), true);
-        if (keepLoadedAudioOnFailure) {
+        if (hasTranscriptResults()) {
+          clearTranscriptionRecoveryState();
+          stopFakeProgress();
+          stopProgressMessages();
+          setProgress(100);
+          syncTranscribeReadyState();
+          refreshTranscribeLayout();
+        } else if (keepLoadedAudioOnFailure) {
           clearTranscriptionRecoveryState();
           stopFakeProgress();
           stopProgressMessages();
@@ -5880,6 +9308,7 @@ function generateVTT(segments) {
       srtContent = "";
       vttContent = "";
       window.currentTranscript = "";
+      window.currentRawTranscript = "";
       window.currentSegments = [];
       window.translatedTranscript = "";
       window.translatedTitle = "";
@@ -5908,6 +9337,11 @@ function generateVTT(segments) {
 
     function resetSessionWorker(options) {
       var shouldRebuild = !options || options.rebuild !== false;
+
+      if (activeWindowedTranscriptionController && typeof activeWindowedTranscriptionController.clearTimers === "function") {
+        activeWindowedTranscriptionController.clearTimers();
+      }
+      activeWindowedTranscriptionController = null;
 
       clearIdleUnloadTimer();
       stopLockHeartbeat();
@@ -6186,15 +9620,47 @@ function generateVTT(segments) {
           return;
         }
         previewEditMode = !previewEditMode;
+        if (!previewEditMode) {
+          getActiveSegments().forEach(function (segment) {
+            recordSegmentLifecycleEvent(window.__lastTranscriptionRunDiagnostics || null, segment, {
+              sourceStage: "edited_segment",
+              actionTaken: "edited",
+              reason: "done_editing_clicked",
+              finalStart: segment && segment.timestamp ? segment.timestamp[0] : null,
+              finalEnd: segment && segment.timestamp ? segment.timestamp[1] : null,
+              textPreview: getSegmentText(segment, window.currentTab === "translated")
+            });
+          });
+          refreshTranscriptionLifecycleDebugReport(window.__lastTranscriptionRunDiagnostics || null);
+          if (window.currentTab === "translated") {
+            window.translatedTranscript = rebuildCanonicalTranscriptFromSegments(getActiveSegments(), true);
+          } else {
+            window.currentTranscript = rebuildCanonicalTranscriptFromSegments(getActiveSegments(), false);
+          }
+        }
         updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
       });
     }
     if (restartBtn) {
       restartBtn.addEventListener("click", function () {
-        softResetTranscriptionShell({
-          resetStatusText: true,
-          preserveInputValue: false
-        });
+        var shouldHardReset = !!(
+          processingLocked
+          || activeTranscriptionContext
+          || pendingTranscriptionStart
+          || modelWarmState === "loading"
+          || modelWarmState === "blocked"
+        );
+        if (shouldHardReset) {
+          hardResetTranscriptionShell({
+            resetStatusText: true,
+            rebuildWorker: true
+          });
+        } else {
+          softResetTranscriptionShell({
+            resetStatusText: true,
+            preserveInputValue: false
+          });
+        }
         showPrimaryTranscriptionUploadShell();
       });
     }
@@ -6391,14 +9857,14 @@ function generateVTT(segments) {
 
         if (window.currentTab === "translated") {
           activeSegments[index].translatedText = nextText;
-          window.translatedTranscript = getSegmentsParagraphText(activeSegments, true);
+          window.translatedTranscript = rebuildCanonicalTranscriptFromSegments(activeSegments, true);
           updateExportLabels(txtBtn, srtBtn, vttBtn);
         } else {
           if (hasTranslatedSegments() || window.translatedTranscript) {
             clearTranslatedState();
           }
           activeSegments[index].editedText = nextText;
-          window.currentTranscript = getSegmentsParagraphText(activeSegments);
+          window.currentTranscript = rebuildCanonicalTranscriptFromSegments(activeSegments, false);
           updateExportLabels(txtBtn, srtBtn, vttBtn);
           syncTranslationReadyState();
           updateToolLayout(root);
@@ -6423,9 +9889,10 @@ function generateVTT(segments) {
           window.currentTab = nextTab;
           updateTranscriptView(transcriptEl, originalTabBtn, translatedTabBtn, editBtn);
           updateExportLabels(txtBtn, srtBtn, vttBtn);
-        });
       });
-    }
+    });
+  }
+
     if (startBtn) {
       startBtn.addEventListener("click", async function () {
         if (!window.transcriptionAudio || processingLocked) {

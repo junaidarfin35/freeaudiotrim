@@ -3352,6 +3352,7 @@ body.audio-converter-page #audio-tool .at-tools {
   gap: 12px;
   width: 100%;
   padding: 8px;
+  border-radius: 20px;
   overflow: visible;
 }
 
@@ -3659,12 +3660,25 @@ body.audio-converter-page #audio-tool .at-tools {
   color: var(--color-text-muted);
 }
 
+.at-global-confetti-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
 #audio-tool .at-transcript-player {
   width: 100%;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 6px 0 2px;
+}
+
+html[dir="rtl"] #audio-tool .at-transcript-player {
+  direction: ltr;
 }
 
 #audio-tool .at-transcript-player-toggle {
