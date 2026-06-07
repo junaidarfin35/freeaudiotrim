@@ -123,7 +123,7 @@ function getMobileRuntimeProfile() {
       chunkLengthSeconds: MOBILE_SAFARI_CHUNK_LENGTH_SECONDS,
       strideLengthSeconds: MOBILE_SAFARI_STRIDE_LENGTH_SECONDS,
       quantized: true,
-      partialUpdates: false,
+      partialUpdates: true,
       timestampsEnabled: true,
       pathLabel: "mobile-safari-base",
       preferredModelId: "Xenova/whisper-base"

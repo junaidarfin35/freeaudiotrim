@@ -4469,7 +4469,15 @@
       '    <div class="at-help" data-role="processingHint">Transcription runs entirely in your browser, so your media never leaves your device.</div>',
       '    <div class="at-help at-help-session is-hidden" data-role="sessionPath"></div>',
       '    <div class="at-help at-live-preview is-hidden" data-role="livePreviewRow">',
-      '      <strong>Live preview:</strong> <span data-role="livePreviewText"></span>',
+      '      <div class="at-live-preview__heading"><span class="at-live-preview__heading-icon" aria-hidden="true">' +
+        '<svg class="at-ai-icon" viewBox="0 0 404.07 375.26" focusable="false" aria-hidden="true">' +
+          '<path class="at-ai-icon__star at-ai-icon__star--main" d="M141.3,117.44l18.05,49.37c8.34,22.8,26.3,40.76,49.1,49.1l49.37,18.05c8.56,3.13,8.56,15.23,0,18.36l-49.37,18.05c-22.8,8.34-40.76,26.3-49.1,49.1l-18.05,49.37c-3.13,8.56-15.23,8.56-18.36,0l-18.05-49.37c-8.34-22.8-26.3-40.76-49.1-49.1l-49.37-18.05c-8.56-3.13-8.56-15.23,0-18.36l49.37-18.05c22.8-8.34,40.76-26.3,49.1-49.1l18.05-49.37c3.12-8.56,15.23-8.56,18.36,0Z"></path>' +
+          '<path class="at-ai-icon__star at-ai-icon__star--small" d="M197.2,2.37l6.67,18.24c3.08,8.42,9.72,15.06,18.14,18.14l18.24,6.67c3.16,1.16,3.16,5.63,0,6.78l-18.24,6.67c-8.42,3.08-15.06,9.72-18.14,18.14l-6.67,18.24c-1.16,3.16-5.63,3.16-6.78,0l-6.67-18.24c-3.08-8.42-9.72-15.06-18.14-18.14l-18.24-6.67c-3.16-1.16-3.16-5.63,0-6.78l18.24-6.67c8.42-3.08,15.06-9.72,18.14-18.14l6.67-18.24c1.15-3.16,5.63-3.16,6.78,0Z"></path>' +
+          '<path class="at-ai-icon__star at-ai-icon__star--side" d="M330.87,106.61l10.75,29.39c4.96,13.57,15.66,24.27,29.23,29.23l29.39,10.75c5.1,1.86,5.1,9.07,0,10.93l-29.39,10.75c-13.57,4.96-24.27,15.66-29.23,29.23l-10.75,29.39c-1.86,5.1-9.07,5.1-10.93,0l-10.75-29.39c-4.96-13.57-15.66-24.27-29.23-29.23l-29.39-10.75c-5.1-1.86-5.1-9.07,0-10.93l29.39-10.75c13.57-4.96,24.27-15.66,29.23-29.23l10.75-29.39c1.86-5.1,9.07-5.1,10.93,0Z"></path>' +
+        '</svg>' +
+      '</span><span>Live preview</span></div>',
+      '      <div class="at-live-preview__divider" aria-hidden="true"></div>',
+      '      <div class="at-live-preview__body"><span data-role="livePreviewText"></span></div>',
       "    </div>",
       '    <button class="at-btn at-btn-soft is-hidden" type="button" data-role="extractAudioCta">Open audio extractor</button>',
       "  </div>",
@@ -4564,6 +4572,12 @@
       '    <button class="at-btn" data-role="downloadTxt" disabled>Download TXT</button>',
       '    <button class="at-btn" data-role="downloadSrt" disabled>Download SRT</button>',
       '    <button class="at-btn" data-download-vtt disabled>Download VTT</button>',
+      "  </div>",
+      '  <div class="at-row is-hidden" data-role="voiceStudioHintRow">',
+      '    <div class="at-followup-card">',
+      '      <strong>Need a cleaner transcript?</strong>',
+      '      <span>If you are not happy with the transcription results, background music, room noise, or weak recordings may be affecting accuracy. Try cleaning the voice first in our <a href="/ai-voice-studio.html">AI Voice Studio</a>, or use T-Rex if your hardware supports it.</span>',
+      "    </div>",
       "  </div>",
       "</div>"
     ].join("");
@@ -5098,7 +5112,11 @@
 
     setElementVisible(root.querySelector('[data-role="progressRow"]'), isPreparing || isModelLoading);
     setElementVisible(root.querySelector('[data-role="processingInfo"]'), showSetup || isProcessing || isModelLoading || isResultTransitionActive);
-    setElementVisible(root.querySelector('[data-role="livePreviewRow"]'), (isProcessing || isResultTransitionActive) && !!livePreviewText);
+    var livePreviewRow = root.querySelector('[data-role="livePreviewRow"]');
+    setElementVisible(livePreviewRow, isProcessing || (isResultTransitionActive && !!livePreviewText));
+    if (livePreviewRow) {
+      livePreviewRow.classList.toggle("is-live", !!isProcessing);
+    }
     setElementVisible(processingHintEl, !isProcessing && (showSetup || isModelLoading || isResultTransitionActive));
     setElementVisible(sessionPathEl, !isProcessing && !!transcriptionSessionPathLabel);
     setElementVisible(root.querySelector('[data-role="modelRow"]'), showSetup);
@@ -5112,6 +5130,7 @@
     setElementVisible(translateEntryBtn, showTranslateEntry);
     setElementVisible(chatgptEntryBtn, showChatgptEntry);
     setElementVisible(root.querySelector('[data-role="exportRow"]'), showResults);
+    setElementVisible(root.querySelector('[data-role="voiceStudioHintRow"]'), showResults);
     setElementVisible(root.querySelector('[data-role="restartBtn"]'), hasAudioReady || hasRecoveryState || isPreparing || isProcessing || showResults);
     setElementVisible(translationPanel, showResults && builtInTranslationAllowed && !!root.__translationSetupOpen && !isProcessing);
     updateTranslateEntryButton(translateEntryBtn, root, hasResults, hasTranslation, isProcessing);
