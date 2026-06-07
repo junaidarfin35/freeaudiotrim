@@ -6,12 +6,9 @@
   const PAGE_INPUT_ID = "audioFileInput";
   const MAX_DURATION_SECONDS = 10 * 60;
   const DEFAULT_PRESET = "creator";
-  const DEFAULT_SLIDERS = {
-    noiseReduction: 88,
-    clarityFocus: 58,
-    voiceDepth: 56,
-    broadcastReady: 62,
-  };
+  const BRAND_OUTRO_URL = "/assets/brand/freeaudiotrim-outro.aac?v=2026-06-06-1";
+  const BRAND_OUTRO_FADE_SECONDS = 0.12;
+  let brandOutroBufferPromise = null;
   if (!engineApi || !voiceApi) {
     errorLog("tool boot failed", {
       hasAudioEngine: !!engineApi,
@@ -32,12 +29,12 @@
     renderMeta: null,
     tooLong: false,
     downloadUrl: "",
-    compareHeld: false,
     hasEnhanced: false,
     needsEnhance: true,
     isEnhancing: false,
+    enhanceProgress: 0,
+    enhanceProgressTimer: 0,
     currentMode: "modified",
-    preHoldMode: "modified",
     activeFile: null,
     userPresetLocked: false,
   };
@@ -56,32 +53,20 @@
     seekBar: root.querySelector("#seekBar"),
     enhanceBtn: root.querySelector("#enhanceBtn"),
     previewBtn: root.querySelector("#previewBtn"),
-    compareHoldBtn: root.querySelector("#compareHoldBtn"),
     exportBtn: root.querySelector("#exportBtn"),
     modeButtons: {
       original: root.querySelector('#modeOriginalBtn'),
       modified: root.querySelector('#modeEnhancedBtn'),
     },
-    advancedDetails: root.querySelector("#advancedControls"),
     downloadLink: root.querySelector("#downloadLink"),
     status: root.querySelector("#status"),
+    progressShell: root.querySelector("#statusProgress"),
+    progressFill: root.querySelector("#statusProgressFill"),
+    progressPercent: root.querySelector("#statusProgressPercent"),
+    progressStage: root.querySelector("#statusProgressStage"),
     metaNote: root.querySelector('[data-role="renderMetaNote"]'),
-    sourceDuration: root.querySelector("#sourceDuration"),
-    processedDuration: root.querySelector("#processedDuration"),
     targetBadge: root.querySelector("#targetBadge"),
     presetCards: Array.from(root.querySelectorAll("[data-preset]")),
-    sliders: {
-      noiseReduction: root.querySelector("#noiseReductionRange"),
-      clarityFocus: root.querySelector("#clarityFocusRange"),
-      voiceDepth: root.querySelector("#voiceDepthRange"),
-      broadcastReady: root.querySelector("#broadcastReadyRange"),
-    },
-    sliderValues: {
-      noiseReduction: root.querySelector("#noiseReductionValue"),
-      clarityFocus: root.querySelector("#clarityFocusValue"),
-      voiceDepth: root.querySelector("#voiceDepthValue"),
-      broadcastReady: root.querySelector("#broadcastReadyValue"),
-    },
   };
 
   const engine = new engineApi.AudioEngine({
@@ -112,10 +97,7 @@
       }
       applySettings({ silent: true });
     },
-    onBuffer: ({ originalDuration, processedDuration }) => {
-      elements.sourceDuration.textContent = `Original ${engineApi.formatTime(originalDuration)}`;
-      elements.processedDuration.textContent = `Enhanced ${engineApi.formatTime(processedDuration)}`;
-    },
+    onBuffer: () => {},
     onStateChange: updateState,
   });
 
@@ -127,10 +109,10 @@
   if (typeof voiceApi.prewarmWorker === "function") {
     void voiceApi.prewarmWorker()
       .then((runtimeInfo) => {
-        info("rnnoise runtime detected", runtimeInfo);
+        info("voice model runtime detected", runtimeInfo);
       })
       .catch((error) => {
-        warn("rnnoise runtime unavailable", {
+        warn("voice model runtime unavailable", {
           error: error instanceof Error ? error.message : String(error),
         });
       });
@@ -139,7 +121,6 @@
   window.__audioEngine = engine;
   bindEvents();
   prepareDownloadButton();
-  updateSliderLabels();
   updatePresetCards();
   updateModeButtons();
   updateRenderMeta();
@@ -193,27 +174,17 @@
         state.preset = card.getAttribute("data-preset") || DEFAULT_PRESET;
         state.userPresetLocked = true;
         updatePresetCards();
+        if (typeof voiceApi.prewarmWorker === "function") {
+          void voiceApi.prewarmWorker(state.preset).catch((error) => {
+            warn("preset worker prewarm failed", {
+              preset: state.preset,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+        }
         pauseBeforeUpdate();
         applySettings({ silent: true });
-        markNeedsEnhance(`Preset changed to ${voiceApi.PRESETS[state.preset]?.label || "Creator"}. Click Enhance Voice to render the new sound.`);
-      });
-    });
-
-    Object.entries(elements.sliders).forEach(([key, input]) => {
-      if (!input) {
-        return;
-      }
-      input.addEventListener("input", () => {
-        updateSliderLabels();
-      });
-      input.addEventListener("change", () => {
-        pauseBeforeUpdate();
-        applySettings({ silent: true });
-        markNeedsEnhance(`Advanced controls changed. Click Enhance Voice to update the result.`);
-        info("advanced control changed", {
-          control: key,
-          value: readSlider(key),
-        });
+        markNeedsEnhance(`Preset changed to ${voiceApi.PRESETS[state.preset]?.label || "Fast Clean"}. Click Enhance Voice to render the new sound.`);
       });
     });
 
@@ -239,9 +210,6 @@
         }
       });
     }
-
-    bindHoldCompare();
-
     document.addEventListener("keydown", (event) => {
       if (event.code !== "Space" || isTypingTarget(event.target)) {
         return;
@@ -252,62 +220,6 @@
       }
       void togglePreviewPlayback();
     });
-  }
-
-  function bindHoldCompare() {
-    const button = elements.compareHoldBtn;
-    if (!button) {
-      return;
-    }
-
-    const holdStart = (event) => {
-      if (!canUseProcessedActions() || !engine.originalBuffer) {
-        return;
-      }
-      if (event) {
-        event.preventDefault();
-      }
-      state.compareHeld = true;
-      state.preHoldMode = state.currentMode || "modified";
-      button.classList.add("is-active");
-      button.textContent = "Release to return";
-      info("hold-to-compare start", {
-        fromMode: state.preHoldMode,
-      });
-      void switchMode("original", { silentStatus: true, isTemporary: true });
-    };
-
-    const holdEnd = (event) => {
-      if (!state.compareHeld) {
-        return;
-      }
-      if (event) {
-        event.preventDefault();
-      }
-      state.compareHeld = false;
-      button.classList.remove("is-active");
-      button.textContent = "Hold to compare";
-      info("hold-to-compare end", {
-        restoreMode: state.preHoldMode || "modified",
-      });
-      void switchMode(state.preHoldMode || "modified", { silentStatus: true, isTemporary: true });
-    };
-
-    button.addEventListener("pointerdown", holdStart);
-    button.addEventListener("pointerup", holdEnd);
-    button.addEventListener("pointercancel", holdEnd);
-    button.addEventListener("pointerleave", holdEnd);
-    button.addEventListener("keydown", (event) => {
-      if (event.code === "Space" || event.code === "Enter") {
-        holdStart(event);
-      }
-    });
-    button.addEventListener("keyup", (event) => {
-      if (event.code === "Space" || event.code === "Enter") {
-        holdEnd(event);
-      }
-    });
-    button.addEventListener("blur", holdEnd);
   }
 
   function pauseBeforeUpdate() {
@@ -321,14 +233,10 @@
     const settings = {
       preset: state.preset,
       analysisProfile: state.analysisProfile,
-      noiseReduction: readSlider("noiseReduction"),
-      clarityFocus: readSlider("clarityFocus"),
-      voiceDepth: readSlider("voiceDepth"),
-      broadcastReady: readSlider("broadcastReady"),
     };
 
     engine.setSettings(settings);
-    elements.targetBadge.textContent = `Preset ${voiceApi.PRESETS[state.preset]?.label || "Creator"}`;
+    elements.targetBadge.textContent = `Preset ${voiceApi.PRESETS[state.preset]?.label || "Fast Clean"}`;
     if (!options.silent && !state.tooLong) {
       setStatus("Settings updated. Click Enhance Voice when you want a fresh render.", "ready");
     }
@@ -349,13 +257,13 @@
     state.renderMeta = null;
     state.analysisProfile = null;
     state.tooLong = false;
-    state.compareHeld = false;
     state.hasEnhanced = false;
     state.needsEnhance = true;
     state.currentMode = "original";
     state.userPresetLocked = false;
     engine.reset();
     clearDownload();
+    resetEnhanceProgress();
     updateRenderMeta();
     updateModeButtons();
     setStatus("Loading voice recording...", "processing");
@@ -422,9 +330,10 @@
     state.isEnhancing = true;
     updateActionState();
     clearDownload();
+    startEnhanceProgress();
     setStatus("Enhancing voice locally in your browser...", "processing");
     info("enhancement requested", {
-      preset: voiceApi.PRESETS[state.preset]?.label || "Creator",
+      preset: voiceApi.PRESETS[state.preset]?.label || "Fast Clean",
       fileName: state.activeFile?.name || engine.fileName,
     });
 
@@ -434,16 +343,19 @@
       state.needsEnhance = false;
       await switchMode("modified", { silentStatus: true });
       if (state.renderMeta?.fallbackReason) {
+        completeEnhanceProgress(false);
         warn("fallback path used for this render", {
           reason: state.renderMeta.fallbackReason,
         });
         setStatus(state.renderMeta.fallbackReason, "warning");
       } else {
-        setStatus("Enhanced voice ready. Play it, compare it, or download it.", "success");
+        completeEnhanceProgress(true);
+        setStatus("Enhanced voice ready. Preview it, switch modes, or download it.", "success");
       }
     } catch (error) {
       state.hasEnhanced = false;
       state.needsEnhance = true;
+      completeEnhanceProgress(false);
       errorLog("final render failure", {
         error: error instanceof Error ? error.message : String(error),
       });
@@ -458,11 +370,13 @@
   async function exportAudio() {
     clearDownload();
     info("export started", {
-      preset: voiceApi.PRESETS[state.preset]?.label || "Creator",
+      preset: voiceApi.PRESETS[state.preset]?.label || "Fast Clean",
       hasEnhanced: state.hasEnhanced,
       needsEnhance: state.needsEnhance,
     });
-    const result = await engine.exportProcessed();
+    const result = await engine.exportProcessed({
+      bufferTransform: appendBrandOutroForExport,
+    });
     if (!result) {
       warn("export failed");
       return;
@@ -481,11 +395,111 @@
       sampleRate: result.sampleRate,
       usedProcessedBuffer: result.usedProcessedBuffer,
     });
-    if (state.renderMeta?.fallbackReason) {
+    if (result.exportMeta?.brandOutroAppended) {
+      setStatus("Enhanced WAV with FreeAudioTrim outro ready. Download when it sounds right.", "success");
+    } else if (result.exportMeta?.brandOutroError) {
+      setStatus("Enhanced WAV ready. Branding outro could not be added in this browser.", "warning");
+    } else if (state.renderMeta?.fallbackReason) {
       setStatus(state.renderMeta.fallbackReason, "warning");
     } else {
       setStatus("Enhanced WAV ready. Download when it sounds right.", "success");
     }
+  }
+
+  async function appendBrandOutroForExport(processedBuffer, ctx) {
+    try {
+      const outroBuffer = await getBrandOutroBuffer(ctx);
+      const matchedOutro = await matchBufferSampleRate(outroBuffer, processedBuffer.sampleRate);
+      const combined = appendBuffersWithCrossfade(ctx, processedBuffer, matchedOutro, BRAND_OUTRO_FADE_SECONDS);
+      return {
+        buffer: combined,
+        meta: {
+          brandOutroAppended: true,
+          outroDuration: round(matchedOutro.duration),
+        },
+      };
+    } catch (error) {
+      warn("brand outro append failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return {
+        buffer: processedBuffer,
+        meta: {
+          brandOutroAppended: false,
+          brandOutroError: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  }
+
+  function getBrandOutroBuffer(ctx) {
+    if (!brandOutroBufferPromise) {
+      brandOutroBufferPromise = fetch(BRAND_OUTRO_URL)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`Brand outro missing (${response.status}).`);
+          }
+          return response.arrayBuffer();
+        })
+        .then((arrayBuffer) => ctx.decodeAudioData(arrayBuffer.slice(0)));
+    }
+    return brandOutroBufferPromise;
+  }
+
+  async function matchBufferSampleRate(sourceBuffer, targetSampleRate) {
+    if (!sourceBuffer || sourceBuffer.sampleRate === targetSampleRate) {
+      return sourceBuffer;
+    }
+    const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OfflineCtx) {
+      throw new Error("OfflineAudioContext is not supported for outro resampling.");
+    }
+    const targetLength = Math.max(1, Math.ceil(sourceBuffer.duration * targetSampleRate));
+    const offline = new OfflineCtx(sourceBuffer.numberOfChannels, targetLength, targetSampleRate);
+    const source = offline.createBufferSource();
+    source.buffer = sourceBuffer;
+    source.connect(offline.destination);
+    source.start(0);
+    return offline.startRendering();
+  }
+
+  function appendBuffersWithCrossfade(ctx, firstBuffer, secondBuffer, fadeSeconds = 0) {
+    const channels = Math.max(firstBuffer.numberOfChannels, secondBuffer.numberOfChannels);
+    const sampleRate = firstBuffer.sampleRate;
+    const fadeFrames = Math.max(0, Math.min(
+      Math.round((Number(fadeSeconds) || 0) * sampleRate),
+      firstBuffer.length,
+      secondBuffer.length
+    ));
+    const outputLength = firstBuffer.length + secondBuffer.length - fadeFrames;
+    const output = ctx.createBuffer(channels, outputLength, sampleRate);
+    const firstCopyLength = firstBuffer.length - fadeFrames;
+
+    for (let channel = 0; channel < channels; channel += 1) {
+      const out = output.getChannelData(channel);
+
+      for (let i = 0; i < firstCopyLength; i += 1) {
+        out[i] = readBufferSample(firstBuffer, channel, i);
+      }
+
+      for (let i = 0; i < fadeFrames; i += 1) {
+        const mix = fadeFrames > 1 ? i / (fadeFrames - 1) : 1;
+        const a = readBufferSample(firstBuffer, channel, firstCopyLength + i);
+        const b = readBufferSample(secondBuffer, channel, i);
+        out[firstCopyLength + i] = (a * (1 - mix)) + (b * mix);
+      }
+
+      for (let i = fadeFrames; i < secondBuffer.length; i += 1) {
+        out[firstCopyLength + i] = readBufferSample(secondBuffer, channel, i);
+      }
+    }
+
+    return output;
+  }
+
+  function readBufferSample(buffer, channel, index) {
+    const sourceChannel = Math.min(channel, buffer.numberOfChannels - 1);
+    return buffer.getChannelData(sourceChannel)[index] || 0;
   }
 
   function updateRenderMeta() {
@@ -529,14 +543,117 @@
 
     elements.enhanceBtn.disabled = !hasFile || state.tooLong || busy;
     elements.previewBtn.disabled = !canUsePreview;
-    elements.compareHoldBtn.disabled = !canUseProcessed;
     elements.exportBtn.disabled = !canUseProcessed;
     elements.modeButtons.original.disabled = !canUsePreview;
     elements.modeButtons.modified.disabled = !canUseProcessed;
     if (elements.seekBar) {
       elements.seekBar.disabled = !canUsePreview;
     }
+    elements.enhanceBtn.textContent = busy
+      ? "Enhancing..."
+      : hasFile && state.hasEnhanced && !state.needsEnhance
+        ? "Re-Enhance"
+        : "Enhance Voice";
     elements.exportBtn.textContent = state.downloadUrl ? "Download WAV" : "Export WAV";
+  }
+
+  function startEnhanceProgress() {
+    stopEnhanceProgressTimer();
+    state.enhanceProgress = 2;
+    renderEnhanceProgress("Loading model");
+    if (elements.progressShell) {
+      elements.progressShell.hidden = false;
+    }
+
+    const presetKey = state.preset || DEFAULT_PRESET;
+    const speed = presetKey === "creator" ? 2.4 : presetKey === "podcast" ? 1.8 : 1.25;
+
+    state.enhanceProgressTimer = window.setInterval(() => {
+      const remaining = 94 - state.enhanceProgress;
+      if (remaining <= 0.2) {
+        state.enhanceProgress = 94;
+        renderEnhanceProgress(getEnhanceStageLabel(state.enhanceProgress));
+        return;
+      }
+
+      const step = Math.max(0.22, remaining * 0.035 * speed);
+      state.enhanceProgress = Math.min(94, state.enhanceProgress + step);
+      renderEnhanceProgress(getEnhanceStageLabel(state.enhanceProgress));
+    }, 140);
+  }
+
+  function completeEnhanceProgress(success) {
+    stopEnhanceProgressTimer();
+    if (!elements.progressShell) {
+      return;
+    }
+
+    if (!success) {
+      renderEnhanceProgress("Stopped");
+      window.setTimeout(() => {
+        resetEnhanceProgress();
+      }, 450);
+      return;
+    }
+
+    state.enhanceProgress = 100;
+    renderEnhanceProgress("Finalizing output");
+    window.setTimeout(() => {
+      resetEnhanceProgress();
+    }, 700);
+  }
+
+  function stopEnhanceProgressTimer() {
+    if (state.enhanceProgressTimer) {
+      window.clearInterval(state.enhanceProgressTimer);
+      state.enhanceProgressTimer = 0;
+    }
+  }
+
+  function resetEnhanceProgress() {
+    stopEnhanceProgressTimer();
+    state.enhanceProgress = 0;
+    if (elements.progressShell) {
+      elements.progressShell.hidden = true;
+    }
+    if (elements.progressFill) {
+      elements.progressFill.style.width = "0%";
+    }
+    if (elements.progressPercent) {
+      elements.progressPercent.textContent = "0%";
+    }
+    if (elements.progressStage) {
+      elements.progressStage.textContent = "Preparing";
+    }
+  }
+
+  function renderEnhanceProgress(stageLabel) {
+    const value = Math.max(0, Math.min(100, Math.round(state.enhanceProgress)));
+    if (elements.progressFill) {
+      elements.progressFill.style.width = `${value}%`;
+    }
+    if (elements.progressPercent) {
+      elements.progressPercent.textContent = `${value}%`;
+    }
+    if (elements.progressStage) {
+      elements.progressStage.textContent = stageLabel;
+    }
+  }
+
+  function getEnhanceStageLabel(progress) {
+    if (progress < 16) {
+      return "Loading model";
+    }
+    if (progress < 38) {
+      return "Analyzing voice";
+    }
+    if (progress < 72) {
+      return "Enhancing speech";
+    }
+    if (progress < 95) {
+      return "Polishing output";
+    }
+    return "Finalizing output";
   }
 
   function updatePresetCards() {
@@ -549,17 +666,6 @@
     const activeMode = state.currentMode || "modified";
     elements.modeButtons.original?.setAttribute("data-selected", activeMode === "original" ? "true" : "false");
     elements.modeButtons.modified?.setAttribute("data-selected", activeMode === "modified" ? "true" : "false");
-  }
-
-  function updateSliderLabels() {
-    elements.sliderValues.noiseReduction.textContent = `${readSlider("noiseReduction")}%`;
-    elements.sliderValues.clarityFocus.textContent = formatSliderDelta(readSlider("clarityFocus"));
-    elements.sliderValues.voiceDepth.textContent = formatSliderDelta(readSlider("voiceDepth"));
-    elements.sliderValues.broadcastReady.textContent = `${readSlider("broadcastReady")}%`;
-  }
-
-  function readSlider(key) {
-    return Number(elements.sliders[key]?.value || 0);
   }
 
   async function switchMode(mode, options = {}) {
@@ -663,11 +769,6 @@
     return `${Math.round(value)}/100`;
   }
 
-  function formatSliderDelta(value) {
-    const delta = Number(value) - 50;
-    return delta === 0 ? "Neutral" : `${delta > 0 ? "+" : ""}${delta}`;
-  }
-
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
@@ -758,7 +859,7 @@
           </div>
 
           <div class="voice-section voice-section--status">
-            <p class="voice-meta-note" data-role="renderMetaNote">Pick a preset, click Enhance Voice, then compare the result.</p>
+            <p class="voice-meta-note" data-role="renderMetaNote">Pick a preset, click Enhance Voice, then preview the result.</p>
           </div>
 
           <div class="at-row at-wave-wrap">
@@ -766,17 +867,7 @@
           </div>
 
           <div class="voice-badge-row">
-            <span class="normalize-badge" id="sourceDuration">Original -</span>
-            <span class="normalize-badge" id="processedDuration">Enhanced -</span>
-            <span class="normalize-badge normalize-badge--ok" id="targetBadge">Preset Creator</span>
-          </div>
-
-          <div class="at-times">
-            <span id="waveformTime">0:00 / 0:00</span>
-          </div>
-
-          <div class="voice-controls-row">
-            <button class="at-btn at-btn-soft voice-preview-icon-btn" id="previewBtn" type="button" data-playing="false" aria-label="Play enhanced preview">
+            <button class="voice-preview-icon-btn" id="previewBtn" type="button" data-playing="false" aria-label="Play enhanced preview">
               <span class="voice-preview-icon" aria-hidden="true">
                 <span class="voice-preview-icon__play"></span>
                 <span class="voice-preview-icon__pause">
@@ -785,33 +876,26 @@
                 </span>
               </span>
             </button>
-            <button class="at-btn at-btn-soft voice-compare-btn" id="compareHoldBtn" type="button">Hold to compare</button>
-
-            <div class="voice-mode-toggle" role="group" aria-label="A/B compare mode">
-              <button class="at-btn at-btn-soft voice-mode-btn" id="modeOriginalBtn" type="button" data-selected="false">Original</button>
-              <button class="at-btn at-btn-soft voice-mode-btn" id="modeEnhancedBtn" type="button" data-selected="true">Enhanced</button>
+            <span class="voice-inline-time" id="waveformTime">0:00 / 0:00</span>
+            <span class="normalize-badge normalize-badge--ok" id="targetBadge">Preset Fast Clean</span>
+            <div class="voice-mode-toggle voice-mode-toggle--switch" role="group" aria-label="Preview mode">
+              <button class="voice-mode-btn" id="modeOriginalBtn" type="button" data-selected="false">Original</button>
+              <button class="voice-mode-btn" id="modeEnhancedBtn" type="button" data-selected="true">Enhanced</button>
             </div>
-
           </div>
 
           <div class="voice-section voice-section--status">
             <div class="at-row at-status" id="status" data-status-state="idle">Upload a voice recording to start.</div>
-          </div>
-
-          <details class="voice-advanced" id="advancedControls">
-            <summary>Advanced Controls</summary>
-            <div class="voice-section voice-section--advanced">
-              <div class="voice-section__header">
-                <p class="voice-advanced-note">Changes apply when you click Enhance Voice again.</p>
+            <div class="voice-progress-shell" id="statusProgress" hidden>
+              <div class="voice-progress-head">
+                <span class="voice-progress-stage" id="statusProgressStage">Preparing</span>
+                <span class="voice-progress-percent" id="statusProgressPercent">0%</span>
               </div>
-              <div class="voice-slider-grid">
-                ${renderSlider("noiseReduction", "Noise Reduction", "Control background noise without killing speech shape.")}
-                ${renderSlider("clarityFocus", "Clarity Focus", "Push presence and vocal intelligibility carefully.")}
-                ${renderSlider("voiceDepth", "Voice Depth", "Shape low-mid weight and voice body.")}
-                ${renderSlider("broadcastReady", "Broadcast Ready", "Tighten loudness and final control for publish-ready output.")}
+              <div class="voice-progress-track">
+                <div class="voice-progress-fill" id="statusProgressFill"></div>
               </div>
             </div>
-          </details>
+          </div>
 
           <div class="voice-download-row">
             <button class="at-btn at-btn-soft" id="exportBtn" type="button">Export WAV</button>
@@ -838,28 +922,14 @@
     `).join("");
   }
 
-  function renderSlider(id, label, description) {
-    const value = DEFAULT_SLIDERS[id];
-    return `
-      <label class="voice-slider-card" for="${id}Range">
-        <span class="voice-slider-head">
-          <span class="voice-slider-title">${label}</span>
-          <span class="voice-slider-value" id="${id}Value">${id === "noiseReduction" || id === "broadcastReady" ? `${value}%` : "Neutral"}</span>
-        </span>
-        <span class="voice-slider-copy">${description}</span>
-        <input id="${id}Range" type="range" min="0" max="100" step="1" value="${value}">
-      </label>
-    `;
-  }
-
   function describePreset(key) {
     if (key === "creator") {
-      return "Bright, modern, social-ready voice polish.";
+      return "Quickest cleanup. Best for speed and lighter devices.";
     }
     if (key === "podcast") {
-      return "Warmer and calmer for long-form spoken voice.";
+      return "Best balance of quality and speed for most voices.";
     }
-    return "Controlled lows, lifted presence, bigger finish.";
+    return "Highest quality cleanup. Slowest, richest finish.";
   }
 
   function findPresetKeyByLabel(label) {
@@ -880,32 +950,20 @@
       state.renderMeta = null;
       state.analysisProfile = null;
       state.tooLong = false;
-      state.compareHeld = false;
       state.hasEnhanced = false;
       state.needsEnhance = true;
       state.isEnhancing = false;
       state.currentMode = "modified";
-      state.preHoldMode = "modified";
       state.activeFile = null;
       state.userPresetLocked = false;
       clearDownload();
+      resetEnhanceProgress();
       engine.reset();
-      Object.entries(DEFAULT_SLIDERS).forEach(([key, value]) => {
-        if (elements.sliders[key]) {
-          elements.sliders[key].value = String(value);
-        }
-      });
-      elements.advancedDetails.open = false;
       elements.fileRow.classList.add("is-hidden");
       elements.fileName.textContent = "";
-      elements.compareHoldBtn.classList.remove("is-active");
-      elements.compareHoldBtn.textContent = "Hold to compare";
-      elements.sourceDuration.textContent = "Original -";
-      elements.processedDuration.textContent = "Enhanced -";
-      elements.targetBadge.textContent = "Preset Creator";
       updateRenderMeta();
+      elements.targetBadge.textContent = "Preset Fast Clean";
       updatePresetCards();
-      updateSliderLabels();
       updateModeButtons();
       setStatus("Upload a voice recording to start.", "idle");
       updateActionState();
