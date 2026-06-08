@@ -56,13 +56,23 @@
     }
   ];
   var TRANSCRIPTION_DURATION_LIMITS = {
-    phone: {
+    "phone-low": {
       "baby-raptor": 90,
       triceratop: 90,
       "t-rex": 90
     },
+    phone: {
+      "baby-raptor": 120,
+      triceratop: 120,
+      "t-rex": 120
+    },
+    "phone-high": {
+      "baby-raptor": 150,
+      triceratop: 150,
+      "t-rex": 150
+    },
     low: {
-      "baby-raptor": 180,
+      "baby-raptor": 90,
       triceratop: 150,
       "t-rex": 120
     },
@@ -3046,6 +3056,14 @@
     var score = 0;
 
     if (safeProfile && safeProfile.phoneOptimized) {
+      if ((memory > 0 && memory <= 3) || (cpu > 0 && cpu <= 3)) {
+        return "phone-low";
+      }
+
+      if ((memory >= 6) || (cpu >= 6)) {
+        return "phone-high";
+      }
+
       return "phone";
     }
 
@@ -3098,8 +3116,8 @@
     var tier = getDurationPolicyTier(profile);
     var tierLimits = TRANSCRIPTION_DURATION_LIMITS[tier] || TRANSCRIPTION_DURATION_LIMITS.standard;
     var limitSeconds = tierLimits[targetModelKey] || TRANSCRIPTION_DURATION_LIMITS.standard[targetModelKey] || 180;
-    var runtimeReason = tier === "phone"
-      ? "Phone mode uses shorter files so local transcription stays stable in mobile browser memory."
+    var runtimeReason = tier === "phone" || tier === "phone-low" || tier === "phone-high"
+      ? "Phone mode keeps file lengths conservative so local transcription stays stable in mobile browser memory. Stronger phones can safely handle a bit more."
       : "Limits change by model size, browser memory, and device speed because transcription runs locally on your device.";
 
     return {
@@ -4428,10 +4446,16 @@
       syncTranscribeReadyState();
     });
 
-    window.addEventListener("pagehide", function () {
+    window.addEventListener("pagehide", function (event) {
       try {
         if (typeof window.__transcribePageExitTeardown === "function") {
-          window.__transcribePageExitTeardown();
+          window.__transcribePageExitTeardown({
+            preserveUiState: !!(
+              processingLocked
+              && event
+              && event.persisted
+            )
+          });
         }
       } catch (error) {
       }
@@ -5090,6 +5114,7 @@
     var hasResults = hasTranscriptResults();
     var hasTranslation = hasTranslatedSegments();
     var isProcessing = processingLocked;
+    var hasInterruptedRecovery = !!(window.transcriptionAudio && window.transcriptionAudio.recoveryOnly && !hasAudioReady && !hasResults && !isProcessing);
     var isPreparing = !!(toolCard && toolCard.classList.contains("is-active") && !hasAudioReady && !hasResults && !isProcessing);
     var isModelLoading = hasAudioReady && modelWarmState === "loading" && !hasResults && !isProcessing;
     var showSetup = hasAudioReady && !hasResults && !isProcessing;
@@ -5111,13 +5136,13 @@
     }
 
     setElementVisible(root.querySelector('[data-role="progressRow"]'), isPreparing || isModelLoading);
-    setElementVisible(root.querySelector('[data-role="processingInfo"]'), showSetup || isProcessing || isModelLoading || isResultTransitionActive);
+    setElementVisible(root.querySelector('[data-role="processingInfo"]'), showSetup || isProcessing || isModelLoading || isResultTransitionActive || hasInterruptedRecovery);
     var livePreviewRow = root.querySelector('[data-role="livePreviewRow"]');
     setElementVisible(livePreviewRow, isProcessing || (isResultTransitionActive && !!livePreviewText));
     if (livePreviewRow) {
       livePreviewRow.classList.toggle("is-live", !!isProcessing);
     }
-    setElementVisible(processingHintEl, !isProcessing && (showSetup || isModelLoading || isResultTransitionActive));
+    setElementVisible(processingHintEl, !isProcessing && (showSetup || isModelLoading || isResultTransitionActive || hasInterruptedRecovery));
     setElementVisible(sessionPathEl, !isProcessing && !!transcriptionSessionPathLabel);
     setElementVisible(root.querySelector('[data-role="modelRow"]'), showSetup);
     setElementVisible(root.querySelector('[data-role="languageRow"]'), showSetup);
@@ -9520,6 +9545,65 @@ function generateVTT(segments) {
       syncTranscribeReadyState();
     }
 
+    function showInterruptedRecoveryShell(recoveryState) {
+      var fileName = recoveryState && recoveryState.fileName
+        ? String(recoveryState.fileName)
+        : "Previous transcription session";
+      var recoveryMessage = "Your mobile browser interrupted this transcription session. Choose the same file again to continue.";
+
+      resetProcessingUi();
+      resetTranscriptState();
+      clearLivePreview(root);
+      clearResultTransition(root);
+
+      if (root.__audioPreviewUrl) {
+        URL.revokeObjectURL(root.__audioPreviewUrl);
+        root.__audioPreviewUrl = "";
+      }
+
+      if (audioPlayer) {
+        audioPlayer.pause();
+        audioPlayer.removeAttribute("src");
+        audioPlayer.load();
+        audioPlayer.style.display = "none";
+      }
+
+      input.value = "";
+      input.disabled = false;
+      fileNameEl.textContent = fileName;
+      root.__translationSetupOpen = false;
+      root.__transcriptPlaybackHasStarted = false;
+      root.__transcriptPlaybackVolumeSync = 1;
+      setActiveTranscriptPlaybackSegment(root, -1);
+      setTranscriptPlaybackButtonState(root, false);
+      updateFileIcon(root, null);
+      if (toolRoot) {
+        toolRoot.classList.add("is-active");
+      }
+
+      window.transcriptionAudio = {
+        recoveryOnly: true,
+        interrupted: true,
+        fileName: fileName,
+        sampleRate: 0,
+        data: null,
+        duration: 0,
+        needsDecode: false,
+        phoneOptimized: isPhoneTranscriptionModeActive(),
+        phoneRiskReason: recoveryMessage
+      };
+      clearPendingSelectedTranscriptionFile();
+      clearTranscriptionSessionPathLabel();
+      setStatus(statusEl, recoveryMessage, "warning");
+      setProgress(0);
+      setProgressMessage("");
+      setPrimaryTranscriptionShellVisible(true);
+      updateRuntimeMessaging(root);
+      syncTranscribeReadyState();
+      refreshTranscribeLayout();
+      updateToolLayout(root);
+    }
+
     function teardownTranscriptionSession(options) {
       var config = options || {};
       var hideShell = !!config.hideShell;
@@ -9589,11 +9673,10 @@ function generateVTT(segments) {
       if (!recoveryState || recoveryState.phase !== "processing" || hasLoadedTranscriptionFile(window.transcriptionAudio)) {
         return;
       }
-      hardResetTranscriptionShell({
-        resetStatusText: true,
-        rebuildWorker: true
-      });
-      clearTranscriptionRecoveryState();
+      showInterruptedRecoveryShell(recoveryState);
+      if (!worker) {
+        rebuildTranscribeWorker();
+      }
     }
 
     initializeTranscriptionModelStates();
@@ -10091,7 +10174,8 @@ function generateVTT(segments) {
         });
       }
     };
-    window.__transcribePageExitTeardown = function () {
+    window.__transcribePageExitTeardown = function (options) {
+      var config = options || {};
       var shouldPreserveRecovery = !!(processingLocked || pendingTranscriptionStart || activeTranscriptionContext);
       if (shouldPreserveRecovery) {
         writeTranscriptionRecoveryState({
@@ -10101,26 +10185,53 @@ function generateVTT(segments) {
           modelKey: selectedTranscriptionModelKey
         });
       }
+      if (config.preserveUiState && shouldPreserveRecovery) {
+        return;
+      }
       teardownTranscriptionSession({
-        hideShell: true,
+        hideShell: !config.preserveUiState,
         resetStatusText: true,
         rebuildWorker: false,
         preserveRecoveryState: shouldPreserveRecovery
       });
     };
 
-    window.addEventListener("pageshow", function () {
+    window.addEventListener("pageshow", function (event) {
       var toolShell = document.getElementById("tool-shell");
       var pendingFile = getPendingSelectedTranscriptionFile();
+      var recoveryState = readTranscriptionRecoveryState();
       var hasStaleToolShell = !!(toolShell && !toolShell.classList.contains("is-hidden") && !hasLoadedTranscriptionFile(window.transcriptionAudio) && !hasTranscriptResults());
-      var hasRecoveryState = !!readTranscriptionRecoveryState();
+      var hasRecoveryState = !!recoveryState;
+      var shouldKeepCurrentSession = !!(
+        event
+        && event.persisted
+        && (
+          processingLocked
+          || !!activeTranscriptionContext
+          || hasLoadedTranscriptionFile(window.transcriptionAudio)
+          || hasTranscriptResults()
+        )
+      );
+
+      if (shouldKeepCurrentSession) {
+        clearIdleUnloadTimer();
+        updateRuntimeMessaging(root);
+        syncTranscribeReadyState();
+        refreshTranscribeLayout();
+        return;
+      }
 
       if (pendingFile) {
         handleSelectedFile(pendingFile);
         return;
       }
 
-      if (hasStaleToolShell || hasRecoveryState) {
+      if (hasRecoveryState && !hasLoadedTranscriptionFile(window.transcriptionAudio) && !hasTranscriptResults()) {
+        showInterruptedRecoveryShell(recoveryState);
+        if (!worker) {
+          rebuildTranscribeWorker();
+        }
+      } else if (hasStaleToolShell) {
         hardResetTranscriptionShell({
           resetStatusText: true,
           rebuildWorker: true
