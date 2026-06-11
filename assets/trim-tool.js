@@ -2,6 +2,7 @@
   "use strict";
 
   var ENCODER_PATH = "/assets/encoders/mp3-encoder.js";
+  var LAME_PATH = "/assets/encoders/lame.min.js";
   var BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
   var TRIM_AUDIO_ACCEPT = "audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mpga";
   var TRIM_MEDIA_ACCEPT = "audio/*,video/mp4,video/x-m4v,video/webm,video/quicktime,.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mpga,.mp4,.m4v,.mov,.webm,.mpeg,.mpg,.avi,.mkv,.3gp,.3g2,.hevc,.h265";
@@ -17,6 +18,53 @@
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
+  }
+
+  function setPlayPauseButtonState(button, isPlaying) {
+    if (!button) {
+      return;
+    }
+    button.classList.add("at-icon-btn");
+    button.setAttribute("type", "button");
+    button.setAttribute("aria-label", isPlaying ? "Pause audio" : "Play audio");
+    button.setAttribute("title", isPlaying ? "Pause" : "Play");
+    button.dataset.state = isPlaying ? "pause" : "play";
+    button.innerHTML = isPlaying
+      ? '<span class="at-play-pause-icon at-play-pause-icon--pause" aria-hidden="true"><span></span><span></span></span><span class="at-sr-only">Pause</span>'
+      : '<span class="at-play-pause-icon at-play-pause-icon--play" aria-hidden="true"></span><span class="at-sr-only">Play</span>';
+  }
+
+  function renderLucideIcons() {
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons();
+    }
+  }
+
+  function setLoopToggleButtonState(button, isEnabled) {
+    if (!button) {
+      return;
+    }
+    button.classList.add("at-icon-btn", "at-loop-toggle-btn");
+    button.setAttribute("type", "button");
+    button.setAttribute("aria-pressed", isEnabled ? "true" : "false");
+    button.setAttribute("aria-label", isEnabled ? "Disable repeat" : "Enable repeat");
+    button.setAttribute("title", isEnabled ? "Repeat on" : "Repeat off");
+    button.dataset.state = isEnabled ? "loop-on" : "loop-off";
+    button.innerHTML = isEnabled
+      ? '<svg class="at-loop-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span class="at-sr-only">Repeat on</span>'
+      : '<svg class="at-loop-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/><path d="M4 4 20 20"/></svg><span class="at-sr-only">Repeat off</span>';
+  }
+
+  function setResetButtonIcon(button) {
+    if (!button) {
+      return;
+    }
+    button.classList.add("at-icon-btn", "at-reset-btn");
+    button.setAttribute("type", "button");
+    button.setAttribute("aria-label", "Reset trim");
+    button.setAttribute("title", "Reset");
+    button.innerHTML = '<i data-lucide="rotate-ccw" class="at-lucide-icon" aria-hidden="true"></i><span class="at-sr-only">Reset</span>';
+    renderLucideIcons();
   }
 
   function prefersLowPowerWaveform() {
@@ -341,27 +389,94 @@
     };
   };
 
-  function loadMp3Module() {
+  var mp3ModulePromise = null;
+  var lamePromise = null;
+
+  function loadScriptOnce(src, isReady, errorMessage) {
     return new Promise(function (resolve, reject) {
-      if (window.MP3EncoderModule) {
-        resolve(window.MP3EncoderModule);
+      if (isReady()) {
+        resolve();
         return;
       }
+
+      var existing = document.querySelector('script[src="' + src + '"]');
+      if (existing) {
+        existing.addEventListener("load", function () {
+          if (isReady()) {
+            resolve();
+            return;
+          }
+          reject(new Error(errorMessage));
+        }, { once: true });
+        existing.addEventListener("error", function () {
+          reject(new Error(errorMessage));
+        }, { once: true });
+        return;
+      }
+
       var script = document.createElement("script");
-      script.src = ENCODER_PATH;
+      script.src = src;
       script.async = true;
       script.onload = function () {
-        if (window.MP3EncoderModule) {
-          resolve(window.MP3EncoderModule);
+        if (isReady()) {
+          resolve();
           return;
         }
-        reject(new Error("MP3 module loaded but unavailable."));
+        reject(new Error(errorMessage));
       };
       script.onerror = function () {
-        reject(new Error("Failed to load MP3 module from " + ENCODER_PATH));
+        reject(new Error(errorMessage));
       };
       document.head.appendChild(script);
     });
+  }
+
+  function ensureLameLoaded() {
+    if (window.lamejs && typeof window.lamejs.Mp3Encoder === "function") {
+      return Promise.resolve();
+    }
+    if (!lamePromise) {
+      lamePromise = loadScriptOnce(
+        LAME_PATH,
+        function () {
+          return !!(window.lamejs && typeof window.lamejs.Mp3Encoder === "function");
+        },
+        "Failed to load MP3 encoder runtime from " + LAME_PATH
+      ).catch(function (error) {
+        lamePromise = null;
+        throw error;
+      });
+    }
+    return lamePromise;
+  }
+
+  function loadMp3Module() {
+    if (window.MP3EncoderModule) {
+      return Promise.resolve(window.MP3EncoderModule);
+    }
+    if (!mp3ModulePromise) {
+      mp3ModulePromise = ensureLameLoaded()
+        .then(function () {
+          return loadScriptOnce(
+            ENCODER_PATH,
+            function () {
+              return !!window.MP3EncoderModule;
+            },
+            "Failed to load MP3 module from " + ENCODER_PATH
+          );
+        })
+        .then(function () {
+          if (window.MP3EncoderModule) {
+            return window.MP3EncoderModule;
+          }
+          throw new Error("MP3 module loaded but unavailable.");
+        })
+        .catch(function (error) {
+          mp3ModulePromise = null;
+          throw error;
+        });
+    }
+    return mp3ModulePromise;
   }
 
   function AudioEngine() {
@@ -819,10 +934,7 @@
     if (this.peaks && this.peaks.length > 0) {
       var bins = this.peaks.length;
       var pxPerBin = width / bins;
-      var gradient = cacheCtx.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, "#c7d2fe");
-      gradient.addColorStop(1, "#4338ca");
-      cacheCtx.fillStyle = gradient;
+      cacheCtx.fillStyle = "#4f46e5";
 
       for (var i = 0; i < bins; i += 1) {
         var amp = this.peaks[i];
@@ -1162,11 +1274,10 @@
     this.fileInput = this.root.querySelector(".at-file");
     this.canvas = this.root.querySelector(".at-wave");
     this.playPauseBtn = this.root.querySelector('[data-role="playPause"]');
-    this.previewBtn = this.root.querySelector('[data-role="preview"]');
+    this.loopToggleBtn = this.root.querySelector('[data-role="loopToggle"]');
     this.resetBtn = this.root.querySelector('[data-role="reset"]');
     this.exportWavBtn = this.root.querySelector('[data-role="exportWav"]');
     this.exportMp3Btn = this.root.querySelector('[data-role="exportMp3"]');
-    this.loopCheckbox = this.root.querySelector('[data-role="loop"]');
     this.statusEl = this.root.querySelector('[data-role="status"]');
     this.advancedPanel = this.root.querySelector('[data-role="advancedPanel"]');
     this.fadeInSelect = this.root.querySelector('[data-role="fadeIn"]') || this.root.querySelector('[data-role="fadeInToggle"]');
@@ -1184,6 +1295,10 @@
       this.onTrimChanged.bind(this),
       this.onWaveformSeek.bind(this)
     );
+    this.loopEnabled = true;
+    setPlayPauseButtonState(this.playPauseBtn, false);
+    setLoopToggleButtonState(this.loopToggleBtn, this.loopEnabled);
+    setResetButtonIcon(this.resetBtn);
     this.updateTimeText();
   };
 
@@ -1225,7 +1340,9 @@
   UIController.prototype.bind = function () {
     this.fileInput.addEventListener("change", this.onFileChange.bind(this));
     this.playPauseBtn.addEventListener("click", this.onPlayPause.bind(this));
-    this.previewBtn.addEventListener("click", this.onPreview.bind(this));
+    if (this.loopToggleBtn) {
+      this.loopToggleBtn.addEventListener("click", this.onLoopToggle.bind(this));
+    }
     this.resetBtn.addEventListener("click", this.onReset.bind(this));
     this.exportWavBtn.addEventListener("click", this.onExportWav.bind(this));
     this.exportMp3Btn.addEventListener("click", this.onExportMp3.bind(this));
@@ -1299,10 +1416,17 @@
 
   UIController.prototype._setControlsEnabled = function (enabled) {
     this.playPauseBtn.disabled = !enabled;
-    this.previewBtn.disabled = !enabled;
+    if (this.loopToggleBtn) {
+      this.loopToggleBtn.disabled = !enabled;
+    }
     this.resetBtn.disabled = !enabled;
     this.exportWavBtn.disabled = !enabled;
     this.exportMp3Btn.disabled = !enabled;
+  };
+
+  UIController.prototype.onLoopToggle = function () {
+    this.loopEnabled = !this.loopEnabled;
+    setLoopToggleButtonState(this.loopToggleBtn, this.loopEnabled);
   };
 
   UIController.prototype.setStatus = function (message) {
@@ -1341,7 +1465,7 @@
           this.currentFile = previousFile;
           this.audio.stop();
           this.stopAnimationLoop();
-          this.playPauseBtn.textContent = "Play";
+          setPlayPauseButtonState(this.playPauseBtn, false);
           this.audio.resetPosition(this.trim.startRatio * this.duration);
           this.renderer.setPlayhead(this.trim.startRatio);
           setTimeout(function () {
@@ -1463,7 +1587,7 @@
     if (this.audio.isPlaying) {
       this.audio.pause();
       this.stopAnimationLoop();
-      this.playPauseBtn.textContent = "Play";
+      setPlayPauseButtonState(this.playPauseBtn, false);
     }
     var selection = this._getSelection();
     var position = clamp((Number(ratio) || 0) * this.duration, selection.start, selection.end);
@@ -1492,7 +1616,7 @@
     if (this.audio.isPlaying) {
       this.audio.pause();
       this.stopAnimationLoop();
-      this.playPauseBtn.textContent = "Play";
+      setPlayPauseButtonState(this.playPauseBtn, false);
       return;
     }
     var selection = this._getSelection();
@@ -1500,21 +1624,8 @@
     this.audio.uiFadeIn = this.fadeInDuration;
     this.audio.uiFadeOut = this.fadeOutDuration;
     this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
-    await this.audio.play(selection.start, selection.end, this.loopCheckbox.checked);
-    this.playPauseBtn.textContent = "Pause";
-    this.startAnimationLoop();
-  };
-
-  UIController.prototype.onPreview = async function () {
-    if (!this.duration) {
-      return;
-    }
-    var selection = this._getSelection();
-    this.audio.uiFadeIn = this.fadeInDuration;
-    this.audio.uiFadeOut = this.fadeOutDuration;
-    this.audio.resetPosition(this._getPlaybackStart());
-    await this.audio.play(selection.start, selection.end, false);
-    this.playPauseBtn.textContent = "Pause";
+    await this.audio.play(selection.start, selection.end, this.loopEnabled);
+    setPlayPauseButtonState(this.playPauseBtn, true);
     this.startAnimationLoop();
   };
 
@@ -1524,7 +1635,7 @@
     }
     this.audio.stop();
     this.stopAnimationLoop();
-    this.playPauseBtn.textContent = "Play";
+    setPlayPauseButtonState(this.playPauseBtn, false);
     this.trim.reset();
     this.audio.resetPosition(0);
     this.renderer.setPlayhead(0);
@@ -1582,7 +1693,7 @@
 
   UIController.prototype.onPlaybackEnded = function () {
     this.stopAnimationLoop();
-    this.playPauseBtn.textContent = "Play";
+    setPlayPauseButtonState(this.playPauseBtn, false);
     this.renderer.setPlayhead(this.trim.startRatio);
   };
 

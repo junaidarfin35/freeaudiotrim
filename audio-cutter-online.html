@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Raleway:wght@600;900&display=swap" rel="stylesheet">
 
@@ -284,7 +286,7 @@
         aria-label="Drop audio file here or click to upload">
         <div class="upload-content">
           <div class="upload-illustration" aria-hidden="true">
-            <img src="/assets/icons/upload-illustration.svg" alt="Illustration of audio files being processed or uploaded for trimming." />
+            <img src="/assets/icons/upload-illustration.svg" width="822" height="427" alt="Illustration of audio files being processed or uploaded for trimming." />
             </div>
           <h2 class="upload-dropzone__primary">Drop audio file here or click to upload</h2>
           <small class="upload-dropzone__privacy">Files processed locally in your browser</small>
@@ -327,12 +329,8 @@
 
   <div class="at-row">
     <button class="at-btn at-btn-primary" data-role="playPause" disabled>Play</button>
-    <button class="at-btn" data-role="preview" disabled>Preview</button>
-    <label class="at-checkbox">
-      <input type="checkbox" data-role="loop" checked>
-      Loop selection
-    </label>
-    <button class="at-btn" data-role="reset" disabled>Reset</button>
+    <button class="at-btn" data-role="loopToggle" type="button" aria-pressed="true" aria-label="Disable repeat" title="Repeat on" disabled></button>
+    <button class="at-btn" data-role="reset" type="button" aria-label="Reset trim" title="Reset" disabled></button>
       <label class="at-checkbox">
     <input type="checkbox" data-role="fadeInToggle">
     Fade In
@@ -770,9 +768,7 @@
 
 </footer>
 
-<script src="/assets/encoders/lame.min.js?v=2026-05-18-1"></script>
-<script src="/assets/encoders/mp3-encoder.js?v=2026-05-18-1"></script>
-<script src="/assets/trim-tool.js?v=2026-05-25-8"></script>
+<script src="/assets/trim-tool-loader.js"></script>
 <script src="/assets/upload.js?v=2026-05-25-2"></script>
 
 <script>
@@ -824,7 +820,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <script src="/assets/mobile-menu.js?v=2026-05-18-1"></script>
-<script src="https://unpkg.com/lucide@0.544.0"></script>
+<script src="/assets/vendor/lucide.min.js?v=0.544.0"></script>
 <script>
   lucide.createIcons();
 </script>

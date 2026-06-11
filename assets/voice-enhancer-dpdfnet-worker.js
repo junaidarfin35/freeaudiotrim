@@ -8,16 +8,23 @@ const MODEL_VARIANTS = {
     metadataUrl: "/assets/vendor/dpdfnet/baseline.metadata.json",
   },
   podcast: {
-    key: "dpdfnet2",
-    displayName: "Balanced Clean",
-    modelUrl: "/assets/vendor/dpdfnet/dpdfnet2.onnx",
-    metadataUrl: "/assets/vendor/dpdfnet/dpdfnet2.metadata.json",
-  },
-  cinematic: {
     key: "dpdfnet4",
-    displayName: "Studio Clean",
+    displayName: "Balanced Clean",
     modelUrl: "/assets/vendor/dpdfnet/dpdfnet4.onnx",
     metadataUrl: "/assets/vendor/dpdfnet/dpdfnet4.metadata.json",
+  },
+  cinematic: {
+    key: "dpdfnet2_48khz_hr",
+    displayName: "Studio Clean",
+    modelUrl: "/assets/vendor/dpdfnet/dpdfnet2_48khz_hr.onnx",
+    metadataUrl: "/assets/vendor/dpdfnet/dpdfnet2_48khz_hr.metadata.json",
+    fallbackPresetKey: "__studioFallback",
+  },
+  __studioFallback: {
+    key: "dpdfnet2",
+    displayName: "Studio Clean Fallback",
+    modelUrl: "/assets/vendor/dpdfnet/dpdfnet2.onnx",
+    metadataUrl: "/assets/vendor/dpdfnet/dpdfnet2.metadata.json",
   },
 };
 
@@ -25,20 +32,29 @@ ort.env.wasm.numThreads = 1;
 ort.env.wasm.proxy = false;
 ort.env.wasm.wasmPaths = "/assets/vendor/ort/";
 
+const DEBUG_LATENCY_COMPENSATION = true;
+const DEBUG_LATENCY_MULTIPLIER = 2;
 const bundlePromises = new Map();
+const runtimeDebugFlags = {
+  bypassModel: false,
+};
 
 self.addEventListener("message", async (event) => {
   const payload = event.data || {};
   if (payload.type === "init") {
     try {
       const variant = resolveVariant(payload.presetKey);
-      const bundle = await getBundle(variant);
+      const runtime = await loadVariantRuntime(variant);
+      const bundle = runtime.bundle;
       self.postMessage({
         id: payload.id,
         type: "init-ready",
         runtime: "DPDFNet ONNX WASM",
         frameSize: bundle.config.hopLength,
-        modelName: bundle.config.displayName,
+        modelSampleRate: bundle.config.sampleRate,
+        modelName: runtime.displayName,
+        modelVariant: runtime.activeVariant.key,
+        fallbackUsed: runtime.fallbackUsed,
       });
     } catch (error) {
       self.postMessage({
@@ -47,6 +63,16 @@ self.addEventListener("message", async (event) => {
         error: error instanceof Error ? error.message : "DPDFNet runtime unavailable.",
       });
     }
+    return;
+  }
+
+  if (payload.type === "config") {
+    runtimeDebugFlags.bypassModel = !!payload.debugBypassModel;
+    self.postMessage({
+      id: payload.id,
+      type: "config-ready",
+      debugBypassModel: runtimeDebugFlags.bypassModel,
+    });
     return;
   }
 
@@ -65,6 +91,7 @@ self.addEventListener("message", async (event) => {
       meta: processed.meta,
     }, [processed.samples.buffer]);
   } catch (error) {
+    console.error("[DPDFNet Worker]", error);
     self.postMessage({
       id: payload.id,
       type: "error",
@@ -75,28 +102,68 @@ self.addEventListener("message", async (event) => {
 
 async function denoiseSamples(inputSamples, inputSampleRate, presetKey) {
   const variant = resolveVariant(presetKey);
-  const bundle = await getBundle(variant);
+  const runtime = await loadVariantRuntime(variant);
+  const bundle = runtime.bundle;
   const { session, config } = bundle;
-  const modelInput = inputSampleRate === config.sampleRate
-    ? new Float32Array(inputSamples)
-    : resampleLinear(inputSamples, inputSampleRate, config.sampleRate);
+  const resampledInput = inputSampleRate !== config.sampleRate;
+  const resamplerName = "linear";
+
+  const modelInput = resampledInput
+    ? resampleForModel(inputSamples, inputSampleRate, config.sampleRate)
+    : new Float32Array(inputSamples);
+
   const enhanced = await enhanceAtModelRate(modelInput, session, config);
-  const output = inputSampleRate === config.sampleRate
-    ? new Float32Array(enhanced)
-    : resampleLinear(enhanced, config.sampleRate, inputSampleRate);
+
+  const output = resampledInput
+    ? resampleForModel(enhanced, config.sampleRate, inputSampleRate)
+    : new Float32Array(enhanced);
 
   return {
     samples: output,
     meta: {
       modelName: config.modelName,
-      displayName: config.displayName,
+      displayName: runtime.displayName,
       presetKey: variant.presetKey,
-      modelVariant: variant.key,
+      modelVariant: runtime.activeVariant.key,
+      requestedModelVariant: variant.key,
+      fallbackUsed: runtime.fallbackUsed,
+      fallbackReason: runtime.fallbackReason,
+      debugBypassModel: runtimeDebugFlags.bypassModel,
+      resampledInput,
+      resampler: resamplerName,
+      resamplerQuality: "linear",
       inputSampleRate,
       modelSampleRate: config.sampleRate,
+      inputLength: inputSamples.length,
+      modelInputLength: modelInput.length,
+      outputLength: output.length,
       frameSize: config.hopLength,
     },
   };
+}
+
+async function loadVariantRuntime(variant) {
+  try {
+    return {
+      bundle: await getBundle(variant),
+      activeVariant: variant,
+      displayName: variant.displayName,
+      fallbackUsed: false,
+      fallbackReason: "",
+    };
+  } catch (error) {
+    if (!variant.fallbackPresetKey) {
+      throw error;
+    }
+    const fallbackVariant = resolveVariant(variant.fallbackPresetKey);
+    return {
+      bundle: await getBundle(fallbackVariant),
+      activeVariant: fallbackVariant,
+      displayName: variant.displayName,
+      fallbackUsed: true,
+      fallbackReason: `${variant.displayName} primary model unavailable. Using internal DPDFNet fallback.`,
+    };
+  }
 }
 
 async function getBundle(variant) {
@@ -120,6 +187,14 @@ async function getBundle(variant) {
   }
 
   return bundlePromises.get(variant.key);
+}
+
+function resampleForModel(input, fromRate, toRate) {
+  if (!input.length || fromRate === toRate) {
+    return new Float32Array(input);
+  }
+
+  return resampleLinear(input, fromRate, toRate);
 }
 
 async function loadMetadata(metadataUrl) {
@@ -200,17 +275,36 @@ async function enhanceAtModelRate(samples, session, config) {
       chunk.set(samples.subarray(start, Math.min(samples.length, start + config.hopLength)));
     }
 
-    const spec = stft.process(chunk);
+  const spec = stft.process(chunk);
+
+  let enhancedSpec = spec;
+
+  if (!runtimeDebugFlags.bypassModel) {
     const outputs = await session.run({
       [config.inputNames.spec]: new ort.Tensor("float32", spec, config.specShape),
       [config.inputNames.state]: new ort.Tensor("float32", state, config.stateShape),
     });
+
     state = new Float32Array(outputs[config.outputNames.state].data);
-    const enhancedChunk = istft.process(outputs[config.outputNames.spec].data);
-    output.set(enhancedChunk, start);
+    enhancedSpec = outputs[config.outputNames.spec].data;
   }
 
-  return output.subarray(0, samples.length);
+  const enhancedChunk = istft.process(enhancedSpec);
+  output.set(enhancedChunk, start);
+  }
+
+  if (!DEBUG_LATENCY_COMPENSATION) {
+    return output.subarray(0, samples.length);
+  }
+
+  const latency = Math.max(0, Math.round(config.windowLength * DEBUG_LATENCY_MULTIPLIER));
+  const compensated = new Float32Array(samples.length);
+
+  for (let i = 0; i < samples.length; i += 1) {
+    compensated[i] = output[i + latency] || 0;
+  }
+
+  return compensated;
 }
 
 function createStreamingStft(config) {
@@ -251,6 +345,7 @@ function createStreamingIstft(config) {
   const timeImag = new Float32Array(config.windowLength);
   const ola = new Float32Array(config.windowLength);
   const out = new Float32Array(config.hopLength);
+  const olaNorm = new Float32Array(config.windowLength);
 
   return {
     process(interleavedSpec) {
@@ -273,15 +368,23 @@ function createStreamingIstft(config) {
 
       for (let i = 0; i < config.windowLength - config.hopLength; i += 1) {
         ola[i] = ola[i + config.hopLength];
+        olaNorm[i] = olaNorm[i + config.hopLength];
       }
+
       for (let i = config.windowLength - config.hopLength; i < config.windowLength; i += 1) {
         ola[i] = 0;
+        olaNorm[i] = 0;
       }
+
       for (let i = 0; i < config.windowLength; i += 1) {
-        ola[i] += timeReal[i] * config.window[i];
+        const w = config.window[i];
+        ola[i] += timeReal[i] * w;
+        olaNorm[i] += w * w;
       }
+
       for (let i = 0; i < config.hopLength; i += 1) {
-        out[i] = ola[i];
+        const norm = olaNorm[i];
+        out[i] = norm > 1e-8 ? ola[i] / norm : ola[i];
       }
 
       return out;

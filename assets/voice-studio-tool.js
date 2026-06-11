@@ -4,12 +4,23 @@
   const engineApi = window.FreeAudioTrimAudioEngine;
   const voiceApi = window.FreeAudioTrimVoiceEnhancer;
   const PAGE_INPUT_ID = "audioFileInput";
-  const MAX_DURATION_SECONDS = 10 * 60;
   const DEFAULT_PRESET = "creator";
   const PRESET_ORDER = ["creator", "podcast", "cinematic"];
-  const BENCHMARK_CACHE_VERSION = "2026-06-07-tier-bench-v1";
+  const ABSOLUTE_MAX_DURATION_SECONDS = getAbsoluteMaxDurationSeconds();
+  const BENCHMARK_CACHE_VERSION = "2026-06-11-tier-bench-v3";
   const BENCHMARK_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const BENCHMARK_TIMEOUT_MS = 3000;
+  const BENCHMARK_SPEED_LIMITS = {
+    creatorDemoteMsPerSecond: 1400,
+    creatorPromotePodcastMsPerSecond: 650,
+    podcastDemoteMsPerSecond: 1250,
+    cinematicPromoteMsPerSecond: 900,
+    cinematicProbeFromPodcastMsPerSecond: 850,
+  };
+  const PRESET_DURATION_MESSAGES = {
+    podcast: "Balanced Clean supports clips up to 3 minutes. Use Fast Clean for longer files.",
+    cinematic: "Studio Clean supports clips up to 90 seconds. Use Balanced or Fast Clean for longer files.",
+  };
   const EXPORT_FLAGS = {
     brandOutro: true,
   };
@@ -40,6 +51,7 @@
     analysisProfile: null,
     renderMeta: null,
     tooLong: false,
+    sourceDurationSeconds: 0,
     downloadUrl: "",
     hasEnhanced: false,
     needsEnhance: true,
@@ -99,9 +111,10 @@
     onAnalysis: (analysis) => {
       state.analysisProfile = analysis || null;
       if (!state.userPresetLocked) {
-        const recommendedKey = capPresetForDevice(
+        const recommendedKey = capPresetForCurrentContext(
           findPresetKeyByLabel(analysis?.adaptiveProfile?.recommendedPreset || analysis?.heuristic?.recommendedPreset),
-          deviceProfile
+          deviceProfile,
+          state.sourceDurationSeconds
         );
         if (recommendedKey && recommendedKey !== state.preset) {
           state.preset = recommendedKey;
@@ -180,12 +193,16 @@
     elements.presetCards.forEach((card) => {
       card.addEventListener("click", () => {
         const requestedPreset = card.getAttribute("data-preset") || DEFAULT_PRESET;
-        const nextPreset = capPresetForDevice(requestedPreset, deviceProfile);
+        const availability = getPresetAvailability(requestedPreset);
+        if (!availability.available) {
+          setStatus(availability.message || `${voiceApi.PRESETS[requestedPreset]?.label || "That preset"} is not available for this clip right now.`, "warning");
+          return;
+        }
         state.userPresetLocked = true;
-        state.preset = nextPreset;
+        state.preset = requestedPreset;
         updatePresetCards();
-        if (requestedPreset !== nextPreset) {
-          markNeedsEnhance(`${voiceApi.PRESETS[requestedPreset]?.label || "That preset"} is too heavy for this device. Using ${voiceApi.PRESETS[nextPreset]?.label || "Fast Clean"} instead.`);
+        if (availability.reason === "benchmark-pending") {
+          markNeedsEnhance(`${voiceApi.PRESETS[state.preset]?.label || "That preset"} is checking speed in the background. You can still try it now.`);
           return;
         }
         markNeedsEnhance(`Preset changed to ${voiceApi.PRESETS[state.preset]?.label || "Fast Clean"}. Click Re-Enhance to update the result.`);
@@ -257,6 +274,7 @@
     state.renderMeta = null;
     state.analysisProfile = null;
     state.tooLong = false;
+    state.sourceDurationSeconds = 0;
     state.hasEnhanced = false;
     state.needsEnhance = true;
     state.appliedPreset = state.preset;
@@ -282,13 +300,18 @@
       });
     }
 
-    if (Number.isFinite(probedDuration) && probedDuration > MAX_DURATION_SECONDS) {
+    if (Number.isFinite(probedDuration)) {
+      state.sourceDurationSeconds = probedDuration;
+      syncPresetForCurrentContext();
+    }
+
+    if (Number.isFinite(probedDuration) && probedDuration > ABSOLUTE_MAX_DURATION_SECONDS) {
       state.tooLong = true;
       updateActionState();
-      warn("file rejected by 10-minute cap", {
+      warn("file rejected by absolute fast-clean cap", {
         fileName: file.name,
         durationSeconds: round(probedDuration),
-        maxDurationSeconds: MAX_DURATION_SECONDS,
+        maxDurationSeconds: ABSOLUTE_MAX_DURATION_SECONDS,
       });
       setStatus("For speed and stability, AI Voice Studio v1 supports voice clips up to 10 minutes.", "error");
       return false;
@@ -304,7 +327,10 @@
       return false;
     }
 
-    if (engine.originalBuffer.duration > MAX_DURATION_SECONDS) {
+    state.sourceDurationSeconds = engine.originalBuffer.duration || state.sourceDurationSeconds || 0;
+    syncPresetForCurrentContext();
+
+    if (engine.originalBuffer.duration > ABSOLUTE_MAX_DURATION_SECONDS) {
       state.tooLong = true;
       engine.reset();
       updateRenderMeta();
@@ -329,6 +355,12 @@
 
   async function enhanceCurrentVoice() {
     if (!engine.originalBuffer || state.tooLong || state.isEnhancing) {
+      return;
+    }
+    const presetAvailability = getPresetAvailability(state.preset);
+    if (!presetAvailability.available) {
+      setStatus(presetAvailability.message || "This preset is not available for the current clip.", "warning");
+      updatePresetCards();
       return;
     }
 
@@ -562,8 +594,9 @@
     const canUsePreview = canUsePreviewActions();
     const canUseProcessed = canUseProcessedActions();
     const busy = state.isEnhancing;
+    const activePresetAvailability = getPresetAvailability(state.preset);
 
-    elements.enhanceBtn.disabled = !hasFile || state.tooLong || busy;
+    elements.enhanceBtn.disabled = !hasFile || state.tooLong || busy || !activePresetAvailability.available;
     elements.previewBtn.disabled = !canUsePreview;
     elements.exportBtn.disabled = !canUseProcessed;
     elements.modeButtons.original.disabled = !canUsePreview;
@@ -680,7 +713,17 @@
 
   function updatePresetCards() {
     elements.presetCards.forEach((card) => {
-      card.setAttribute("data-selected", card.getAttribute("data-preset") === state.preset ? "true" : "false");
+      const presetKey = card.getAttribute("data-preset") || DEFAULT_PRESET;
+      const availability = getPresetAvailability(presetKey);
+      const badge = card.querySelector(".at-model-card__badge");
+      card.setAttribute("data-selected", presetKey === state.preset ? "true" : "false");
+      card.setAttribute("data-disabled", availability.available ? "false" : "true");
+      card.setAttribute("aria-disabled", availability.available ? "false" : "true");
+      card.title = availability.message || "";
+      if (badge) {
+        badge.textContent = availability.badge;
+        badge.setAttribute("data-state", availability.available ? "ready" : "muted");
+      }
     });
   }
 
@@ -711,10 +754,11 @@
     const ceilingCopy = deviceProfile.maxPresetKey === "cinematic"
       ? "You can still try the other presets if you want."
       : `${maxLabel} is the highest preset recommended for this browser right now.`;
+    const durationCopy = getDurationHintCopy();
     const benchmarkCopy = deviceProfile.benchmark
       ? " Performance check complete."
       : " Checking performance in the background.";
-    elements.presetHint.textContent = `${tierCopy} ${recommendationCopy} ${ceilingCopy}${benchmarkCopy}`;
+    elements.presetHint.textContent = `${tierCopy} ${recommendationCopy} ${ceilingCopy} ${durationCopy}${benchmarkCopy}`.trim();
   }
 
   async function scheduleDeviceBenchmark() {
@@ -722,7 +766,7 @@
     if (cached?.profile) {
       deviceProfile = cached.profile;
       window.FreeAudioTrimVoiceStudioDeviceProfile = deviceProfile;
-      updateDeviceHint();
+      syncPresetForCurrentContext();
       if (!state.userPresetLocked && !state.activeFile) {
         const cachedPreset = deviceProfile.recommendedPreset || DEFAULT_PRESET;
         if (cachedPreset !== state.preset) {
@@ -745,28 +789,47 @@
     }
     const runId = ++benchmarkRunId;
     try {
+      const benchmarkResults = new Map();
       const benchmark = await withTimeout(voiceApi.benchmarkPreset(deviceProfile.recommendedPreset, {
         durationSeconds: deviceProfile.isMobile ? 0.45 : 0.7,
       }), BENCHMARK_TIMEOUT_MS, "Warmup benchmark timed out.");
       if (runId !== benchmarkRunId) {
         return;
       }
+      benchmarkResults.set(benchmark.presetKey || deviceProfile.recommendedPreset, benchmark);
       let nextProfile = refineDeviceProfileFromBenchmark(deviceProfile, benchmark);
 
-      if (nextProfile.tierKey !== "low" && nextProfile.maxPresetKey === "cinematic") {
+      if (nextProfile.maxPresetKey !== "creator" && !benchmarkResults.has("podcast")) {
         const podcastBenchmark = await withTimeout(voiceApi.benchmarkPreset("podcast", {
           durationSeconds: nextProfile.isMobile ? 0.45 : 0.7,
         }), BENCHMARK_TIMEOUT_MS, "Podcast benchmark timed out.");
         if (runId !== benchmarkRunId) {
           return;
         }
+        benchmarkResults.set("podcast", podcastBenchmark);
         nextProfile = refineDeviceProfileFromBenchmark(nextProfile, podcastBenchmark);
       }
+
+      if (shouldProbeCinematicBenchmark(nextProfile, benchmarkResults)) {
+        const cinematicBenchmark = await withTimeout(voiceApi.benchmarkPreset("cinematic", {
+          durationSeconds: nextProfile.isMobile ? 0.45 : 0.7,
+        }), BENCHMARK_TIMEOUT_MS, "Studio benchmark timed out.");
+        if (runId !== benchmarkRunId) {
+          return;
+        }
+        benchmarkResults.set("cinematic", cinematicBenchmark);
+        nextProfile = refineDeviceProfileFromBenchmark(nextProfile, cinematicBenchmark);
+      }
+
+      nextProfile = {
+        ...nextProfile,
+        benchmarkResults: Object.fromEntries(benchmarkResults),
+      };
 
       deviceProfile = nextProfile;
       window.FreeAudioTrimVoiceStudioDeviceProfile = deviceProfile;
       saveCachedBenchmarkProfile(deviceProfile);
-      updateDeviceHint();
+      syncPresetForCurrentContext();
 
       if (!state.userPresetLocked && !state.activeFile) {
         const nextPreset = deviceProfile.recommendedPreset || DEFAULT_PRESET;
@@ -792,7 +855,7 @@
         benchmarkError: error instanceof Error ? error.message : String(error),
       };
       window.FreeAudioTrimVoiceStudioDeviceProfile = deviceProfile;
-      updateDeviceHint();
+      syncPresetForCurrentContext();
     }
   }
 
@@ -1132,9 +1195,6 @@
       if (isMobile) {
         maxPresetKey = downgradePreset(maxPresetKey);
         recommendedPreset = downgradePreset(recommendedPreset);
-      } else {
-        maxPresetKey = maxPresetKey === "cinematic" ? "podcast" : maxPresetKey;
-        recommendedPreset = recommendedPreset === "cinematic" ? "podcast" : recommendedPreset;
       }
       if (tierKey === "pro") {
         tierKey = "balanced";
@@ -1186,8 +1246,8 @@
     window.FreeAudioTrimVoiceStudioDeviceProfile = deviceProfile;
     if (!state.userPresetLocked && !state.activeFile) {
       state.preset = deviceProfile.recommendedPreset || state.preset;
-      updatePresetCards();
     }
+    syncPresetForCurrentContext();
   }
 
   function loadCachedBenchmarkProfile() {
@@ -1259,14 +1319,14 @@
     const testedPreset = benchmark?.presetKey || profile.recommendedPreset;
 
     if (testedPreset === "creator") {
-      if (speed > 1400) {
+      if (speed > BENCHMARK_SPEED_LIMITS.creatorDemoteMsPerSecond) {
         next.tierKey = "low";
         next.label = profile.isMobile ? "Minimum mobile" : "Starter creator";
         next.recommendedPreset = "creator";
         next.maxPresetKey = "creator";
         return next;
       }
-      if (speed < 650 && profile.maxPresetKey !== "creator") {
+      if (speed < BENCHMARK_SPEED_LIMITS.creatorPromotePodcastMsPerSecond && profile.maxPresetKey !== "creator") {
         next.tierKey = next.tierKey === "low" ? "balanced" : next.tierKey;
         next.label = profile.isMobile ? "Balanced mobile" : "Balanced creator";
         next.recommendedPreset = "podcast";
@@ -1279,29 +1339,179 @@
     }
 
     if (testedPreset === "podcast") {
-      if (speed > 1250) {
+      if (speed > BENCHMARK_SPEED_LIMITS.podcastDemoteMsPerSecond) {
         next.tierKey = "balanced";
         next.label = profile.isMobile ? "Balanced mobile" : "Balanced creator";
         next.recommendedPreset = "creator";
         next.maxPresetKey = "podcast";
         return next;
       }
-      if (speed < 700 && profile.maxPresetKey === "cinematic") {
-        next.tierKey = "pro";
-        next.label = profile.isMobile ? "High-end mobile" : "Studio creator";
-        next.recommendedPreset = "cinematic";
-        next.maxPresetKey = "cinematic";
-      } else {
-        next.recommendedPreset = "podcast";
+      next.recommendedPreset = "podcast";
+      next.maxPresetKey = PRESET_ORDER[Math.max(
+        PRESET_ORDER.indexOf(next.maxPresetKey),
+        PRESET_ORDER.indexOf("podcast")
+      )] || next.maxPresetKey;
+      return next;
+    }
+
+    if (testedPreset === "cinematic") {
+      if (speed > BENCHMARK_SPEED_LIMITS.cinematicPromoteMsPerSecond) {
+        next.tierKey = next.tierKey === "low" ? "balanced" : next.tierKey;
+        next.label = profile.isMobile ? "Balanced mobile" : "Balanced creator";
+        next.recommendedPreset = next.recommendedPreset === "creator" ? "podcast" : next.recommendedPreset;
         next.maxPresetKey = PRESET_ORDER[Math.max(
           PRESET_ORDER.indexOf(next.maxPresetKey),
           PRESET_ORDER.indexOf("podcast")
-        )] || next.maxPresetKey;
+        )] || "podcast";
+        return next;
       }
+      next.tierKey = "pro";
+      next.label = profile.isMobile ? "High-end mobile" : "Studio creator";
+      next.recommendedPreset = "cinematic";
+      next.maxPresetKey = "cinematic";
       return next;
     }
 
     return next;
+  }
+
+  function shouldProbeCinematicBenchmark(profile, benchmarkResults) {
+    if (benchmarkResults.has("cinematic") || profile.tierKey === "low") {
+      return false;
+    }
+    if (PRESET_ORDER.indexOf(profile.maxPresetKey || "creator") < PRESET_ORDER.indexOf("podcast")) {
+      return false;
+    }
+    const podcastSpeed = Number(benchmarkResults.get("podcast")?.msPerSecond) || 0;
+    const creatorSpeed = Number(benchmarkResults.get("creator")?.msPerSecond) || 0;
+    if (PRESET_ORDER.indexOf(profile.maxPresetKey || "creator") >= PRESET_ORDER.indexOf("cinematic")) {
+      return true;
+    }
+    if (podcastSpeed > 0 && podcastSpeed <= BENCHMARK_SPEED_LIMITS.cinematicProbeFromPodcastMsPerSecond) {
+      return true;
+    }
+    if (!profile.isMobile && creatorSpeed > 0 && creatorSpeed <= BENCHMARK_SPEED_LIMITS.creatorPromotePodcastMsPerSecond) {
+      return true;
+    }
+    return false;
+  }
+
+  function getAbsoluteMaxDurationSeconds() {
+    return Object.values(voiceApi?.PRESETS || {}).reduce((maxSeconds, preset) => {
+      return Math.max(maxSeconds, Number(preset?.maxDurationSeconds) || 0);
+    }, 10 * 60);
+  }
+
+  function getPresetDurationLimitSeconds(presetKey) {
+    return Math.max(0, Number(voiceApi.PRESETS?.[presetKey]?.maxDurationSeconds) || 0);
+  }
+
+  function getDurationMaxPresetKey(durationSeconds) {
+    const seconds = Number(durationSeconds) || 0;
+    if (seconds > getPresetDurationLimitSeconds("podcast")) {
+      return "creator";
+    }
+    if (seconds > getPresetDurationLimitSeconds("cinematic")) {
+      return "podcast";
+    }
+    return "cinematic";
+  }
+
+  function getDurationRestrictionMessage(presetKey) {
+    return PRESET_DURATION_MESSAGES[presetKey] || `${voiceApi.PRESETS[presetKey]?.label || "That preset"} is not available for this clip length.`;
+  }
+
+  function getPresetAvailability(presetKey) {
+    const key = PRESET_ORDER.includes(presetKey) ? presetKey : DEFAULT_PRESET;
+    const durationLimit = getPresetDurationLimitSeconds(key);
+    const durationSeconds = Number(state.sourceDurationSeconds) || 0;
+    const durationBlocked = durationSeconds > 0 && durationLimit > 0 && durationSeconds > durationLimit;
+    const deviceMaxPreset = PRESET_ORDER.includes(deviceProfile?.maxPresetKey) ? deviceProfile.maxPresetKey : "cinematic";
+    const deviceBlocked = PRESET_ORDER.indexOf(key) > PRESET_ORDER.indexOf(deviceMaxPreset);
+
+    if (durationBlocked) {
+      return {
+        available: false,
+        reason: "duration",
+        badge: "Clip too long",
+        message: getDurationRestrictionMessage(key),
+      };
+    }
+
+    if (deviceBlocked && canTryPresetBeforeBenchmark(key, deviceProfile)) {
+      return {
+        available: true,
+        reason: "benchmark-pending",
+        badge: "Checking speed",
+        message: "",
+      };
+    }
+
+    if (deviceBlocked) {
+      return {
+        available: false,
+        reason: "device",
+        badge: "Device limited",
+        message: `${voiceApi.PRESETS[key]?.label || "That preset"} is too heavy for this device right now.`,
+      };
+    }
+
+    return {
+      available: true,
+      reason: "",
+      badge: "Preset",
+      message: "",
+    };
+  }
+
+  function canTryPresetBeforeBenchmark(presetKey, profile) {
+    if (presetKey !== "cinematic") {
+      return false;
+    }
+    if (!profile || profile.isMobile || profile.tierKey === "low") {
+      return false;
+    }
+    if (profile.benchmark || profile.benchmarkResults || profile.benchmarkError) {
+      return false;
+    }
+    const hasStrongDesktopHints =
+      ((Number(profile.deviceMemory) || 0) >= 24 && (Number(profile.hardwareConcurrency) || 0) >= 8)
+      || !!profile.hasWebGpu;
+    return hasStrongDesktopHints;
+  }
+
+  function getDurationHintCopy() {
+    const durationSeconds = Number(state.sourceDurationSeconds) || 0;
+    if (!durationSeconds) {
+      return "Fast Clean supports up to 10 minutes, Balanced Clean up to 3 minutes, and Studio Clean up to 90 seconds.";
+    }
+    if (durationSeconds > getPresetDurationLimitSeconds("podcast")) {
+      return "This clip length keeps Fast Clean available and disables Balanced Clean and Studio Clean.";
+    }
+    if (durationSeconds > getPresetDurationLimitSeconds("cinematic")) {
+      return "This clip length keeps Fast Clean and Balanced Clean available and disables Studio Clean.";
+    }
+    return "This clip length can use all presets, subject to device capability.";
+  }
+
+  function capPresetForCurrentContext(presetKey, profile, durationSeconds) {
+    const safePreset = capPresetForDevice(presetKey, profile);
+    const durationMaxPreset = getDurationMaxPresetKey(durationSeconds);
+    return PRESET_ORDER[Math.min(PRESET_ORDER.indexOf(safePreset), PRESET_ORDER.indexOf(durationMaxPreset))] || safePreset;
+  }
+
+  function syncPresetForCurrentContext() {
+    const nextPreset = capPresetForCurrentContext(state.preset, deviceProfile, state.sourceDurationSeconds);
+    if (nextPreset !== state.preset) {
+      state.preset = nextPreset;
+    }
+    if (state.appliedPreset && !getPresetAvailability(state.appliedPreset).available) {
+      state.appliedPreset = nextPreset;
+    }
+    updatePresetCards();
+    updateTargetBadge();
+    updateDeviceHint();
+    updateActionState();
   }
 
   function capPresetForDevice(presetKey, profile) {
@@ -1328,6 +1538,7 @@
       state.renderMeta = null;
       state.analysisProfile = null;
       state.tooLong = false;
+      state.sourceDurationSeconds = 0;
       state.hasEnhanced = false;
       state.needsEnhance = true;
       state.isEnhancing = false;

@@ -6,6 +6,7 @@
   const DB_FLOOR = -48;
   const LUFS_OFFSET = -0.691;
   const PAGE_INPUT_ID = "audioFileInput";
+  const LAME_PATH = "/assets/encoders/lame.min.js";
 
   const modePresets = {
     auto: { label: "Auto Fix (Recommended)", targetLufs: -14, truePeak: -1 },
@@ -56,6 +57,8 @@
   updateActionState();
   updateAdvancedSummary();
   setStatus("Upload one audio file to normalize.", "idle");
+
+  let lameSupportPromise = null;
 
   function wireEvents() {
     elements.changeFileBtn.addEventListener("click", () => {
@@ -232,7 +235,7 @@
       const gainDb = computeGainDb(state.current.analysis, modeConfig);
       const normalized = applyGainToBuffer(state.current.audioBuffer, gainDb);
       const outAnalysis = analyzeBuffer(normalized);
-      const outputBlob = format === "mp3" ? encodeMp3(normalized) : encodeWav(normalized);
+      const outputBlob = format === "mp3" ? await encodeMp3(normalized) : encodeWav(normalized);
 
       releaseCurrentOutput();
       state.current.output = {
@@ -399,10 +402,8 @@
     return new Blob([out], { type: "audio/wav" });
   }
 
-  function encodeMp3(audioBuffer) {
-    if (!window.lamejs || typeof window.lamejs.Mp3Encoder !== "function") {
-      throw new Error("MP3 encoder unavailable (lamejs not loaded).");
-    }
+  async function encodeMp3(audioBuffer) {
+    await ensureLameSupport();
 
     const channels = Math.min(audioBuffer.numberOfChannels, 2);
     const sampleRate = audioBuffer.sampleRate;
@@ -428,6 +429,59 @@
     }
 
     return new Blob(output, { type: "audio/mpeg" });
+  }
+
+  function loadScriptOnce(src, isReady, errorMessage) {
+    if (isReady()) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        existing.addEventListener("load", () => {
+          if (isReady()) {
+            resolve();
+            return;
+          }
+          reject(new Error(errorMessage));
+        }, { once: true });
+        existing.addEventListener("error", () => reject(new Error(errorMessage)), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.onload = () => {
+        if (isReady()) {
+          resolve();
+          return;
+        }
+        reject(new Error(errorMessage));
+      };
+      script.onerror = () => reject(new Error(errorMessage));
+      document.head.appendChild(script);
+    });
+  }
+
+  function ensureLameSupport() {
+    if (window.lamejs && typeof window.lamejs.Mp3Encoder === "function") {
+      return Promise.resolve(window.lamejs);
+    }
+
+    if (!lameSupportPromise) {
+      lameSupportPromise = loadScriptOnce(
+        LAME_PATH,
+        () => !!(window.lamejs && typeof window.lamejs.Mp3Encoder === "function"),
+        `MP3 encoder runtime unavailable from ${LAME_PATH}.`
+      ).then(() => window.lamejs).catch((error) => {
+        lameSupportPromise = null;
+        throw error;
+      });
+    }
+
+    return lameSupportPromise;
   }
 
   function float32ToInt16(samples) {

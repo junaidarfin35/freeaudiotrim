@@ -12,6 +12,8 @@
     queue: [],
     audioContext: null
   };
+  const LAME_PATH = "/assets/encoders/lame.min.js";
+  const MP3_ENCODER_PATH = "/assets/encoders/mp3-encoder.js";
   const BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
 
   const elements = {
@@ -138,7 +140,7 @@
           if (rule.outputExt === "wav") {
             outputBlob = encodeWav(audioBuffer);
           } else {
-            outputBlob = encodeMp3(audioBuffer, bitrate);
+            outputBlob = await encodeMp3(audioBuffer, bitrate);
           }
 
           item.outputBlob = outputBlob;
@@ -246,10 +248,72 @@
     return state.audioContext;
   }
 
-  function encodeMp3(audioBuffer, bitrateKbps) {
-    if (!window.MP3EncoderModule || typeof window.MP3EncoderModule.encode !== "function") {
-      throw new Error("MP3 encoder not loaded.");
+  function loadScriptOnce(src, isReady, errorMessage) {
+    if (isReady()) {
+      return Promise.resolve();
     }
+
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) {
+        existing.addEventListener("load", () => {
+          if (isReady()) {
+            resolve();
+            return;
+          }
+          reject(new Error(errorMessage));
+        }, { once: true });
+        existing.addEventListener("error", () => {
+          reject(new Error(errorMessage));
+        }, { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.onload = () => {
+        if (isReady()) {
+          resolve();
+          return;
+        }
+        reject(new Error(errorMessage));
+      };
+      script.onerror = () => reject(new Error(errorMessage));
+      document.head.appendChild(script);
+    });
+  }
+
+  let mp3SupportPromise = null;
+
+  function ensureMp3Support() {
+    if (window.MP3EncoderModule && typeof window.MP3EncoderModule.encode === "function") {
+      return Promise.resolve(window.MP3EncoderModule);
+    }
+
+    if (!mp3SupportPromise) {
+      mp3SupportPromise = loadScriptOnce(
+        LAME_PATH,
+        () => !!(window.lamejs && typeof window.lamejs.Mp3Encoder === "function"),
+        `MP3 encoder runtime unavailable from ${LAME_PATH}.`
+      )
+        .then(() => loadScriptOnce(
+          MP3_ENCODER_PATH,
+          () => !!(window.MP3EncoderModule && typeof window.MP3EncoderModule.encode === "function"),
+          `MP3 encoder module unavailable from ${MP3_ENCODER_PATH}.`
+        ))
+        .then(() => window.MP3EncoderModule)
+        .catch((error) => {
+          mp3SupportPromise = null;
+          throw error;
+        });
+    }
+
+    return mp3SupportPromise;
+  }
+
+  async function encodeMp3(audioBuffer, bitrateKbps) {
+    const module = await ensureMp3Support();
 
     const channels = [];
     const count = Math.min(audioBuffer.numberOfChannels, 2);
@@ -257,7 +321,7 @@
       channels.push(audioBuffer.getChannelData(i));
     }
 
-    return window.MP3EncoderModule.encode({
+    return module.encode({
       channels,
       sampleRate: audioBuffer.sampleRate,
       bitrateKbps

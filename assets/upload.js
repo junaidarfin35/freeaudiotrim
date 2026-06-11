@@ -109,6 +109,50 @@
     return document.querySelector('input[type="file"]');
   };
 
+  const getPrimaryLabelElement = (dropzone) =>
+    dropzone.querySelector('.upload-dropzone__primary, .upload-content h2, h2');
+
+  const getDefaultPrimaryText = (dropzone) =>
+    String(dropzone?.dataset?.defaultPrimaryText || DEFAULT_PRIMARY_TEXT).trim() || DEFAULT_PRIMARY_TEXT;
+
+  const ensurePrimaryLabelId = (dropzone) => {
+    const primary = getPrimaryLabelElement(dropzone);
+    if (!primary) {
+      return '';
+    }
+    if (!primary.id) {
+      const baseId = dropzone.id || 'upload-dropzone';
+      primary.id = `${baseId}-label`;
+    }
+    return primary.id;
+  };
+
+  const syncDropzoneAccessibleName = (dropzone, text) => {
+    const label = String(text || '').trim();
+    const labelId = ensurePrimaryLabelId(dropzone);
+    if (labelId) {
+      dropzone.setAttribute('aria-labelledby', labelId);
+      dropzone.removeAttribute('aria-label');
+      return;
+    }
+    if (label) {
+      dropzone.setAttribute('aria-label', label);
+    }
+  };
+
+  const ensureIllustrationSizing = (dropzone) => {
+    const illustration = dropzone.querySelector('.upload-illustration img');
+    if (!illustration) {
+      return;
+    }
+    if (!illustration.hasAttribute('width')) {
+      illustration.setAttribute('width', '822');
+    }
+    if (!illustration.hasAttribute('height')) {
+      illustration.setAttribute('height', '427');
+    }
+  };
+
   const resolveUploadPolicy = (context = {}) => {
     if (typeof window.AudioToolUploadPolicy === 'function') {
       return window.AudioToolUploadPolicy(context) || null;
@@ -354,11 +398,14 @@ const dispatchToInput = (input, incomingFiles) => {
     }
     privacy.textContent = DEFAULT_PRIVACY_TEXT;
 
+    const defaultPrimaryText = (primary.textContent || '').trim() || DEFAULT_PRIMARY_TEXT;
+    dropzone.dataset.defaultPrimaryText = defaultPrimaryText;
+
     return { content, primary, secondary, meta, privacy };
   };
 
   const updateDropzoneLabel = (dropzone, labelText) => {
-    const primary = dropzone.querySelector('.upload-dropzone__primary, .upload-content h2, h2');
+    const primary = getPrimaryLabelElement(dropzone);
     if (!primary) {
       return;
     }
@@ -366,10 +413,12 @@ const dispatchToInput = (input, incomingFiles) => {
     if (labelText) {
       primary.textContent = labelText;
       dropzone.classList.add('has-file');
+      syncDropzoneAccessibleName(dropzone, labelText);
       return;
     }
 
     dropzone.classList.remove('has-file');
+    syncDropzoneAccessibleName(dropzone, primary.textContent || getDefaultPrimaryText(dropzone));
   };
 
   const ensureSecondaryInfoElement = (dropzone) => {
@@ -476,7 +525,7 @@ const dispatchToInput = (input, incomingFiles) => {
       return;
     }
 
-    updateDropzoneLabel(dropzone, DEFAULT_PRIMARY_TEXT);
+    updateDropzoneLabel(dropzone, getDefaultPrimaryText(dropzone));
     secondary.textContent = '';
     secondary.hidden = true;
     dropzone.classList.remove('has-file', 'is-confirmed');
@@ -511,6 +560,7 @@ const dispatchToInput = (input, incomingFiles) => {
     const policy = resolveUploadPolicy(bindContext);
     ensureAudioAccept(input, policy, bindContext);
     ensureContentStructure(dropzone);
+    ensureIllustrationSizing(dropzone);
     ensureBrowseButton(dropzone, input);
     ensureChangeFileButton(dropzone, input);
 
@@ -519,7 +569,7 @@ const dispatchToInput = (input, incomingFiles) => {
     dropzone.dataset[PROCESSED_FLAG] = 'true';
     dropzone.setAttribute('role', dropzone.getAttribute('role') || 'button');
     dropzone.setAttribute('tabindex', dropzone.getAttribute('tabindex') || '0');
-    dropzone.setAttribute('aria-label', DEFAULT_PRIMARY_TEXT);
+    syncDropzoneAccessibleName(dropzone, getDefaultPrimaryText(dropzone));
 
     dropzone.addEventListener('click', () => {
       input.click();

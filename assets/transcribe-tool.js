@@ -7,7 +7,7 @@
   var ENABLE_DESKTOP_TRANSCRIPTION_VAD = false;
   var srtContent = "";
   var vttContent = "";
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-06-02-2";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-06-11-4";
   var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-25-24";
   var MOBILE_VAD_WORKER_URL = "/assets/mobile-vad-worker.js?v=2026-05-25-24";
   var MOBILE_VAD_TIMEOUT_MS = 9000;
@@ -551,6 +551,17 @@
     return 0;
   }
 
+  function shouldEnableAdaptiveSmallWindows(modelKey) {
+    return modelKey === "triceratop" || modelKey === "t-rex";
+  }
+
+  function getControlledWindowMaxConsecutiveEmptyWindows(modelKey) {
+    if (modelKey === "t-rex") {
+      return 3;
+    }
+    return 2;
+  }
+
   function hasUsefulControlledWindowText(text) {
     var normalized = typeof text === "string"
       ? text.replace(/["'\u200e\u200f\u202a-\u202e]/g, "").replace(/\s+/g, " ").trim()
@@ -800,7 +811,7 @@
     };
   }
 
-  function getWindowRetryOverrides(language) {
+  function getWindowRetryOverrides(modelKey, language) {
     var overrides = {
       condition_on_prev_tokens: false,
       no_repeat_ngram_size: 3,
@@ -808,6 +819,10 @@
       do_sample: false,
       task: "transcribe"
     };
+    if (modelKey === "t-rex") {
+      overrides.no_speech_threshold = 0.3;
+      overrides.compression_ratio_threshold = 2.2;
+    }
     if (language && language !== "auto") {
       overrides.language = language;
     }
@@ -892,7 +907,53 @@
   }
 
   function areOverlapSegmentTextsSimilar(leftText, rightText) {
-    return getOverlapSegmentSimilarityScore(leftText, rightText) >= 0.8;
+    return getOverlapSegmentSimilarityScore(leftText, rightText) >= 0.92;
+  }
+
+  function hasMeaningfulTimestampOverlap(previousStart, previousEnd, currentStart, currentEnd) {
+    var overlapSeconds;
+    var previousDuration;
+    var currentDuration;
+    var shorterDuration;
+
+    if (
+      !Number.isFinite(previousStart)
+      || !Number.isFinite(previousEnd)
+      || !Number.isFinite(currentStart)
+      || !Number.isFinite(currentEnd)
+    ) {
+      return false;
+    }
+
+    overlapSeconds = Math.min(previousEnd, currentEnd) - Math.max(previousStart, currentStart);
+    if (!(overlapSeconds > 0)) {
+      return false;
+    }
+
+    previousDuration = Math.max(0, previousEnd - previousStart);
+    currentDuration = Math.max(0, currentEnd - currentStart);
+    shorterDuration = Math.min(previousDuration, currentDuration);
+
+    if (!(shorterDuration > 0)) {
+      return overlapSeconds >= 0.35;
+    }
+
+    return overlapSeconds >= Math.max(0.35, shorterDuration * 0.45);
+  }
+
+  function shouldDropDuplicateFromOverlap(previousText, currentText, options) {
+    var config = options || {};
+    var similarityScore = getOverlapSegmentSimilarityScore(previousText, currentText);
+    var currentStart = Number.isFinite(Number(config.originalStart)) ? Number(config.originalStart) : Number(config.currentStart);
+    var currentEnd = Number.isFinite(Number(config.originalEnd)) ? Number(config.originalEnd) : Number(config.currentEnd);
+    var previousStart = Number(config.previousStart);
+    var previousEnd = Number(config.previousEnd);
+
+    if (similarityScore < 0.92) {
+      return false;
+    }
+
+    return hasMeaningfulTimestampOverlap(previousStart, previousEnd, currentStart, currentEnd);
   }
 
   function detectLeadingRepeatedIntroLoop(segments) {
@@ -1095,7 +1156,7 @@
     if (!incomingOriginalTokens.length) {
       return "";
     }
-    if (getOverlapSegmentSimilarityScore(previousText, incomingText) >= 0.8) {
+    if (getOverlapSegmentSimilarityScore(previousText, incomingText) >= 0.92) {
       return "";
     }
 
@@ -1239,7 +1300,7 @@
         return;
       }
       survived = acceptedTexts.some(function (acceptedText) {
-        return getOverlapSegmentSimilarityScore(acceptedText, normalizedText) >= 0.8
+        return getOverlapSegmentSimilarityScore(acceptedText, normalizedText) >= 0.92
           || acceptedText.indexOf(normalizedText) !== -1
           || normalizedText.indexOf(acceptedText) !== -1;
       });
@@ -1477,6 +1538,7 @@
       var similarityToPrevious;
       var validated;
       var originalStart;
+      var originalEnd;
       var timestampSource;
       var segmentWasClampedToWindowStart;
       var localTimestampOffsetApplied;
@@ -1492,6 +1554,7 @@
       start = Math.max(0, Number(timestamp[0]) || 0);
       end = Math.max(0, Number(timestamp[1]) || 0);
       originalStart = start;
+      originalEnd = end;
       timestampSource = segment && segment.timestampSource ? segment.timestampSource : "";
       segmentWasClampedToWindowStart = !!(segment && segment.firstSegmentWasClampedToWindowStart);
       localTimestampOffsetApplied = !!(segment && segment.localTimestampOffsetApplied);
@@ -1660,12 +1723,23 @@
       }
 
       similarityToPrevious = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) : 0;
-      if (previousNormalizedText && similarityToPrevious >= 0.8) {
+      if (
+        previousNormalizedText
+        && result.length
+        && shouldDropDuplicateFromOverlap(result[result.length - 1].text, text, {
+          previousStart: result[result.length - 1].timestamp[0],
+          previousEnd: result[result.length - 1].timestamp[1],
+          currentStart: start,
+          currentEnd: end,
+          originalStart: originalStart,
+          originalEnd: originalEnd
+        })
+      ) {
         if (diagnostics) {
           diagnostics.adjacentDuplicateWarnings = (diagnostics.adjacentDuplicateWarnings || 0) + 1;
           recordOverlapDedupDiagnostic(diagnostics, {
             action: "dropped_adjacent_duplicate",
-            reason: "normalized_adjacent_similarity",
+            reason: "meaningful_timestamp_overlap_and_similar_text",
             textPreview: buildOverlapDedupPreview(text),
             previousTextPreview: result.length ? buildOverlapDedupPreview(result[result.length - 1].text) : "",
             previousSegmentStart: result.length ? result[result.length - 1].timestamp[0] : null,
@@ -1677,9 +1751,9 @@
           recordSegmentLifecycleEvent(diagnostics, segment, {
             sourceStage: "final_timeline_validation",
             actionTaken: "dropped",
-            reason: "normalized_adjacent_similarity",
+            reason: "meaningful_timestamp_overlap_and_similar_text",
             removedByStage: "final_timeline_validation",
-            removalReason: "normalized_adjacent_similarity",
+            removalReason: "meaningful_timestamp_overlap_and_similar_text",
             finalStart: start,
             finalEnd: end,
             textPreview: text
@@ -1703,12 +1777,26 @@
         droppedSegmentsInGap.forEach(function (event) {
           var candidateText = cleanText(event && event.text);
           var candidateNormalized = normalizeOverlapComparisonText(candidateText);
-          var previousSimilarity = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, candidateNormalized) : 0;
-          var nextSimilarity = getOverlapSegmentSimilarityScore(candidateNormalized, normalizedText);
           var insertStart = Math.max(gapStart + 0.001, Number(event.start) || gapStart);
           var insertEnd = Math.min(gapEnd - 0.001, Number(event.end) || gapEnd);
+          var duplicateWithPrevious = result.length && shouldDropDuplicateFromOverlap(result[result.length - 1].text, candidateText, {
+            previousStart: result[result.length - 1].timestamp[0],
+            previousEnd: result[result.length - 1].timestamp[1],
+            currentStart: insertStart,
+            currentEnd: insertEnd,
+            originalStart: Number(event.start),
+            originalEnd: Number(event.end)
+          });
+          var duplicateWithNext = shouldDropDuplicateFromOverlap(text, candidateText, {
+            previousStart: start,
+            previousEnd: end,
+            currentStart: insertStart,
+            currentEnd: insertEnd,
+            originalStart: Number(event.start),
+            originalEnd: Number(event.end)
+          });
 
-          if (!candidateText || !candidateNormalized || previousSimilarity >= 0.8 || nextSimilarity >= 0.8) {
+          if (!candidateText || !candidateNormalized || duplicateWithPrevious || duplicateWithNext) {
             return;
           }
           if (!(insertEnd > insertStart)) {
@@ -1800,12 +1888,23 @@
       }
 
       similarityToPrevious = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) : 0;
-      if (previousNormalizedText && similarityToPrevious >= 0.8) {
+      if (
+        previousNormalizedText
+        && result.length
+        && shouldDropDuplicateFromOverlap(result[result.length - 1].text, text, {
+          previousStart: result[result.length - 1].timestamp[0],
+          previousEnd: result[result.length - 1].timestamp[1],
+          currentStart: start,
+          currentEnd: end,
+          originalStart: originalStart,
+          originalEnd: originalEnd
+        })
+      ) {
         if (diagnostics) {
           diagnostics.adjacentDuplicateWarnings = (diagnostics.adjacentDuplicateWarnings || 0) + 1;
           recordOverlapDedupDiagnostic(diagnostics, {
             action: "dropped_adjacent_duplicate_after_gap_recovery",
-            reason: "normalized_adjacent_similarity_after_reinsert",
+            reason: "meaningful_timestamp_overlap_and_similar_text_after_reinsert",
             textPreview: buildOverlapDedupPreview(text),
             previousTextPreview: result.length ? buildOverlapDedupPreview(result[result.length - 1].text) : "",
             previousSegmentStart: result.length ? result[result.length - 1].timestamp[0] : null,
@@ -1874,9 +1973,17 @@
       if (Number.isFinite(lastEnd)) {
         var hasOverlap = start < lastEnd;
         var similarityScore = getOverlapSegmentSimilarityScore(lastSegment && lastSegment.text, text);
-        var textsAreSimilar = similarityScore >= 0.8;
+        var textsAreSimilar = similarityScore >= 0.92;
+        var strongOverlapDuplicate = lastSegment && shouldDropDuplicateFromOverlap(lastSegment.text, text, {
+          previousStart: lastSegment && lastSegment.timestamp ? Number(lastSegment.timestamp[0]) : null,
+          previousEnd: lastEnd,
+          currentStart: start,
+          currentEnd: end,
+          originalStart: start,
+          originalEnd: end
+        });
         var adjustedStartCandidate = hasOverlap ? lastEnd + 0.001 : start;
-        if (end <= lastEnd + 0.12 && textsAreSimilar) {
+        if (end <= lastEnd + 0.12 && strongOverlapDuplicate) {
           if (overlapDiagnostics) {
             overlapDiagnostics.droppedOverlapDuplicateCount = (overlapDiagnostics.droppedOverlapDuplicateCount || 0) + 1;
             overlapDiagnostics.droppedNearDuplicateOverlapCount = (overlapDiagnostics.droppedNearDuplicateOverlapCount || 0) + 1;
@@ -1901,7 +2008,7 @@
           if (overlapDiagnostics) {
             overlapDiagnostics.invalidTimestampPreventedCount = (overlapDiagnostics.invalidTimestampPreventedCount || 0) + 1;
           }
-          if (textsAreSimilar) {
+          if (strongOverlapDuplicate) {
             if (overlapDiagnostics) {
               overlapDiagnostics.droppedNearDuplicateOverlapCount = (overlapDiagnostics.droppedNearDuplicateOverlapCount || 0) + 1;
               recordOverlapDedupDiagnostic(overlapDiagnostics, {
@@ -5989,6 +6096,7 @@ function generateVTT(segments) {
     var diagnostics = window.__lastTranscriptionRunDiagnostics || null;
     var previousEnd = null;
     var previousNormalizedText = "";
+    var previousPreparedSegment = null;
     var prepared = [];
 
     sourceSegments.forEach(function (segment) {
@@ -6058,13 +6166,24 @@ function generateVTT(segments) {
         });
         return;
       }
-      if (previousNormalizedText && getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) >= 0.8) {
+      if (
+        previousNormalizedText
+        && previousPreparedSegment
+        && shouldDropDuplicateFromOverlap(previousPreparedSegment.text, text, {
+          previousStart: previousPreparedSegment.timestamp[0],
+          previousEnd: previousPreparedSegment.timestamp[1],
+          currentStart: start,
+          currentEnd: end,
+          originalStart: Array.isArray(segment && segment.rawTimestamp) ? Number(segment.rawTimestamp[0]) : start,
+          originalEnd: Array.isArray(segment && segment.rawTimestamp) ? Number(segment.rawTimestamp[1]) : end
+        })
+      ) {
         recordSegmentLifecycleEvent(diagnostics, segment, {
           sourceStage: "final_export",
           actionTaken: "dropped",
-          reason: "adjacent_export_duplicate",
+          reason: "overlap_export_duplicate",
           removedByStage: "final_export",
-          removalReason: "adjacent_export_duplicate",
+          removalReason: "overlap_export_duplicate",
           finalStart: start,
           finalEnd: end,
           textPreview: text
@@ -6072,11 +6191,12 @@ function generateVTT(segments) {
         return;
       }
 
-      prepared.push({
+      previousPreparedSegment = {
         segmentId: getSegmentLifecycleId(segment),
         text: text,
         timestamp: [start, end]
-      });
+      };
+      prepared.push(previousPreparedSegment);
       recordSegmentLifecycleEvent(diagnostics, segment, {
         sourceStage: "final_export",
         actionTaken: "exported",
@@ -7486,12 +7606,12 @@ function generateVTT(segments) {
           requestConfig: {
             chunkingMode: "app_controlled_windows",
             disablePromptIds: !!useRetryOverrides,
-            overrides: useRetryOverrides ? getWindowRetryOverrides(this.language) : null
+            overrides: useRetryOverrides ? getWindowRetryOverrides(this.modelKey, this.language) : null
           }
         };
       },
       recordAdaptiveSmallWindowsEnabled: function (windowMeta) {
-        if (this.adaptiveSmallWindowsEnabled || this.modelKey !== "triceratop") {
+        if (this.adaptiveSmallWindowsEnabled || !shouldEnableAdaptiveSmallWindows(this.modelKey)) {
           return;
         }
         this.adaptiveSmallWindowsEnabled = true;
@@ -7507,6 +7627,7 @@ function generateVTT(segments) {
       },
       finalizeSplitWindowResult: function (splitResult) {
         var self = this;
+        var maxConsecutiveEmptyWindows = getControlledWindowMaxConsecutiveEmptyWindows(this.modelKey);
         splitResult.reports.forEach(function (report) {
           self.runReports.push(report);
         });
@@ -7533,7 +7654,7 @@ function generateVTT(segments) {
         this.markWarning("weak_audio");
         this.markWarning("repetition");
         this.consecutiveEmptyWindows += 1;
-        if (this.consecutiveEmptyWindows >= 2) {
+        if (this.consecutiveEmptyWindows >= maxConsecutiveEmptyWindows) {
           this.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
           return;
         }
@@ -7544,6 +7665,7 @@ function generateVTT(segments) {
       },
       runDirectSplitWindow: function (windowMeta, reason) {
         var self = this;
+        var maxConsecutiveEmptyWindows = getControlledWindowMaxConsecutiveEmptyWindows(this.modelKey);
         this.clearTimers();
         setStatus(this.statusEl, "Transcribing smaller windows for the remaining difficult region...", "processing");
         setProgressMessage("Transcribing smaller windows for the remaining difficult region...");
@@ -7553,7 +7675,7 @@ function generateVTT(segments) {
           self.markWarning("weak_audio");
           self.markWarning("repetition");
           self.consecutiveEmptyWindows += 1;
-          if (self.consecutiveEmptyWindows >= 2) {
+          if (self.consecutiveEmptyWindows >= maxConsecutiveEmptyWindows) {
             self.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
             return;
           }
@@ -7640,7 +7762,7 @@ function generateVTT(segments) {
           this.finish();
           return;
         }
-        if (this.adaptiveSmallWindowsEnabled && this.modelKey === "triceratop" && this.currentAttempt === 0) {
+        if (this.adaptiveSmallWindowsEnabled && shouldEnableAdaptiveSmallWindows(this.modelKey) && this.currentAttempt === 0) {
           this.runDirectSplitWindow(windowMeta, "adaptive_small_windows");
           return;
         }
@@ -7907,7 +8029,7 @@ function generateVTT(segments) {
         this.activeFallbackEvent = fallbackEvent;
         this.fullWindowFallbackEvents.push(fallbackEvent);
         this.abandonCurrentAttemptAndSwapWorker();
-        if (this.modelKey === "triceratop" && this.splitFallbackCount >= 2) {
+        if (shouldEnableAdaptiveSmallWindows(this.modelKey) && this.splitFallbackCount >= 2) {
           this.recordAdaptiveSmallWindowsEnabled(windowMeta);
         }
         this.retryAsSplitWindows(windowMeta, reason).then(function (splitResult) {
@@ -7927,12 +8049,13 @@ function generateVTT(segments) {
           self.activeFallbackEvent = null;
           self.finalizeSplitWindowResult(splitResult);
         }).catch(function () {
+          var maxConsecutiveEmptyWindows = getControlledWindowMaxConsecutiveEmptyWindows(self.modelKey);
           fallbackEvent.splitFallbackFinishedMs = Date.now();
           self.activeFallbackEvent = null;
           self.markWarning("weak_audio");
           self.markWarning("repetition");
           self.consecutiveEmptyWindows += 1;
-          if (self.consecutiveEmptyWindows >= 2) {
+          if (self.consecutiveEmptyWindows >= maxConsecutiveEmptyWindows) {
             self.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
             return;
           }
@@ -8121,6 +8244,7 @@ function generateVTT(segments) {
         var text = payload && typeof payload.text === "string" ? payload.text : "";
         var segments = Array.isArray(payload && payload.segments) ? payload.segments : [];
         var elapsedMs = Math.max(0, Date.now() - this.currentWindowStartMs);
+        var maxConsecutiveEmptyWindows = getControlledWindowMaxConsecutiveEmptyWindows(this.modelKey);
         var severity = getRunawayWindowSeverity(text.length);
         var shouldSplitRetry = severity === "severe"
           || (this.modelKey === "triceratop" && elapsedMs > 60000);
@@ -8215,7 +8339,7 @@ function generateVTT(segments) {
         } else {
           this.consecutiveEmptyWindows = 0;
         }
-        if (this.consecutiveEmptyWindows >= 2) {
+        if (this.consecutiveEmptyWindows >= maxConsecutiveEmptyWindows) {
           this.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
           return;
         }
@@ -8228,6 +8352,7 @@ function generateVTT(segments) {
         var windowMeta = this.getWindowMeta();
         var elapsedMs = Math.max(0, Date.now() - this.currentWindowStartMs);
         var errorMessage = payload && payload.message ? payload.message : "Window transcription failed";
+        var maxConsecutiveEmptyWindows = getControlledWindowMaxConsecutiveEmptyWindows(this.modelKey);
         if (!windowMeta) {
           this.fail(new Error(errorMessage));
           return;
@@ -8268,7 +8393,7 @@ function generateVTT(segments) {
         this.markWarning("weak_audio");
         this.markWarning("repetition");
         this.consecutiveEmptyWindows += 1;
-        if (this.consecutiveEmptyWindows >= 2) {
+        if (this.consecutiveEmptyWindows >= maxConsecutiveEmptyWindows) {
           this.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
           return;
         }

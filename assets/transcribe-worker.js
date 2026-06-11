@@ -596,9 +596,9 @@ function getDefaultTranscriptionOptions(modelKey, useLegacyRuntime = false) {
     temperature: useSmallerTimestampedDesktopDefaults
       ? [0, 0.2, 0.4, 0.6, 0.8, 1.0]
       : 0.2,
-    compression_ratio_threshold: useSmallerTimestampedDesktopDefaults ? 1.35 : 2.0,
+    compression_ratio_threshold: useSmallerTimestampedDesktopDefaults ? 1.35 : (useTrexCodeSwitchingTuning ? 2.2 : 2.0),
     logprob_threshold: -1.0,
-    ...(useTrexCodeSwitchingTuning ? { no_speech_threshold: 0.4 } : {}),
+    ...(useTrexCodeSwitchingTuning ? { no_speech_threshold: 0.3 } : {}),
     ...(useTrexCodeSwitchingTuning ? { condition_on_prev_tokens: false } : {})
   };
 }
@@ -2504,6 +2504,58 @@ function buildSafeTimelineFallbackChunks(text, durationSeconds, offsetSeconds) {
   }];
 }
 
+function getProgressiveWindowRecoveryDecision(
+  modelKey,
+  rawText,
+  rawChunks,
+  finalizedWindowText,
+  finalizedWindowChunkCount,
+  clipDurationSeconds
+) {
+  const resolvedModelKey = getTranscriptionModelConfig(modelKey).key;
+  const normalizedRawText = normalizeText(rawText);
+  const normalizedFinalizedText = normalizeText(finalizedWindowText);
+  const sanitizedRawChunks = sanitizeTimedChunks(rawChunks, clipDurationSeconds);
+  const sparseCoverageCheck = inspectSparseTranscriptCoverage(
+    normalizedRawText,
+    sanitizedRawChunks,
+    null,
+    clipDurationSeconds
+  );
+  const textLengthGap = normalizedFinalizedText.length - normalizedRawText.length;
+  const materiallyLonger = textLengthGap >= 24
+    || (
+      normalizedRawText.length > 0
+      && normalizedFinalizedText.length >= Math.round(normalizedRawText.length * 1.35)
+    );
+  const rawMostlyMissing = !normalizedRawText
+    || normalizedRawText.length <= Math.max(36, Math.round(normalizedFinalizedText.length * 0.6));
+  const rawCoverageLooksWeak = !sanitizedRawChunks.length
+    || !!sparseCoverageCheck.reason
+    || finalizedWindowChunkCount > (sanitizedRawChunks.length + 1);
+
+  if (
+    resolvedModelKey !== "t-rex"
+    || !normalizedFinalizedText
+    || (!materiallyLonger && !rawMostlyMissing)
+    || !rawCoverageLooksWeak
+  ) {
+    return {
+      shouldRecover: false,
+      replacementText: normalizedRawText,
+      reason: "",
+      sparseCoverageReason: sparseCoverageCheck.reason || ""
+    };
+  }
+
+  return {
+    shouldRecover: true,
+    replacementText: normalizedFinalizedText,
+    reason: sparseCoverageCheck.reason || "progressive_finalized_text_longer_than_raw_result",
+    sparseCoverageReason: sparseCoverageCheck.reason || ""
+  };
+}
+
 function buildAcceptedWhisperOutput(result, clipDurationSeconds, offsetSeconds, preserveRawText = false) {
   const rawText = result && typeof result.text === "string" ? result.text : "";
   const acceptedText = preserveRawText ? rawText : normalizeText(rawText);
@@ -2967,13 +3019,48 @@ async function handleOfficialSlidingWindowTranscription(
     finalizedWindowChunkCount
   });
 
+  const progressiveWindowRecovery = getProgressiveWindowRecoveryDecision(
+    modelLoad.modelKey,
+    result && typeof result.text === "string" ? result.text : "",
+    result && Array.isArray(result.chunks) ? result.chunks : [],
+    finalizedWindowText,
+    finalizedWindowChunkCount,
+    clipDurationSeconds
+  );
   const acceptedResult = buildAcceptedWhisperOutput(
-    result,
+    progressiveWindowRecovery.shouldRecover
+      ? {
+          ...result,
+          text: progressiveWindowRecovery.replacementText,
+          chunks: []
+        }
+      : result,
     clipDurationSeconds,
     safeTimelineOffset,
     RAW_WHISPER_PASSTHROUGH
   );
   const warnings = [];
+  diagnostics.progressiveWindowRecoveryUsed = !!progressiveWindowRecovery.shouldRecover;
+  diagnostics.progressiveWindowRecoveryReason = progressiveWindowRecovery.reason || "";
+  diagnostics.progressiveWindowRecoveryRawTextLength = result && typeof result.text === "string"
+    ? result.text.length
+    : 0;
+  diagnostics.progressiveWindowRecoveryFinalizedTextLength = finalizedWindowText.length;
+  diagnostics.progressiveWindowRecoveryRawChunkCount = Array.isArray(result && result.chunks)
+    ? result.chunks.length
+    : 0;
+  diagnostics.progressiveWindowRecoveryFinalizedChunkCount = finalizedWindowChunkCount;
+  diagnostics.progressiveWindowRecoverySparseCoverageReason = progressiveWindowRecovery.sparseCoverageReason || "";
+  if (progressiveWindowRecovery.shouldRecover) {
+    logWorkerEvent("progressive_window_recovery_applied", {
+      modelKey: modelLoad.modelKey,
+      reason: progressiveWindowRecovery.reason || "",
+      rawTextLength: diagnostics.progressiveWindowRecoveryRawTextLength,
+      finalizedTextLength: diagnostics.progressiveWindowRecoveryFinalizedTextLength,
+      rawChunkCount: diagnostics.progressiveWindowRecoveryRawChunkCount,
+      finalizedWindowChunkCount
+    });
+  }
 
   if (!acceptedResult.timestampCheck.ok && acceptedResult.text) {
     warnings.push("weak_audio");

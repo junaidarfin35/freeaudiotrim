@@ -6,7 +6,7 @@
   const MODEL_WORKER = {
     key: "dpdfnet",
     label: "DPDFNet",
-    url: "/assets/voice-enhancer-dpdfnet-worker.js?v=2026-06-07-ship-1",
+    url: "/assets/voice-enhancer-dpdfnet-worker.js?v=2026-06-11-pipeline-2",
     type: "module",
   };
   const PIPELINE_FLAGS = {
@@ -16,7 +16,7 @@
     roomControl: false,
     masterEQCompressor: true,
     deEsser: true,
-    detailEnhancer: true,
+    detailEnhancer: false,
     loudnessNormalize: true
   };
   const DEFAULT_PRESET_KEY = "creator";
@@ -27,49 +27,55 @@
       key: "creator",
       label: "Fast Clean",
       modelVariant: "baseline",
-      targetLufsEstimate: -14.2,
-      ceilingDb: -1.1,
+      modelSampleRate: 16000,
+      maxDurationSeconds: 10 * 60,
+      targetLufsEstimate: -16,
+      ceilingDb: -1.0,
       lowShelf: 0.6,
       mudCut: -2.2,
       presence: 2.2,
       air: 1.4,
-      compThreshold: -24,
-      compRatio: 3.4,
-      makeupDb: 1.2,
+      compThreshold: -20,
+      compRatio: 1.5,
+      makeupDb: 0.2,
       compAttack: 0.012,
-      compRelease: 0.09,
+      compRelease: 0.14,
     },
     podcast: {
       key: "podcast",
       label: "Balanced Clean",
-      modelVariant: "dpdfnet2",
-      targetLufsEstimate: -15.8,
-      ceilingDb: -1.4,
+      modelVariant: "dpdfnet4",
+      modelSampleRate: 16000,
+      maxDurationSeconds: 3 * 60,
+      targetLufsEstimate: -16,
+      ceilingDb: -1.0,
       lowShelf: 1.6,
       mudCut: -1.4,
       presence: 1.2,
       air: 0.8,
-      compThreshold: -24,
-      compRatio: 2.6,
-      makeupDb: 0.8,
-      compAttack: 0.016,
-      compRelease: 0.12,
+      compThreshold: -19,
+      compRatio: 1.7,
+      makeupDb: 0.25,
+      compAttack: 0.01,
+      compRelease: 0.15,
     },
     cinematic: {
       key: "cinematic",
       label: "Studio Clean",
-      modelVariant: "dpdfnet4",
-      targetLufsEstimate: -14.8,
-      ceilingDb: -1.2,
+      modelVariant: "dpdfnet2_48khz_hr",
+      modelSampleRate: 48000,
+      maxDurationSeconds: 90,
+      targetLufsEstimate: -15,
+      ceilingDb: -1.0,
       lowShelf: 2.0,
       mudCut: -2.0,
       presence: 1.6,
       air: 1.2,
-      compThreshold: -24.5,
-      compRatio: 3.0,
-      makeupDb: 1.3,
-      compAttack: 0.014,
-      compRelease: 0.11,
+      compThreshold: -18,
+      compRatio: 1.8,
+      makeupDb: 0.3,
+      compAttack: 0.009,
+      compRelease: 0.16,
     },
   };
 
@@ -122,7 +128,7 @@
   async function benchmarkPreset(presetKey = DEFAULT_PRESET_KEY, options = {}) {
     const resolvedKey = PRESETS[presetKey] ? presetKey : DEFAULT_PRESET_KEY;
     const preset = PRESETS[resolvedKey];
-    const sampleRate = /48khz/i.test(String(preset.modelVariant || "")) ? 48000 : 16000;
+    const sampleRate = Math.max(8000, Number(preset.modelSampleRate) || (/48khz/i.test(String(preset.modelVariant || "")) ? 48000 : 16000));
     const durationSeconds = clamp(Number(options.durationSeconds) || 1, 0.35, 2);
     const sampleCount = Math.max(1, Math.round(sampleRate * durationSeconds));
     const samples = createBenchmarkSamples(sampleCount, sampleRate);
@@ -201,6 +207,7 @@
         stageDurations,
         totalDurationMs: round(performance.now() - pipelineStartedAt),
         processingPath: denoised.meta.processingPath || (denoised.meta.aiDenoiseActive ? denoised.meta.processingMode : "fallback"),
+        finalLimiter: normalized.finalLimiter || null,
       };
 
       info("final render success", meta);
@@ -286,7 +293,7 @@
       depth: effectiveDepth,
       broadcast: effectiveBroadcast,
       adaptiveProfile,
-      targetLufsEstimate: preset.targetLufsEstimate + (effectiveBroadcast * 0.8) + adaptiveProfile.loudnessBiasDb,
+      targetLufsEstimate: preset.targetLufsEstimate,
       ceilingDb: preset.ceilingDb,
       eq: {
         highPassHz: 88,
@@ -300,12 +307,12 @@
         airGain: preset.air + Math.max(0, effectiveClarity) * 1.1 - adaptiveProfile.airTrim,
       },
       compressor: {
-        threshold: preset.compThreshold - (effectiveBroadcast * 3.2) - (adaptiveProfile.compressorThresholdShift * 0.75),
-        ratio: preset.compRatio + (effectiveBroadcast * 0.9) + (adaptiveProfile.compressorRatioBoost * 0.7),
+        threshold: preset.compThreshold,
+        ratio: preset.compRatio,
         knee: 24,
-        attack: preset.compAttack + Math.max(0, effectiveClarity) * 0.003,
+        attack: preset.compAttack,
         release: preset.compRelease,
-        makeupDb: preset.makeupDb + (effectiveBroadcast * 1.0) + (adaptiveProfile.makeupBoost * 0.75),
+        makeupDb: preset.makeupDb,
       },
       deEsser: {
         crossoverHz: 5800 + Math.max(0, effectiveClarity) * 260 + adaptiveProfile.deEssCrossoverShiftHz,
@@ -323,21 +330,74 @@
     };
   }
 
-  function speechPrep(buffer) {
+  function speechPrep(buffer, settings) {
     const mono = mergeToMono(buffer);
-    if (!isStageEnabled("speechPrep")) {
-      return {
-        samples: mono,
-        sampleRate: buffer.sampleRate,
-      };
-    }
     removeDcOffsetInPlace(mono);
-    applySpeechHighPassInPlace(mono, buffer.sampleRate, 82);
-    applyGainSanityInPlace(mono);
+    const peakDb = estimatePeakDb(mono);
+    const preGainDb = peakDb > -1 ? -Math.min(6, peakDb + 3) : 0;
+    if (preGainDb < -0.01) {
+      applyGainToSamplesInPlace(mono, preGainDb);
+    }
+
     return {
       samples: mono,
       sampleRate: buffer.sampleRate,
+      preGainDb: round(preGainDb),
     };
+  }
+
+  async function resampleMonoSamplesWithOfflineContext(samples, fromRate, toRate) {
+    if (!samples.length || fromRate === toRate) {
+      return new Float32Array(samples);
+    }
+
+    const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OfflineCtx) {
+      return resampleLinearFallback(samples, fromRate, toRate);
+    }
+
+    const targetLength = Math.max(
+      1,
+      Math.round(samples.length * (toRate / fromRate))
+    );
+
+    const offlineCtx = new OfflineCtx(1, targetLength, toRate);
+
+    const sourceBuffer = offlineCtx.createBuffer(
+      1,
+      samples.length,
+      fromRate
+    );
+    sourceBuffer.copyToChannel(samples, 0);
+
+    const source = offlineCtx.createBufferSource();
+    source.buffer = sourceBuffer;
+    source.connect(offlineCtx.destination);
+    source.start(0);
+
+    const renderedBuffer = await offlineCtx.startRendering();
+    return new Float32Array(renderedBuffer.getChannelData(0));
+  }
+
+  function resampleLinearFallback(input, fromRate, toRate) {
+    if (!input.length || fromRate === toRate) {
+      return new Float32Array(input);
+    }
+
+    const ratio = toRate / fromRate;
+    const outputLength = Math.max(1, Math.round(input.length * ratio));
+    const output = new Float32Array(outputLength);
+
+    for (let i = 0; i < outputLength; i += 1) {
+      const position = i / ratio;
+      const index = Math.floor(position);
+      const frac = position - index;
+      const a = input[Math.min(input.length - 1, Math.max(0, index))] || 0;
+      const b = input[Math.min(input.length - 1, Math.max(0, index + 1))] || 0;
+      output[i] = a + ((b - a) * frac);
+    }
+
+    return output;
   }
 
   async function runDenoiseStage(samples, sampleRate, settings, stageDurations) {
@@ -383,17 +443,66 @@
       });
       modelInfo("worker init check");
       const client = await getWorkerClient();
+      const runtimeInfo = await client.init(presetKey);
+      const modelSampleRate = Number(runtimeInfo.modelSampleRate) || sampleRate;
+      let workerSampleRate = sampleRate;
+      let workerInput = samples;
+      let engineResampled = false;
+
+      if (sampleRate !== modelSampleRate) {
+        try {
+          workerInput = await resampleMonoSamplesWithOfflineContext(samples, sampleRate, modelSampleRate);
+          workerSampleRate = modelSampleRate;
+          engineResampled = true;
+          modelInfo("engine resampling path", {
+            inputSampleRate: sampleRate,
+            modelSampleRate,
+            usedOfflineResampling: true,
+            inputLength: samples.length,
+            modelRateLength: workerInput.length,
+          });
+        } catch (error) {
+          warn("offline resample to model rate failed, falling back to worker resampling", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+          workerInput = samples;
+          workerSampleRate = sampleRate;
+        }
+      }
+
       const startedAt = performance.now();
-      const processed = await client.process(samples, sampleRate, presetKey);
+      const processed = await client.process(workerInput, workerSampleRate, presetKey);
       stageDurations.dpdfnetMs = round(performance.now() - startedAt);
+
+      let processedSamples = processed.samples;
+      if (engineResampled && sampleRate !== modelSampleRate) {
+        try {
+          processedSamples = await resampleMonoSamplesWithOfflineContext(processed.samples, modelSampleRate, sampleRate);
+          modelInfo("engine resampling path", {
+            inputSampleRate: modelSampleRate,
+            modelSampleRate: sampleRate,
+            usedOfflineResampling: true,
+            inputLength: processed.samples.length,
+            modelRateLength: processedSamples.length,
+          });
+        } catch (error) {
+          warn("offline resample back to original rate failed, falling back to linear resampler", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+          processedSamples = resampleLinearFallback(processed.samples, modelSampleRate, sampleRate);
+        }
+      }
+
       const denoised = settings.denoiseMix >= 0.995
-        ? processed.samples
-        : blendSignals(samples, processed.samples, settings.denoiseMix);
-      const residualCleaned = applyResidualCleanupStage(denoised, sampleRate, settings, stageDurations);
+        ? processedSamples
+        : blendSignals(samples, processedSamples, settings.denoiseMix);
+      const clipSafe = preventSampleClipping(denoised);
+      stageDurations.clipSafetyMs = clipSafe.active ? 0.1 : 0;
+      const residualCleaned = applyResidualCleanupStage(clipSafe.samples, sampleRate, settings, stageDurations);
       modelInfo("worker response received", {
         durationMs: stageDurations.dpdfnetMs,
         sampleRate,
-        sampleCount: processed.samples.length,
+        sampleCount: processedSamples.length,
         denoiseMix: settings.denoiseMix,
       });
       return {
@@ -484,53 +593,36 @@
     if (!isStageEnabled("masterEQCompressor")) {
       info("eq/compressor skipped by pipeline flag");
       stageDurations.eqMs = 0;
+      stageDurations.levelerMs = 0;
       stageDurations.compressorMs = 0;
       return buffer;
     }
     const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
     if (!OfflineCtx) {
+      stageDurations.levelerMs = 0;
       return buffer;
     }
 
-    const startedAt = performance.now();
-    info("eq stage start", {
-      preset: settings.preset.label,
+    const levelStartedAt = performance.now();
+    const leveled = applySpeechAwareLeveling(buffer, settings);
+    stageDurations.levelerMs = round(performance.now() - levelStartedAt);
+    info("speech leveling end", {
+      durationMs: stageDurations.levelerMs,
+      activeSpeechDb: leveled.activeSpeechDb,
+      activeThresholdDb: leveled.activeThresholdDb,
+      appliedGainDb: leveled.appliedGainDb,
+      activeFrameRatio: leveled.activeFrameRatio,
     });
+
+    const startedAt = performance.now();
     info("compressor stage start", {
       threshold: settings.compressor.threshold,
       ratio: settings.compressor.ratio,
     });
 
-    const offline = new OfflineCtx(1, buffer.length, buffer.sampleRate);
+    const offline = new OfflineCtx(1, leveled.buffer.length, leveled.buffer.sampleRate);
     const source = offline.createBufferSource();
-    source.buffer = buffer;
-
-    const highPass = offline.createBiquadFilter();
-    highPass.type = "highpass";
-    highPass.frequency.value = settings.eq.highPassHz;
-    highPass.Q.value = 0.707;
-
-    const lowShelf = offline.createBiquadFilter();
-    lowShelf.type = "lowshelf";
-    lowShelf.frequency.value = settings.eq.lowShelfHz;
-    lowShelf.gain.value = settings.eq.lowShelfGain;
-
-    const mudCut = offline.createBiquadFilter();
-    mudCut.type = "peaking";
-    mudCut.frequency.value = settings.eq.mudCutHz;
-    mudCut.Q.value = 1.1;
-    mudCut.gain.value = settings.eq.mudCutGain;
-
-    const presence = offline.createBiquadFilter();
-    presence.type = "peaking";
-    presence.frequency.value = settings.eq.presenceHz;
-    presence.Q.value = 0.95;
-    presence.gain.value = settings.eq.presenceGain;
-
-    const air = offline.createBiquadFilter();
-    air.type = "highshelf";
-    air.frequency.value = settings.eq.airHz;
-    air.gain.value = settings.eq.airGain;
+    source.buffer = leveled.buffer;
 
     const compressor = offline.createDynamicsCompressor();
     compressor.threshold.value = settings.compressor.threshold;
@@ -542,24 +634,15 @@
     const makeup = offline.createGain();
     makeup.gain.value = dbToGain(settings.compressor.makeupDb);
 
-    source.connect(highPass);
-    highPass.connect(lowShelf);
-    lowShelf.connect(mudCut);
-    mudCut.connect(presence);
-    presence.connect(air);
-    air.connect(compressor);
+    source.connect(compressor);
     compressor.connect(makeup);
     makeup.connect(offline.destination);
 
     source.start(0);
     const rendered = await offline.startRendering();
     const durationMs = round(performance.now() - startedAt);
-    stageDurations.eqMs = durationMs;
+    stageDurations.eqMs = 0;
     stageDurations.compressorMs = durationMs;
-    info("eq stage end", {
-      durationMs,
-      sharedOfflineRender: true,
-    });
     info("compressor stage end", {
       durationMs,
       sharedOfflineRender: true,
@@ -624,38 +707,46 @@
         gainDb: 0,
       };
     }
-    info("limiter start", {
-      ceilingDb: settings.ceilingDb,
-    });
-    const limiterStartedAt = performance.now();
-    const limited = applySoftLimiter(ctx, buffer, settings.ceilingDb);
-    stageDurations.limiterMs = round(performance.now() - limiterStartedAt);
-    info("limiter end", {
-      durationMs: stageDurations.limiterMs,
-      ceilingDb: settings.ceilingDb,
-    });
-
-    const mono = mergeToMono(limited);
-    const analysis = measureVoice(mono, limited.sampleRate);
+    const mono = mergeToMono(buffer);
+    const analysis = measureVoice(mono, buffer.sampleRate);
     const loudnessGainDb = settings.targetLufsEstimate - analysis.loudnessEstimate;
-    const peakSafeGainDb = settings.ceilingDb - analysis.peakDb;
-    const appliedGainDb = Math.min(loudnessGainDb, peakSafeGainDb);
+    const appliedGainDb = clamp(loudnessGainDb, -12, 12);
     info("loudness normalize start", {
       currentLoudnessEstimate: analysis.loudnessEstimate,
       targetLufsEstimate: settings.targetLufsEstimate,
       appliedGainDb,
     });
     const loudnessStartedAt = performance.now();
-    const gained = applyGain(ctx, limited, appliedGainDb);
+    const gained = applyGain(ctx, buffer, appliedGainDb);
     stageDurations.loudnessNormalizeMs = round(performance.now() - loudnessStartedAt);
     info("loudness normalize end", {
       durationMs: stageDurations.loudnessNormalizeMs,
       appliedGainDb,
     });
 
+    info("limiter start", {
+      ceilingDb: settings.ceilingDb,
+    });
+    const limiterStartedAt = performance.now();
+    const limited = applyTruePeakLimiterApprox(ctx, gained, settings.ceilingDb);
+    stageDurations.limiterMs = round(performance.now() - limiterStartedAt);
+    info("limiter end", {
+      durationMs: stageDurations.limiterMs,
+      ceilingDb: settings.ceilingDb,
+      truePeakDb: limited.truePeakDb,
+      attenuationDb: limited.attenuationDb,
+      oversampleFactor: limited.oversampleFactor,
+    });
+
     return {
-      buffer: gained,
+      buffer: limited.buffer,
       gainDb: appliedGainDb,
+      finalLimiter: {
+        truePeakDb: limited.truePeakDb,
+        attenuationDb: limited.attenuationDb,
+        oversampleFactor: limited.oversampleFactor,
+        usedSoftClipFallback: limited.usedSoftClipFallback,
+      },
     };
   }
 
@@ -692,6 +783,29 @@
     return out;
   }
 
+  function applyTruePeakLimiterApprox(ctx, buffer, ceilingDb) {
+    const ceiling = dbToGain(ceilingDb);
+    let working = buffer;
+    let estimatedPeak = estimateBufferTruePeak(working, 4);
+    let attenuationDb = 0;
+
+    if (estimatedPeak > ceiling) {
+      attenuationDb = 20 * Math.log10(ceiling / estimatedPeak);
+      working = applyGain(ctx, working, attenuationDb);
+      estimatedPeak = estimateBufferTruePeak(working, 4);
+    }
+
+    const limited = applySoftLimiter(ctx, working, ceilingDb);
+    const finalPeak = estimateBufferTruePeak(limited, 4);
+    return {
+      buffer: limited,
+      truePeakDb: round(finalPeak > 0 ? 20 * Math.log10(finalPeak) : DB_FLOOR),
+      attenuationDb: round(attenuationDb),
+      oversampleFactor: 4,
+      usedSoftClipFallback: true,
+    };
+  }
+
   function measureVoice(samples, sampleRate) {
     let peak = 0;
     let sumSquares = 0;
@@ -721,6 +835,46 @@
       dynamicRangeDb: peakDb - rmsDb,
       duration: sampleRate > 0 ? samples.length / sampleRate : 0,
     };
+  }
+
+  function estimateBufferTruePeak(buffer, oversampleFactor) {
+    let peak = 0;
+    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+      peak = Math.max(peak, estimateSamplesTruePeak(buffer.getChannelData(channel), oversampleFactor));
+    }
+    return peak;
+  }
+
+  function estimateSamplesTruePeak(samples, oversampleFactor) {
+    if (!samples.length) {
+      return 0;
+    }
+    const factor = Math.max(2, Math.floor(oversampleFactor) || 4);
+    let peak = 0;
+
+    for (let i = 0; i < samples.length; i += 1) {
+      const current = samples[i] || 0;
+      peak = Math.max(peak, Math.abs(current));
+      if (i >= samples.length - 1) {
+        continue;
+      }
+      const y0 = samples[Math.max(0, i - 1)] || 0;
+      const y1 = current;
+      const y2 = samples[i + 1] || 0;
+      const y3 = samples[Math.min(samples.length - 1, i + 2)] || 0;
+      for (let step = 1; step < factor; step += 1) {
+        const t = step / factor;
+        const interpolated = 0.5 * (
+          (2 * y1)
+          + ((-y0 + y2) * t)
+          + ((2 * y0 - (5 * y1) + (4 * y2) - y3) * t * t)
+          + ((-y0 + (3 * y1) - (3 * y2) + y3) * t * t * t)
+        );
+        peak = Math.max(peak, Math.abs(interpolated));
+      }
+    }
+
+    return peak;
   }
 
   function estimateNoiseScore(samples, sampleRate) {
@@ -944,11 +1098,13 @@
               backend: MODEL_WORKER.label,
               runtime: payload.runtime,
               frameSize: payload.frameSize,
+              modelSampleRate: payload.modelSampleRate,
             });
             ticket.resolve({
               runtime: payload.runtime,
               frameSize: payload.frameSize,
               modelName: payload.modelName || "",
+              modelSampleRate: Number(payload.modelSampleRate) || null,
             });
             return;
           }
@@ -957,6 +1113,13 @@
             ticket.resolve({
               samples: new Float32Array(payload.samples),
               meta: payload.meta || null,
+            });
+            return;
+          }
+
+          if (payload.type === "config-ready") {
+            ticket.resolve({
+              debugBypassModel: !!payload.debugBypassModel,
             });
             return;
           }
@@ -1000,6 +1163,11 @@
         return {
           init(presetKey = DEFAULT_PRESET_KEY) {
             return sendRequest("init", { presetKey });
+          },
+          setDebugOptions(options = {}) {
+            return sendRequest("config", {
+              debugBypassModel: !!options.bypassModel,
+            });
           },
           async process(samples, sampleRate, presetKey = DEFAULT_PRESET_KEY) {
             modelInfo("worker message sent", {
@@ -1096,6 +1264,142 @@
     for (let i = 0; i < samples.length; i += 1) {
       samples[i] = clamp(samples[i] * gain, -1, 1);
     }
+  }
+
+  function estimatePeakDb(samples) {
+    let peak = 0;
+    for (let i = 0; i < samples.length; i += 1) {
+      peak = Math.max(peak, Math.abs(samples[i] || 0));
+    }
+    return peak > 0 ? 20 * Math.log10(peak) : DB_FLOOR;
+  }
+
+  function applyGainToSamplesInPlace(samples, gainDb) {
+    const gain = dbToGain(gainDb);
+    for (let i = 0; i < samples.length; i += 1) {
+      samples[i] = clamp((samples[i] || 0) * gain, -1, 1);
+    }
+  }
+
+  function preventSampleClipping(samples) {
+    let peak = 0;
+    for (let i = 0; i < samples.length; i += 1) {
+      peak = Math.max(peak, Math.abs(samples[i] || 0));
+    }
+    if (peak <= 0.98) {
+      return {
+        samples,
+        active: false,
+        appliedGainDb: 0,
+      };
+    }
+
+    const gain = 0.92 / Math.max(peak, 1e-5);
+    const output = new Float32Array(samples.length);
+    for (let i = 0; i < samples.length; i += 1) {
+      output[i] = clamp((samples[i] || 0) * gain, -1, 1);
+    }
+
+    return {
+      samples: output,
+      active: true,
+      appliedGainDb: round(20 * Math.log10(gain)),
+    };
+  }
+
+  function applySpeechAwareLeveling(buffer, settings) {
+    const mono = mergeToMono(buffer);
+    const sampleRate = buffer.sampleRate;
+    const frameSize = Math.max(256, Math.floor(sampleRate * 0.04));
+    const frames = [];
+
+    for (let start = 0; start < mono.length; start += frameSize) {
+      let sumSquares = 0;
+      let count = 0;
+      for (let i = 0; i < frameSize && start + i < mono.length; i += 1) {
+        const sample = mono[start + i] || 0;
+        sumSquares += sample * sample;
+        count += 1;
+      }
+      if (!count) {
+        continue;
+      }
+      const meanSquare = sumSquares / count;
+      frames.push({
+        meanSquare,
+        db: meanSquare > 0 ? 10 * Math.log10(meanSquare) : DB_FLOOR,
+      });
+    }
+
+    if (!frames.length) {
+      return {
+        buffer,
+        activeSpeechDb: DB_FLOOR,
+        activeThresholdDb: DB_FLOOR,
+        appliedGainDb: 0,
+        activeFrameRatio: 0,
+      };
+    }
+
+    const sortedFrameDb = frames.map((frame) => frame.db).sort((a, b) => a - b);
+    const noiseFloorDb = sortedFrameDb[Math.max(0, Math.floor(sortedFrameDb.length * 0.15) - 1)] || DB_FLOOR;
+    const activeThresholdDb = Math.max(noiseFloorDb + 10, -45);
+    const activeFrames = frames.filter((frame) => frame.db >= activeThresholdDb);
+
+    if (!activeFrames.length) {
+      return {
+        buffer,
+        activeSpeechDb: DB_FLOOR,
+        activeThresholdDb,
+        appliedGainDb: 0,
+        activeFrameRatio: 0,
+      };
+    }
+
+    const activeMeanSquare = activeFrames.reduce((sum, frame) => sum + frame.meanSquare, 0) / activeFrames.length;
+    const activeSpeechDb = activeMeanSquare > 0 ? 10 * Math.log10(activeMeanSquare) : DB_FLOOR;
+    const targetSpeechDb = -23;
+    const appliedGainDb = clamp(targetSpeechDb - activeSpeechDb, -6, 6);
+    const activeFrameRatio = activeFrames.length / frames.length;
+
+    if (Math.abs(appliedGainDb) < 0.25) {
+      return {
+        buffer,
+        activeSpeechDb: round(activeSpeechDb),
+        activeThresholdDb: round(activeThresholdDb),
+        appliedGainDb: 0,
+        activeFrameRatio: round(activeFrameRatio),
+      };
+    }
+
+    if (appliedGainDb <= 0) {
+      return {
+        buffer: applyGain(null, buffer, appliedGainDb),
+        activeSpeechDb: round(activeSpeechDb),
+        activeThresholdDb: round(activeThresholdDb),
+        appliedGainDb: round(appliedGainDb),
+        activeFrameRatio: round(activeFrameRatio),
+      };
+    }
+
+    const activeMask = frames.map((frame) => (frame.db >= activeThresholdDb ? dbToGain(appliedGainDb) : 1));
+    const output = new Float32Array(mono.length);
+
+    for (let i = 0; i < output.length; i += 1) {
+      const frameIndex = Math.min(activeMask.length - 1, Math.floor(i / frameSize));
+      const nextFrameIndex = Math.min(activeMask.length - 1, frameIndex + 1);
+      const frameOffset = (i % frameSize) / Math.max(1, frameSize);
+      const gain = activeMask[frameIndex] + ((activeMask[nextFrameIndex] - activeMask[frameIndex]) * frameOffset);
+      output[i] = clamp((mono[i] || 0) * gain, -1, 1);
+    }
+
+    return {
+      buffer: createMonoBuffer(null, output, sampleRate),
+      activeSpeechDb: round(activeSpeechDb),
+      activeThresholdDb: round(activeThresholdDb),
+      appliedGainDb: round(appliedGainDb),
+      activeFrameRatio: round(activeFrameRatio),
+    };
   }
 
   function applyMildRoomControl(samples, sampleRate, settings) {
@@ -1556,6 +1860,9 @@
     enhanceVoice,
     prewarmWorker,
     createProcessor,
+    setDebugOptions(options = {}) {
+      return getWorkerClient().then((client) => client.setDebugOptions(options));
+    },
   };
 
   function info(message, data) {
