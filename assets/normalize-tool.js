@@ -549,6 +549,10 @@
             <button type="button" class="at-btn at-btn-soft" data-role="changeFile">Change</button>
           </div>
 
+          <div class="at-row">
+            <div class="at-status" data-status></div>
+          </div>
+
           <div class="at-row" data-role="fileMeta">
             <span class="normalize-badge" data-role="durationBadge">Duration -</span>
             <span class="normalize-badge" data-role="peakBadge">Peak -</span>
@@ -567,10 +571,6 @@
               <option value="music">Music</option>
               <option value="loudness">Custom Loudness</option>
             </select>
-          </div>
-
-          <div class="at-row">
-            <div class="at-status" data-status></div>
           </div>
 
           <div class="at-row normalize-summary-row">

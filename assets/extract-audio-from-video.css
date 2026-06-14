@@ -5,3 +5,33 @@ body.audio-converter-page #audio-tool [data-role="downloadBtn"] {
   width: 100%;
   text-align: center;
 }
+
+body.audio-converter-page .at-select-shell {
+  position: relative;
+  width: 100%;
+}
+
+body.audio-converter-page .at-select-shell select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 3rem;
+}
+
+body.audio-converter-page .at-select-icon {
+  position: absolute;
+  top: 50%;
+  right: 1rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+body.audio-converter-page .at-select-icon svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.2;
+}

@@ -192,7 +192,7 @@
   }
 
   function resetControlsToDefaults() {
-    speedRange.value = "1";
+    speedRange.value = "0";
     alsoAdjustPitch.checked = false;
     pitchControlGroup.hidden = true;
     semitoneMode.checked = true;
@@ -235,7 +235,15 @@
   }
 
   function getSpeed() {
-    return Math.max(0.5, Number(speedRange.value) || 1);
+    return getMappedSpeed(Number(speedRange.value) || 0);
+  }
+
+  function getMappedSpeed(sliderValue) {
+    const rawValue = Math.max(-1, Math.min(1, Number(sliderValue) || 0));
+    if (rawValue < 0) {
+      return 1 + rawValue * 0.5;
+    }
+    return 1 + rawValue;
   }
 
   function updateSpeedUI() {

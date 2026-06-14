@@ -432,15 +432,10 @@
       const source = ctx.createBufferSource();
       const gainNode = ctx.createGain();
       const rate = Math.max(0.25, Number(playbackRate) || 1);
-      const compensation = 1 / Math.sqrt(rate);
-      const peak = getPeak(buffer);
-      const normalize = peak > 0 ? 1 / peak : 1;
-      let gainValue = normalize * compensation;
-      gainValue = Math.min(Math.max(gainValue, 0.7), 1.5);
 
       source.buffer = buffer;
       source.playbackRate.value = rate;
-      gainNode.gain.value = gainValue;
+      gainNode.gain.value = 1;
       source.connect(gainNode);
       gainNode.connect(ctx.destination);
       source.start(0, Math.max(0, offsetSeconds));
@@ -1204,20 +1199,6 @@
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
-  }
-
-  function getPeak(buffer) {
-    let peak = 0;
-    for (let ch = 0; ch < buffer.numberOfChannels; ch += 1) {
-      const data = buffer.getChannelData(ch);
-      for (let i = 0; i < data.length; i += 1) {
-        const abs = Math.abs(data[i]);
-        if (abs > peak) {
-          peak = abs;
-        }
-      }
-    }
-    return peak;
   }
 
   window.FreeAudioTrimAudioEngine = {

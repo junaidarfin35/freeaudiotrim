@@ -34,7 +34,7 @@
   <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/converter.webp">
 
 <!-- CSS -->
-<link rel="stylesheet" href="/css/global.css">
+<link rel="stylesheet" href="/css/global.css?v=2026-06-12-status-order-1">
 <link rel="stylesheet" href="/assets/layout.css">
 <link rel="stylesheet" href="/assets/upload.css">
 
@@ -239,6 +239,13 @@
         <input id="audioFileInput" class="at-file" type="file" accept=".mp3,.mpga,.mpeg3,audio/mpeg,audio/mp3,audio/x-mp3,audio/x-mpeg-3" hidden>
       </div>
 
+      <!-- STATUS -->
+      <div class="at-row">
+        <div class="at-status" data-role="status">
+          Ready to convert
+        </div>
+      </div>
+
       <!-- FORMAT -->
       <div class="at-row">
         <label class="at-label">Convert to</label>
@@ -248,29 +255,10 @@
         </select>
       </div>
 
-      <!-- STATUS -->
-      <div class="at-row">
-        <div class="at-status" data-role="status">
-          Ready to convert
-        </div>
-      </div>
-
       <div class="at-row">
         <button class="at-btn at-btn-primary" data-role="convertBtn">
         Convert
         </button>
-      </div>
-
-      <!-- POST ACTION TEXT -->
-      <div class="at-row" data-role="postActions">
-        <span>What else do you want to do with this file?</span>
-      </div>
-
-      <!-- POST ACTION BUTTONS -->
-      <div class="at-row at-tools">
-        <a href="/audio-cutter-online.html" class="at-pill">Trim Audio</a>
-        <a href="/extract-audio-from-video.html" class="at-pill">Extract Audio</a>
-        <a href="/normalize-audio-volume.html" class="at-pill">Normalize</a>
       </div>
 
     </div>
@@ -649,7 +637,6 @@ function resetMp3ToolState() {
   const fileNameEl = document.querySelector('[data-role="fileName"]');
   const statusEl = document.querySelector('[data-role="status"]');
   const convertBtn = document.querySelector('[data-role="convertBtn"], [data-role="downloadBtn"]');
-  const postActions = document.querySelector('[data-role="postActions"]');
   const input = document.getElementById('audioFileInput');
 
   if (uploadShell) uploadShell.classList.remove('is-hidden');
@@ -661,9 +648,6 @@ function resetMp3ToolState() {
     convertBtn.textContent = "Convert";
     convertBtn.disabled = false;
     convertBtn.dataset.role = "convertBtn";
-  }
-  if (postActions) {
-    postActions.style.display = "none";
   }
   if (input) {
     input.value = "";
@@ -821,8 +805,6 @@ convertedBlob = window.MP3EncoderModule.encode({
     status.textContent = "Ready";
 
     btn.dataset.role = "downloadBtn";
-
-    document.querySelector('[data-role="postActions"]').style.display = "block";
 
   } catch (err) {
   console.error("REAL ERROR:", err); // ðŸ”¥ critical

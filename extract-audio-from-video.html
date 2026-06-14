@@ -13,13 +13,13 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
 <link rel="manifest" href="/assets/brand/site.webmanifest">
 
-<link rel="stylesheet" href="/css/global.css?v=2026-05-18-2">
+<link rel="stylesheet" href="/css/global.css?v=2026-06-12-status-order-1">
 <link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-2">
 <link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-2">
 <link rel="stylesheet" href="/assets/extract-audio-from-video.css?v=2026-05-18-2">
 
 <title>Extract Audio from Video Online Free | MP4, MOV, WebM, MKV</title>
-<meta name="description" content="Extract audio from MP4, MOV, WebM, MKV, and other video files in your browser. No upload required. Download WAV, then convert to MP3 if needed.">
+<meta name="description" content="Extract audio from MP4, MOV, WebM, MKV, and other video files in your browser. No upload required. Download WAV or 256 kbps MP3 locally.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://freeaudiotrim.com/extract-audio-from-video.html">
 
@@ -29,7 +29,7 @@
   "@type": "WebPage",
   "name": "Extract Audio from Video Online Free | MP4, MOV, WebM, MKV",
   "url": "https://freeaudiotrim.com/extract-audio-from-video.html",
-  "description": "Extract audio from MP4, MOV, WebM, MKV, and other video files in your browser. No upload required. Download WAV, then convert to MP3 if needed."
+  "description": "Extract audio from MP4, MOV, WebM, MKV, and other video files in your browser. No upload required. Download WAV or 256 kbps MP3 locally."
 }
 </script>
 
@@ -41,7 +41,7 @@
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "Web Browser",
   "url": "https://freeaudiotrim.com/extract-audio-from-video.html",
-  "description": "Extract audio tracks from MP4, MOV, WebM, MKV, and other video files locally in your browser and download the result as WAV.",
+  "description": "Extract audio tracks from MP4, MOV, WebM, MKV, and other video files locally in your browser and download the result as WAV or 256 kbps MP3.",
   "offers": {
     "@type": "Offer",
     "price": "0",
@@ -55,7 +55,7 @@
   "@context": "https://schema.org",
   "@type": "HowTo",
   "name": "How to extract audio from video online",
-  "description": "Extract the audio track from a video file in your browser and download it as WAV for editing, transcription, subtitles, or conversion to MP3.",
+  "description": "Extract the audio track from a video file in your browser and download it as WAV or 256 kbps MP3 for editing, transcription, subtitles, or sharing.",
   "totalTime": "PT1M",
   "step": [
     {
@@ -70,8 +70,8 @@
     },
     {
       "@type": "HowToStep",
-      "name": "Download WAV",
-      "text": "Save the extracted audio as WAV, then trim, normalize, transcribe, or convert it to MP3 if needed."
+      "name": "Download audio",
+      "text": "Save the extracted audio as WAV for editing, or choose 256 kbps MP3 when you want a smaller shareable file."
     }
   ]
 }
@@ -159,14 +159,14 @@
 </script>
 
 <meta property="og:title" content="Extract Audio from Video Online Free | MP4, MOV, WebM, MKV">
-<meta property="og:description" content="Extract audio from MP4, MOV, WebM, MKV, and other video files in your browser. No upload required. Download WAV, then convert to MP3 if needed.">
+<meta property="og:description" content="Extract audio from MP4, MOV, WebM, MKV, and other video files in your browser. No upload required. Download WAV or 256 kbps MP3 locally.">
 <meta property="og:url" content="https://freeaudiotrim.com/extract-audio-from-video.html">
 <meta property="og:type" content="website">
   <meta property="og:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
 <meta property="og:site_name" content="FreeAudioTrim">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Extract Audio from Video Online Free | MP4, MOV, WebM, MKV">
-<meta name="twitter:description" content="Extract audio from MP4, MOV, WebM, MKV, and other video files in your browser. No upload required. Download WAV, then convert to MP3 if needed.">
+<meta name="twitter:description" content="Extract audio from MP4, MOV, WebM, MKV, and other video files in your browser. No upload required. Download WAV or 256 kbps MP3 locally.">
   <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
 </head>
 <body class="audio-converter-page">
@@ -176,8 +176,9 @@
     <button class="menu-toggle" aria-label="Toggle menu">&#9776;</button>
     <nav class="nav-links">
       <a href="/tools.html">All Tools</a>
-      <a href="/audio-video-transcription-online.html">Transcription</a>
+      <a href="/blog/">Blog</a>
       <a href="/contact.html">Contact</a>
+      <a href="/ar/" lang="ar" dir="rtl">العربية</a>
     </nav>
   </div>
 </header>
@@ -215,29 +216,25 @@
             </div>
 
             <div class="at-row">
-              <label class="at-label" for="extractFormat">Extract as</label>
-              <select id="extractFormat" disabled>
-                <option value="wav" selected>WAV</option>
-              </select>
-            </div>
-
-            <div class="at-row">
               <div id="status" class="at-status" data-status-state="idle">Ready to extract</div>
             </div>
 
             <div class="at-row">
+              <label class="at-label" for="extractFormat">Extract as</label>
+              <div class="at-select-shell">
+                <select id="extractFormat" disabled>
+                  <option value="wav" selected>WAV</option>
+                  <option value="mp3">MP3 256 kbps</option>
+                </select>
+                <span class="at-select-icon" aria-hidden="true">
+                  <i data-lucide="chevrons-up-down"></i>
+                </span>
+              </div>
+            </div>
+
+            <div class="at-row">
               <button id="extractBtn" class="at-btn at-btn-primary" data-role="convertBtn" type="button" disabled>Extract Audio</button>
-              <a id="downloadLink" class="at-btn at-btn-soft is-hidden" data-role="downloadBtn" href="#">Download WAV</a>
-            </div>
-
-            <div class="at-row" data-role="postActions">
-              <span>Next, trim, convert, or transcribe the extracted audio.</span>
-            </div>
-
-            <div class="at-row at-tools">
-              <a href="/audio-cutter-online.html" class="at-pill">Trim Audio</a>
-              <a href="/audio-converter.html" class="at-pill">Convert Audio</a>
-              <a href="/audio-video-transcription-online.html" class="at-pill">Transcribe Audio</a>
+              <a id="downloadLink" class="at-btn at-btn-soft is-hidden" data-role="downloadBtn" href="#">Download Audio</a>
             </div>
           </div>
         </div>
@@ -264,13 +261,13 @@
       </div>
       <div class="step-card">
         <div class="step-number">3</div>
-        <h3>Download WAV</h3>
-        <p>Save the extracted track as WAV, a practical format for editing, volume cleanup, transcription, subtitle prep, and archiving.</p>
+        <h3>Download WAV or MP3</h3>
+        <p>Save the extracted track as WAV for editing, volume cleanup, transcription, subtitle prep, and archiving, or choose 256 kbps MP3 when you want a smaller file.</p>
       </div>
       <div class="step-card">
         <div class="step-number">4</div>
         <h3>Convert if needed</h3>
-        <p>Need MP3 instead? Use the audio converter after extraction when you want a smaller file for sharing, publishing, or storage.</p>
+        <p>Need a smaller file? Choose 256 kbps MP3 during extraction, or keep WAV when you want the best source for cleanup and editing.</p>
       </div>
     </div>
   </section>
@@ -350,7 +347,7 @@
 
   <section class="content-section ai-section">
     <h2>Private Browser-Based Extraction</h2>
-    <p>This tool uses in-browser FFmpeg processing to read video containers and extract audio tracks directly on your device. The file stays local, the audio is extracted in memory, and the result exports as WAV without touching a server.</p>
+    <p>This tool uses in-browser FFmpeg processing to read video containers and extract audio tracks directly on your device. The file stays local, the audio is extracted in memory, and the result exports as WAV or 256 kbps MP3 without touching a server.</p>
   </section>
 
   <section class="content-section section-surface">
@@ -358,7 +355,7 @@
     <div class="benefits-grid">
       <div class="benefit-item">
         <h3>Ready for Production Work</h3>
-        <p>The extracted WAV is ready for trimming, review, cleanup, subtitle preparation, transcription, and further audio editing.</p>
+        <p>The extracted audio is ready for trimming, review, cleanup, subtitle preparation, transcription, and further audio editing.</p>
       </div>
       <div class="benefit-item">
         <h3>No Re-Upload</h3>
@@ -494,11 +491,11 @@
     </details>
     <details>
       <summary>Can I convert video to MP3?</summary>
-      <p>This page extracts the audio as WAV first. If you need MP3, download the WAV and open it in the audio converter to create a smaller MP3 file for sharing, publishing, or storage.</p>
+      <p>Yes. This page can extract audio directly as 256 kbps MP3. If you want the best source file for editing, cleanup, transcription, or subtitles, choose WAV instead.</p>
     </details>
     <details>
       <summary>Should I use WAV or MP3 after extracting audio?</summary>
-      <p>Use WAV when you plan to trim, normalize, remove silence, transcribe, subtitle, or edit the file. Use MP3 after conversion when you need a smaller file and do not need an editing-first format.</p>
+      <p>Use WAV when you plan to trim, normalize, remove silence, transcribe, subtitle, or edit the file. Choose 256 kbps MP3 when you want a smaller file for sharing, publishing, or storage.</p>
     </details>
     <details>
       <summary>Can I use extracted audio for transcription or subtitles?</summary>
@@ -506,7 +503,7 @@
     </details>
     <details>
       <summary>Can I trim or normalize audio after extraction?</summary>
-      <p>Yes. After you download the WAV, use the audio cutter to trim unwanted sections, normalize volume to balance loudness, or remove silence before publishing or transcribing.</p>
+      <p>Yes. After you download the extracted audio, use the audio cutter to trim unwanted sections, normalize volume to balance loudness, or remove silence before publishing or transcribing.</p>
     </details>
     <details>
       <summary>Does extracting audio reduce quality?</summary>
@@ -576,7 +573,7 @@
 </footer>
 
 <script src="/assets/ffmpeg/ffmpeg-compat.js?v=2026-05-18-2" defer></script>
-<script src="/assets/extract-audio-from-video.js?v=2026-05-25-2" defer></script>
+<script src="/assets/extract-audio-from-video.js?v=2026-06-14-1" defer></script>
 <script src="/assets/upload.js?v=2026-05-25-3" defer></script>
 <script src="/assets/related-tools.js?v=2026-05-18-2"></script>
 <script>

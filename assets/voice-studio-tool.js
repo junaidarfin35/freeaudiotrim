@@ -17,6 +17,7 @@
     cinematicPromoteMsPerSecond: 900,
     cinematicProbeFromPodcastMsPerSecond: 850,
   };
+  const STUDIO_FALLBACK_PRESET = "podcast";
   const PRESET_DURATION_MESSAGES = {
     podcast: "Balanced Clean supports clips up to 3 minutes. Use Fast Clean for longer files.",
     cinematic: "Studio Clean supports clips up to 90 seconds. Use Balanced or Fast Clean for longer files.",
@@ -205,6 +206,10 @@
           markNeedsEnhance(`${voiceApi.PRESETS[state.preset]?.label || "That preset"} is checking speed in the background. You can still try it now.`);
           return;
         }
+        if (availability.reason === "device-risk" || availability.reason === "fallback-likely") {
+          markNeedsEnhance(availability.message || `${voiceApi.PRESETS[state.preset]?.label || "That preset"} may be slower on this browser. You can still try it and we'll fall back if needed.`);
+          return;
+        }
         markNeedsEnhance(`Preset changed to ${voiceApi.PRESETS[state.preset]?.label || "Fast Clean"}. Click Re-Enhance to update the result.`);
       });
     });
@@ -374,36 +379,102 @@
       fileName: state.activeFile?.name || engine.fileName,
     });
 
+    let fallbackMessage = "";
     try {
-      applySettings({ silent: true, forceEngineSync: true });
-      await engine.primeProcessedBuffer();
-      state.hasEnhanced = true;
-      state.needsEnhance = false;
-      state.appliedPreset = state.preset;
-      await switchMode("modified", { silentStatus: true });
+      const preflightFallback = getPresetPreflightFallback(state.preset, deviceProfile, state.sourceDurationSeconds);
+      if (preflightFallback) {
+        state.preset = preflightFallback.fallbackPresetKey;
+        state.userPresetLocked = false;
+        fallbackMessage = preflightFallback.message;
+        updatePresetCards();
+        updateTargetBadge();
+        updateDeviceHint();
+        setStatus(`${fallbackMessage} Rendering ${voiceApi.PRESETS[state.preset]?.label || "the safer preset"} now...`, "processing");
+        warn("preset auto-fallback before render", preflightFallback);
+      }
+
+      await renderEnhancedPreset();
       if (state.renderMeta?.fallbackReason) {
         completeEnhanceProgress(false);
         warn("fallback path used for this render", {
           reason: state.renderMeta.fallbackReason,
         });
         setStatus(state.renderMeta.fallbackReason, "warning");
+      } else if (fallbackMessage) {
+        state.renderMeta = {
+          ...(state.renderMeta || {}),
+          presetLabel: voiceApi.PRESETS[state.appliedPreset]?.label || voiceApi.PRESETS[state.preset]?.label || "Balanced Clean",
+          fallbackReason: fallbackMessage,
+        };
+        updateRenderMeta();
+        completeEnhanceProgress(false);
+        setStatus(fallbackMessage, "warning");
       } else {
         completeEnhanceProgress(true);
         setStatus("Enhanced voice ready. Preview it, switch modes, or download it.", "success");
       }
     } catch (error) {
-      state.hasEnhanced = false;
-      state.needsEnhance = true;
-      completeEnhanceProgress(false);
-      errorLog("final render failure", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      setStatus("Voice enhancement failed. Check the console log for details.", "error");
+      const runtimeFallback = getRuntimeFallbackPreset(state.preset, deviceProfile, state.sourceDurationSeconds);
+      if (runtimeFallback && runtimeFallback !== state.preset) {
+        const originalPreset = state.preset;
+        const recoveryMessage = buildPresetFallbackMessage(originalPreset, runtimeFallback, "runtime");
+        warn("runtime preset fallback triggered", {
+          originalPreset,
+          fallbackPreset: runtimeFallback,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        state.preset = runtimeFallback;
+        state.userPresetLocked = false;
+        state.renderMeta = null;
+        updatePresetCards();
+        updateTargetBadge();
+        updateDeviceHint();
+        clearDownload();
+        resetEnhanceProgress();
+        startEnhanceProgress();
+        setStatus(`${recoveryMessage} Rendering ${voiceApi.PRESETS[state.preset]?.label || "the safer preset"} now...`, "processing");
+        try {
+          await renderEnhancedPreset();
+          state.renderMeta = {
+            ...(state.renderMeta || {}),
+            presetLabel: voiceApi.PRESETS[state.appliedPreset]?.label || voiceApi.PRESETS[state.preset]?.label || "Balanced Clean",
+            fallbackReason: recoveryMessage,
+          };
+          updateRenderMeta();
+          completeEnhanceProgress(false);
+          setStatus(recoveryMessage, "warning");
+        } catch (fallbackError) {
+          state.hasEnhanced = false;
+          state.needsEnhance = true;
+          completeEnhanceProgress(false);
+          errorLog("final render failure", {
+            error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+          });
+          setStatus("Voice enhancement failed. Check the console log for details.", "error");
+        }
+      } else {
+        state.hasEnhanced = false;
+        state.needsEnhance = true;
+        completeEnhanceProgress(false);
+        errorLog("final render failure", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setStatus("Voice enhancement failed. Check the console log for details.", "error");
+      }
     } finally {
       state.isEnhancing = false;
       updateModeButtons();
       updateActionState();
     }
+  }
+
+  async function renderEnhancedPreset() {
+    applySettings({ silent: true, forceEngineSync: true });
+    await engine.primeProcessedBuffer();
+    state.hasEnhanced = true;
+    state.needsEnhance = false;
+    state.appliedPreset = state.preset;
+    await switchMode("modified", { silentStatus: true });
   }
 
   async function exportAudio() {
@@ -1043,6 +1114,18 @@
               </div>
               <button type="button" class="at-btn at-btn-soft" data-role="changeFile">Change</button>
             </div>
+            <div class="voice-section voice-section--status">
+              <div class="at-row at-status" id="status" data-status-state="idle">Upload a voice recording to start.</div>
+              <div class="voice-progress-shell" id="statusProgress" hidden>
+                <div class="voice-progress-head">
+                  <span class="voice-progress-stage" id="statusProgressStage">Preparing</span>
+                  <span class="voice-progress-percent" id="statusProgressPercent">0%</span>
+                </div>
+                <div class="voice-progress-track">
+                  <div class="voice-progress-fill" id="statusProgressFill"></div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="voice-section voice-section--preset">
@@ -1082,19 +1165,6 @@
             <div class="voice-mode-toggle voice-mode-toggle--switch" role="group" aria-label="Preview mode">
               <button class="voice-mode-btn" id="modeOriginalBtn" type="button" data-selected="false">Original</button>
               <button class="voice-mode-btn" id="modeEnhancedBtn" type="button" data-selected="true">Enhanced</button>
-            </div>
-          </div>
-
-          <div class="voice-section voice-section--status">
-            <div class="at-row at-status" id="status" data-status-state="idle">Upload a voice recording to start.</div>
-            <div class="voice-progress-shell" id="statusProgress" hidden>
-              <div class="voice-progress-head">
-                <span class="voice-progress-stage" id="statusProgressStage">Preparing</span>
-                <span class="voice-progress-percent" id="statusProgressPercent">0%</span>
-              </div>
-              <div class="voice-progress-track">
-                <div class="voice-progress-fill" id="statusProgressFill"></div>
-              </div>
             </div>
           </div>
 
@@ -1161,44 +1231,28 @@
     let recommendedPreset = "podcast";
     let maxPresetKey = "podcast";
 
-    if (isMobile) {
-      if ((deviceMemory > 0 && deviceMemory <= 6) || hardwareConcurrency <= 6) {
-        tierKey = "low";
-        label = "Minimum mobile";
-        recommendedPreset = "creator";
-        maxPresetKey = "creator";
-      } else if ((deviceMemory >= 12 && hardwareConcurrency >= 8) || hasWebGpu) {
-        tierKey = "pro";
-        label = "High-end mobile";
-        recommendedPreset = "podcast";
-        maxPresetKey = "cinematic";
-      }
-    } else {
-      if ((deviceMemory > 0 && deviceMemory <= 16) || hardwareConcurrency <= 6) {
-        tierKey = "low";
-        label = "Starter creator";
-        recommendedPreset = "creator";
-        maxPresetKey = "creator";
-      } else if (
-        ((deviceMemory >= 32 && hardwareConcurrency >= 12) || (deviceMemory >= 24 && hardwareConcurrency >= 10 && hasWebGpu))
-        && hasSharedArrayBuffer
-        && hasCrossOriginIsolation
-      ) {
-        tierKey = "pro";
-        label = "Studio creator";
-        recommendedPreset = "cinematic";
-        maxPresetKey = "cinematic";
-      }
+    if ((deviceMemory > 0 && deviceMemory <= 16) || hardwareConcurrency <= 6) {
+      tierKey = "low";
+      label = isMobile ? "Minimum mobile" : "Starter creator";
+      recommendedPreset = "creator";
+      maxPresetKey = "creator";
+    } else if (
+      ((deviceMemory >= 32 && hardwareConcurrency >= 12) || (deviceMemory >= 24 && hardwareConcurrency >= 10 && hasWebGpu))
+      && hasSharedArrayBuffer
+      && hasCrossOriginIsolation
+    ) {
+      tierKey = "pro";
+      label = isMobile ? "High-end mobile" : "Studio creator";
+      recommendedPreset = "cinematic";
+      maxPresetKey = "cinematic";
     }
 
     if (!hasSharedArrayBuffer || !hasCrossOriginIsolation) {
-      if (isMobile) {
-        maxPresetKey = downgradePreset(maxPresetKey);
-        recommendedPreset = downgradePreset(recommendedPreset);
-      }
       if (tierKey === "pro") {
         tierKey = "balanced";
         label = isMobile ? "Balanced mobile" : "Balanced creator";
+        recommendedPreset = "podcast";
+        maxPresetKey = "podcast";
       }
     }
 
@@ -1390,7 +1444,7 @@
     if (podcastSpeed > 0 && podcastSpeed <= BENCHMARK_SPEED_LIMITS.cinematicProbeFromPodcastMsPerSecond) {
       return true;
     }
-    if (!profile.isMobile && creatorSpeed > 0 && creatorSpeed <= BENCHMARK_SPEED_LIMITS.creatorPromotePodcastMsPerSecond) {
+    if (creatorSpeed > 0 && creatorSpeed <= BENCHMARK_SPEED_LIMITS.creatorPromotePodcastMsPerSecond) {
       return true;
     }
     return false;
@@ -1421,13 +1475,85 @@
     return PRESET_DURATION_MESSAGES[presetKey] || `${voiceApi.PRESETS[presetKey]?.label || "That preset"} is not available for this clip length.`;
   }
 
+  function shouldAllowDesktopFallbackAttempt(presetKey, profile) {
+    return presetKey === "cinematic" && !!profile && !profile.isMobile;
+  }
+
+  function getBenchmarkResult(profile, presetKey) {
+    if (!profile || !presetKey) {
+      return null;
+    }
+    if (profile.benchmarkResults && profile.benchmarkResults[presetKey]) {
+      return profile.benchmarkResults[presetKey];
+    }
+    if (profile.benchmark && profile.benchmark.presetKey === presetKey) {
+      return profile.benchmark;
+    }
+    return null;
+  }
+
+  function getFallbackPresetKeyForPreset(presetKey, profile, durationSeconds) {
+    if (presetKey === "cinematic") {
+      return capPresetForCurrentContext(STUDIO_FALLBACK_PRESET, profile, durationSeconds);
+    }
+    return "";
+  }
+
+  function buildPresetFallbackMessage(fromPresetKey, toPresetKey, reason) {
+    const fromLabel = voiceApi.PRESETS[fromPresetKey]?.label || "That preset";
+    const toLabel = voiceApi.PRESETS[toPresetKey]?.label || "a lighter preset";
+    if (reason === "preflight") {
+      return `${fromLabel} looked too heavy in this browser, so we switched to ${toLabel} before rendering.`;
+    }
+    return `${fromLabel} was too heavy in this browser, so we switched to ${toLabel}.`;
+  }
+
+  function getPresetPreflightFallback(presetKey, profile, durationSeconds) {
+    if (!shouldAllowDesktopFallbackAttempt(presetKey, profile)) {
+      return null;
+    }
+    const benchmark = getBenchmarkResult(profile, presetKey);
+    if (benchmark && Number(benchmark.msPerSecond) > BENCHMARK_SPEED_LIMITS.cinematicPromoteMsPerSecond) {
+      const fallbackPresetKey = getFallbackPresetKeyForPreset(presetKey, profile, durationSeconds);
+      if (!fallbackPresetKey || fallbackPresetKey === presetKey) {
+        return null;
+      }
+      return {
+        originalPresetKey: presetKey,
+        fallbackPresetKey,
+        reason: "slow-benchmark",
+        message: buildPresetFallbackMessage(presetKey, fallbackPresetKey, "preflight"),
+      };
+    }
+    if (profile?.benchmarkError) {
+      const fallbackPresetKey = getFallbackPresetKeyForPreset(presetKey, profile, durationSeconds);
+      if (!fallbackPresetKey || fallbackPresetKey === presetKey) {
+        return null;
+      }
+      return {
+        originalPresetKey: presetKey,
+        fallbackPresetKey,
+        reason: "benchmark-error",
+        message: buildPresetFallbackMessage(presetKey, fallbackPresetKey, "preflight"),
+      };
+    }
+    return null;
+  }
+
+  function getRuntimeFallbackPreset(presetKey, profile, durationSeconds) {
+    if (!shouldAllowDesktopFallbackAttempt(presetKey, profile)) {
+      return "";
+    }
+    return getFallbackPresetKeyForPreset(presetKey, profile, durationSeconds);
+  }
+
   function getPresetAvailability(presetKey) {
     const key = PRESET_ORDER.includes(presetKey) ? presetKey : DEFAULT_PRESET;
     const durationLimit = getPresetDurationLimitSeconds(key);
     const durationSeconds = Number(state.sourceDurationSeconds) || 0;
     const durationBlocked = durationSeconds > 0 && durationLimit > 0 && durationSeconds > durationLimit;
     const deviceMaxPreset = PRESET_ORDER.includes(deviceProfile?.maxPresetKey) ? deviceProfile.maxPresetKey : "cinematic";
-    const deviceBlocked = PRESET_ORDER.indexOf(key) > PRESET_ORDER.indexOf(deviceMaxPreset);
+    const deviceBlocked = !deviceProfile?.isMobile && PRESET_ORDER.indexOf(key) > PRESET_ORDER.indexOf(deviceMaxPreset);
 
     if (durationBlocked) {
       return {
@@ -1444,6 +1570,16 @@
         reason: "benchmark-pending",
         badge: "Checking speed",
         message: "",
+      };
+    }
+
+    if (deviceBlocked && shouldAllowDesktopFallbackAttempt(key, deviceProfile)) {
+      const preflightFallback = getPresetPreflightFallback(key, deviceProfile, durationSeconds);
+      return {
+        available: true,
+        reason: preflightFallback ? "fallback-likely" : "device-risk",
+        badge: preflightFallback ? "Safe fallback" : "Try anyway",
+        message: preflightFallback?.message || `${voiceApi.PRESETS[key]?.label || "That preset"} may be slower on this browser. You can still try it and we'll fall back if needed.`,
       };
     }
 
@@ -1468,7 +1604,7 @@
     if (presetKey !== "cinematic") {
       return false;
     }
-    if (!profile || profile.isMobile || profile.tierKey === "low") {
+    if (!profile || profile.tierKey === "low") {
       return false;
     }
     if (profile.benchmark || profile.benchmarkResults || profile.benchmarkError) {
@@ -1501,7 +1637,14 @@
   }
 
   function syncPresetForCurrentContext() {
-    const nextPreset = capPresetForCurrentContext(state.preset, deviceProfile, state.sourceDurationSeconds);
+    const durationMaxPreset = getDurationMaxPresetKey(state.sourceDurationSeconds);
+    const canKeepRiskySelection =
+      state.userPresetLocked
+      && shouldAllowDesktopFallbackAttempt(state.preset, deviceProfile)
+      && PRESET_ORDER.indexOf(state.preset) <= PRESET_ORDER.indexOf(durationMaxPreset);
+    const nextPreset = canKeepRiskySelection
+      ? state.preset
+      : capPresetForCurrentContext(state.preset, deviceProfile, state.sourceDurationSeconds);
     if (nextPreset !== state.preset) {
       state.preset = nextPreset;
     }
@@ -1516,16 +1659,11 @@
 
   function capPresetForDevice(presetKey, profile) {
     const safePreset = PRESET_ORDER.includes(presetKey) ? presetKey : (profile?.recommendedPreset || DEFAULT_PRESET);
+    if (profile?.isMobile) {
+      return safePreset;
+    }
     const maxPreset = PRESET_ORDER.includes(profile?.maxPresetKey) ? profile.maxPresetKey : "cinematic";
     return PRESET_ORDER[Math.min(PRESET_ORDER.indexOf(safePreset), PRESET_ORDER.indexOf(maxPreset))] || safePreset;
-  }
-
-  function downgradePreset(presetKey) {
-    const index = PRESET_ORDER.indexOf(presetKey);
-    if (index <= 0) {
-      return "creator";
-    }
-    return PRESET_ORDER[index - 1];
   }
 
   window.VoiceStudioTool = {

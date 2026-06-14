@@ -52,6 +52,9 @@ const MIN_DESKTOP_VAD_CHUNK_SECONDS = 3;
 const MAX_DESKTOP_VAD_MICRO_CHUNKS = 1;
 const SPARSE_COVERAGE_MIN_SPEECH_SECONDS = 8;
 const SPARSE_COVERAGE_SPLIT_OVERLAP_SECONDS = 1.5;
+const TAIL_COVERAGE_MIN_CHUNK_SECONDS = 30;
+const TAIL_COVERAGE_MIN_GAP_SECONDS = 6;
+const TAIL_COVERAGE_MAX_GAP_RATIO = 0.18;
 const TIMESTAMP_COLLAPSE_SECONDS = 29.98;
 const TIMESTAMP_COLLAPSE_EPSILON = 0.18;
 const TIMESTAMP_OVERRUN_EPSILON = 0.35;
@@ -587,7 +590,7 @@ function getDefaultTranscriptionOptions(modelKey, useLegacyRuntime = false) {
 
   return {
     chunk_length_s: useTrexCodeSwitchingTuning ? 29 : DEFAULT_CHUNK_LENGTH_SECONDS,
-    stride_length_s: useTrexCodeSwitchingTuning ? 9 : DESKTOP_STRIDE_LENGTH_SECONDS,
+    stride_length_s: useTrexCodeSwitchingTuning ? 5 : DESKTOP_STRIDE_LENGTH_SECONDS,
     return_timestamps: true,
     force_full_sequences: false,
     top_k: 0,
@@ -596,9 +599,9 @@ function getDefaultTranscriptionOptions(modelKey, useLegacyRuntime = false) {
     temperature: useSmallerTimestampedDesktopDefaults
       ? [0, 0.2, 0.4, 0.6, 0.8, 1.0]
       : 0.2,
-    compression_ratio_threshold: useSmallerTimestampedDesktopDefaults ? 1.35 : (useTrexCodeSwitchingTuning ? 2.2 : 2.0),
+    compression_ratio_threshold: useSmallerTimestampedDesktopDefaults ? 1.35 : 2.0,
     logprob_threshold: -1.0,
-    ...(useTrexCodeSwitchingTuning ? { no_speech_threshold: 0.3 } : {}),
+    ...(useTrexCodeSwitchingTuning ? { no_speech_threshold: 0.4 } : {}),
     ...(useTrexCodeSwitchingTuning ? { condition_on_prev_tokens: false } : {})
   };
 }
@@ -1678,6 +1681,97 @@ function inspectSparseTranscriptCoverage(text, chunks, chunkMeta, clipDurationSe
   };
 }
 
+function inspectTailTranscriptCoverage(text, chunks, chunkMeta, clipDurationSeconds, audio, sampleRate = 16000) {
+  const normalizedText = normalizeText(text);
+  const safeClipDurationSeconds = Math.max(0, Number(clipDurationSeconds) || 0);
+  const segmentCount = Array.isArray(chunks) ? chunks.length : 0;
+  const timestampCoverageSeconds = getTimestampCoverageSeconds(chunks);
+  const speechSpans = chunkMeta && Array.isArray(chunkMeta.vadSpansRelative)
+    ? chunkMeta.vadSpansRelative
+    : [];
+  let targetEndSeconds = safeClipDurationSeconds;
+  let lastSegmentEndSeconds = 0;
+  let tailSignalStats = { rms: 0, peak: 0 };
+  let hasLikelyTailSpeech = false;
+
+  if (!normalizedText || !segmentCount || safeClipDurationSeconds < TAIL_COVERAGE_MIN_CHUNK_SECONDS) {
+    return {
+      ok: true,
+      reason: "",
+      textLength: normalizedText.length,
+      segmentCount,
+      targetEndSeconds: roundDiagnostic(targetEndSeconds),
+      lastSegmentEndSeconds: roundDiagnostic(lastSegmentEndSeconds),
+      tailGapSeconds: roundDiagnostic(targetEndSeconds),
+      timestampCoverageSeconds: roundDiagnostic(timestampCoverageSeconds),
+      tailRms: 0,
+      tailPeak: 0,
+      likelyTailSpeech: false
+    };
+  }
+
+  if (speechSpans.length) {
+    const lastSpeechSpan = speechSpans[speechSpans.length - 1];
+    const speechEndSeconds = Number(lastSpeechSpan && lastSpeechSpan.endSec);
+    if (Number.isFinite(speechEndSeconds) && speechEndSeconds > 0) {
+      targetEndSeconds = Math.min(safeClipDurationSeconds, speechEndSeconds);
+    }
+  }
+
+  (Array.isArray(chunks) ? chunks : []).forEach((chunk) => {
+    const timestamp = chunk && chunk.timestamp;
+    const end = Array.isArray(timestamp) ? Number(timestamp[1]) : NaN;
+    if (Number.isFinite(end) && end > lastSegmentEndSeconds) {
+      lastSegmentEndSeconds = Math.min(targetEndSeconds, end);
+    }
+  });
+
+  const tailGapSeconds = Math.max(0, targetEndSeconds - lastSegmentEndSeconds);
+  const requiredTailGapSeconds = Math.max(TAIL_COVERAGE_MIN_GAP_SECONDS, targetEndSeconds * TAIL_COVERAGE_MAX_GAP_RATIO);
+
+  if (tailGapSeconds <= requiredTailGapSeconds) {
+    return {
+      ok: true,
+      reason: "",
+      textLength: normalizedText.length,
+      segmentCount,
+      targetEndSeconds: roundDiagnostic(targetEndSeconds),
+      lastSegmentEndSeconds: roundDiagnostic(lastSegmentEndSeconds),
+      tailGapSeconds: roundDiagnostic(tailGapSeconds),
+      timestampCoverageSeconds: roundDiagnostic(timestampCoverageSeconds),
+      tailRms: 0,
+      tailPeak: 0,
+      likelyTailSpeech: false
+    };
+  }
+
+  if (speechSpans.length) {
+    hasLikelyTailSpeech = true;
+  } else if (audio && audio.length) {
+    const safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    const tailStartSample = Math.max(0, Math.min(audio.length, Math.floor(lastSegmentEndSeconds * safeSampleRate)));
+    const tailAudio = tailStartSample < audio.length ? audio.slice(tailStartSample) : new Float32Array(0);
+    const overallStats = getAudioSignalStats(audio);
+    tailSignalStats = getAudioSignalStats(tailAudio);
+    hasLikelyTailSpeech = tailSignalStats.rms >= Math.max(0.0045, overallStats.rms * 0.22)
+      || tailSignalStats.peak >= Math.max(0.06, overallStats.peak * 0.18);
+  }
+
+  return {
+    ok: !hasLikelyTailSpeech,
+    reason: hasLikelyTailSpeech ? (speechSpans.length ? "tail_gap_after_last_vad_span" : "tail_gap_with_likely_speech") : "",
+    textLength: normalizedText.length,
+    segmentCount,
+    targetEndSeconds: roundDiagnostic(targetEndSeconds),
+    lastSegmentEndSeconds: roundDiagnostic(lastSegmentEndSeconds),
+    tailGapSeconds: roundDiagnostic(tailGapSeconds),
+    timestampCoverageSeconds: roundDiagnostic(timestampCoverageSeconds),
+    tailRms: roundDiagnostic(tailSignalStats.rms, 6),
+    tailPeak: roundDiagnostic(tailSignalStats.peak, 6),
+    likelyTailSpeech: hasLikelyTailSpeech
+  };
+}
+
 function buildSparseChunkSplitPlan(chunkMeta, clipDurationSeconds, sampleRate) {
   const safeDurationSeconds = Math.max(0, Number(clipDurationSeconds) || 0);
   const overlapSeconds = Math.min(SPARSE_COVERAGE_SPLIT_OVERLAP_SECONDS, Math.max(0.4, safeDurationSeconds * 0.12));
@@ -2504,58 +2598,6 @@ function buildSafeTimelineFallbackChunks(text, durationSeconds, offsetSeconds) {
   }];
 }
 
-function getProgressiveWindowRecoveryDecision(
-  modelKey,
-  rawText,
-  rawChunks,
-  finalizedWindowText,
-  finalizedWindowChunkCount,
-  clipDurationSeconds
-) {
-  const resolvedModelKey = getTranscriptionModelConfig(modelKey).key;
-  const normalizedRawText = normalizeText(rawText);
-  const normalizedFinalizedText = normalizeText(finalizedWindowText);
-  const sanitizedRawChunks = sanitizeTimedChunks(rawChunks, clipDurationSeconds);
-  const sparseCoverageCheck = inspectSparseTranscriptCoverage(
-    normalizedRawText,
-    sanitizedRawChunks,
-    null,
-    clipDurationSeconds
-  );
-  const textLengthGap = normalizedFinalizedText.length - normalizedRawText.length;
-  const materiallyLonger = textLengthGap >= 24
-    || (
-      normalizedRawText.length > 0
-      && normalizedFinalizedText.length >= Math.round(normalizedRawText.length * 1.35)
-    );
-  const rawMostlyMissing = !normalizedRawText
-    || normalizedRawText.length <= Math.max(36, Math.round(normalizedFinalizedText.length * 0.6));
-  const rawCoverageLooksWeak = !sanitizedRawChunks.length
-    || !!sparseCoverageCheck.reason
-    || finalizedWindowChunkCount > (sanitizedRawChunks.length + 1);
-
-  if (
-    resolvedModelKey !== "t-rex"
-    || !normalizedFinalizedText
-    || (!materiallyLonger && !rawMostlyMissing)
-    || !rawCoverageLooksWeak
-  ) {
-    return {
-      shouldRecover: false,
-      replacementText: normalizedRawText,
-      reason: "",
-      sparseCoverageReason: sparseCoverageCheck.reason || ""
-    };
-  }
-
-  return {
-    shouldRecover: true,
-    replacementText: normalizedFinalizedText,
-    reason: sparseCoverageCheck.reason || "progressive_finalized_text_longer_than_raw_result",
-    sparseCoverageReason: sparseCoverageCheck.reason || ""
-  };
-}
-
 function buildAcceptedWhisperOutput(result, clipDurationSeconds, offsetSeconds, preserveRawText = false) {
   const rawText = result && typeof result.text === "string" ? result.text : "";
   const acceptedText = preserveRawText ? rawText : normalizeText(rawText);
@@ -2593,6 +2635,36 @@ function buildAcceptedWhisperOutput(result, clipDurationSeconds, offsetSeconds, 
       timestampFallbackUsed: !!(firstAcceptedChunk && firstAcceptedChunk.timestampSource === "safe_timeline_fallback"),
       timestampFallbackReason: acceptedRelativeChunks.length ? "" : (timestampCheck.reason || "missing_reliable_timestamps")
     }
+  };
+}
+
+function chooseOfficialSlidingWindowAcceptedText(result, finalizedWindowText, finalizedWindowChunkCount) {
+  const rawText = result && typeof result.text === "string" ? result.text : "";
+  const normalizedRawText = normalizeText(rawText);
+  const normalizedFinalizedText = normalizeText(finalizedWindowText);
+  const rawQuality = inspectBadTranscriptionOutput(rawText, null);
+  const finalizedQuality = inspectBadTranscriptionOutput(normalizedFinalizedText, null);
+  const rawReasons = Array.isArray(rawQuality && rawQuality.reasons) ? rawQuality.reasons : [];
+  const finalizedReasons = Array.isArray(finalizedQuality && finalizedQuality.reasons) ? finalizedQuality.reasons : [];
+  const rawHasLoop = rawReasons.includes("repetition_loop") || rawReasons.includes("short_token_loop");
+  const finalizedHasLoop = finalizedReasons.includes("repetition_loop") || finalizedReasons.includes("short_token_loop");
+  const finalizedIsPresent = !!normalizedFinalizedText && Number(finalizedWindowChunkCount) > 0;
+  const finalizedTooShort = normalizedRawText.length > 0
+    && normalizedFinalizedText.length < Math.max(120, Math.round(normalizedRawText.length * 0.55));
+  const shouldPreferFinalized = finalizedIsPresent
+    && rawHasLoop
+    && !finalizedHasLoop
+    && !finalizedTooShort
+    && normalizedFinalizedText.length < normalizedRawText.length;
+
+  return {
+    text: shouldPreferFinalized ? finalizedWindowText : rawText,
+    usedFinalizedWindowText: shouldPreferFinalized,
+    reason: shouldPreferFinalized ? "raw_final_text_repetition_loop" : "",
+    rawReasons,
+    finalizedReasons,
+    rawTextLength: normalizedRawText.length,
+    finalizedTextLength: normalizedFinalizedText.length
   };
 }
 
@@ -3019,20 +3091,28 @@ async function handleOfficialSlidingWindowTranscription(
     finalizedWindowChunkCount
   });
 
-  const progressiveWindowRecovery = getProgressiveWindowRecoveryDecision(
-    modelLoad.modelKey,
-    result && typeof result.text === "string" ? result.text : "",
-    result && Array.isArray(result.chunks) ? result.chunks : [],
+  const acceptedTextChoice = chooseOfficialSlidingWindowAcceptedText(
+    result,
     finalizedWindowText,
-    finalizedWindowChunkCount,
-    clipDurationSeconds
+    finalizedWindowChunkCount
   );
+  if (acceptedTextChoice.usedFinalizedWindowText) {
+    logWorkerEvent("official_sliding_window_text_override", {
+      modelKey: modelLoad.modelKey,
+      reason: acceptedTextChoice.reason,
+      rawReasons: acceptedTextChoice.rawReasons,
+      finalizedReasons: acceptedTextChoice.finalizedReasons,
+      rawTextLength: acceptedTextChoice.rawTextLength,
+      finalizedTextLength: acceptedTextChoice.finalizedTextLength,
+      finalizedWindowChunkCount
+    });
+  }
+
   const acceptedResult = buildAcceptedWhisperOutput(
-    progressiveWindowRecovery.shouldRecover
+    acceptedTextChoice.usedFinalizedWindowText
       ? {
           ...result,
-          text: progressiveWindowRecovery.replacementText,
-          chunks: []
+          text: acceptedTextChoice.text
         }
       : result,
     clipDurationSeconds,
@@ -3040,32 +3120,15 @@ async function handleOfficialSlidingWindowTranscription(
     RAW_WHISPER_PASSTHROUGH
   );
   const warnings = [];
-  diagnostics.progressiveWindowRecoveryUsed = !!progressiveWindowRecovery.shouldRecover;
-  diagnostics.progressiveWindowRecoveryReason = progressiveWindowRecovery.reason || "";
-  diagnostics.progressiveWindowRecoveryRawTextLength = result && typeof result.text === "string"
-    ? result.text.length
-    : 0;
-  diagnostics.progressiveWindowRecoveryFinalizedTextLength = finalizedWindowText.length;
-  diagnostics.progressiveWindowRecoveryRawChunkCount = Array.isArray(result && result.chunks)
-    ? result.chunks.length
-    : 0;
-  diagnostics.progressiveWindowRecoveryFinalizedChunkCount = finalizedWindowChunkCount;
-  diagnostics.progressiveWindowRecoverySparseCoverageReason = progressiveWindowRecovery.sparseCoverageReason || "";
-  if (progressiveWindowRecovery.shouldRecover) {
-    logWorkerEvent("progressive_window_recovery_applied", {
-      modelKey: modelLoad.modelKey,
-      reason: progressiveWindowRecovery.reason || "",
-      rawTextLength: diagnostics.progressiveWindowRecoveryRawTextLength,
-      finalizedTextLength: diagnostics.progressiveWindowRecoveryFinalizedTextLength,
-      rawChunkCount: diagnostics.progressiveWindowRecoveryRawChunkCount,
-      finalizedWindowChunkCount
-    });
-  }
 
   if (!acceptedResult.timestampCheck.ok && acceptedResult.text) {
     warnings.push("weak_audio");
   }
   Object.assign(diagnostics, acceptedResult.timestampDiagnostics || {});
+  diagnostics.officialSlidingWindowTextOverrideUsed = !!acceptedTextChoice.usedFinalizedWindowText;
+  diagnostics.officialSlidingWindowTextOverrideReason = acceptedTextChoice.reason || "";
+  diagnostics.officialSlidingWindowRawReasons = acceptedTextChoice.rawReasons || [];
+  diagnostics.officialSlidingWindowFinalizedReasons = acceptedTextChoice.finalizedReasons || [];
 
   emitWorkerMessage({
     type: "status",
@@ -3448,17 +3511,25 @@ async function handleTranscription(
     }
 
     let sparseCoverageCheck = inspectSparseTranscriptCoverage(resultText, resultChunks, chunk, clipDurationSeconds);
-    if (timestampCheck.ok && sparseCoverageCheck.reason) {
-      logWorkerEvent("sparse_chunk_detected", {
+    let tailCoverageCheck = inspectTailTranscriptCoverage(resultText, resultChunks, chunk, clipDurationSeconds, chunkAudio, sampleRate);
+    if (timestampCheck.ok && (sparseCoverageCheck.reason || tailCoverageCheck.reason)) {
+      logWorkerEvent("coverage_gap_detected", {
         modelKey: modelLoad.modelKey,
         path: generationControlState.pathLabel,
         chunkIndex: i,
         sparseReason: sparseCoverageCheck.reason,
+        tailReason: tailCoverageCheck.reason,
         chunkDurationSeconds: sparseCoverageCheck.chunkDurationSeconds,
         speechSeconds: sparseCoverageCheck.speechSeconds,
         timestampCoverageSeconds: sparseCoverageCheck.timestampCoverageSeconds,
         rawSegmentsCount: sparseCoverageCheck.segmentCount,
-        textLength: sparseCoverageCheck.textLength
+        textLength: sparseCoverageCheck.textLength,
+        tailTargetEndSeconds: tailCoverageCheck.targetEndSeconds,
+        lastSegmentEndSeconds: tailCoverageCheck.lastSegmentEndSeconds,
+        tailGapSeconds: tailCoverageCheck.tailGapSeconds,
+        tailRms: tailCoverageCheck.tailRms,
+        tailPeak: tailCoverageCheck.tailPeak,
+        likelyTailSpeech: tailCoverageCheck.likelyTailSpeech
       });
 
       const sparseFallbackResult = await transcribeSparseChunkFallback(
@@ -3473,18 +3544,28 @@ async function handleTranscription(
       const sparseFallbackChunks = Array.isArray(sparseFallbackResult && sparseFallbackResult.chunks)
         ? sparseFallbackResult.chunks
         : [];
+      const fallbackSparseCoverageCheck = inspectSparseTranscriptCoverage(sparseFallbackText, sparseFallbackChunks, chunk, clipDurationSeconds);
+      const fallbackTailCoverageCheck = inspectTailTranscriptCoverage(sparseFallbackText, sparseFallbackChunks, chunk, clipDurationSeconds, chunkAudio, sampleRate);
       const fallbackLooksBetter = sparseFallbackChunks.length > resultChunks.length
-        || sparseFallbackText.length > (resultText.length + 20);
+        || sparseFallbackText.length > (resultText.length + 20)
+        || (!!sparseCoverageCheck.reason && !fallbackSparseCoverageCheck.reason)
+        || (!!tailCoverageCheck.reason && !fallbackTailCoverageCheck.reason)
+        || ((Number(tailCoverageCheck.tailGapSeconds) || 0) - (Number(fallbackTailCoverageCheck.tailGapSeconds) || 0) >= 3);
 
-      logWorkerEvent("sparse_chunk_fallback_result", {
+      logWorkerEvent("coverage_gap_fallback_result", {
         modelKey: modelLoad.modelKey,
         path: generationControlState.pathLabel,
         chunkIndex: i,
         sparseReason: sparseCoverageCheck.reason,
+        tailReason: tailCoverageCheck.reason,
         originalSegmentsCount: resultChunks.length,
         fallbackSegmentsCount: sparseFallbackChunks.length,
         originalTextLength: resultText.length,
         fallbackTextLength: sparseFallbackText.length,
+        fallbackSparseReason: fallbackSparseCoverageCheck.reason,
+        fallbackTailReason: fallbackTailCoverageCheck.reason,
+        originalTailGapSeconds: tailCoverageCheck.tailGapSeconds,
+        fallbackTailGapSeconds: fallbackTailCoverageCheck.tailGapSeconds,
         accepted: fallbackLooksBetter
       });
 
@@ -3497,6 +3578,7 @@ async function handleTranscription(
         };
         badOutputCheck = inspectBadTranscriptionOutput(resultText, chunkAudio);
         sparseCoverageCheck = inspectSparseTranscriptCoverage(resultText, resultChunks, chunk, clipDurationSeconds);
+        tailCoverageCheck = inspectTailTranscriptCoverage(resultText, resultChunks, chunk, clipDurationSeconds, chunkAudio, sampleRate);
       }
     }
 
@@ -3521,7 +3603,14 @@ async function handleTranscription(
       sparseCoverageReason: sparseCoverageCheck.reason || "",
       sparseChunkDurationSeconds: sparseCoverageCheck.chunkDurationSeconds,
       sparseSpeechSeconds: sparseCoverageCheck.speechSeconds,
-      sparseTimestampCoverageSeconds: sparseCoverageCheck.timestampCoverageSeconds
+      sparseTimestampCoverageSeconds: sparseCoverageCheck.timestampCoverageSeconds,
+      tailCoverageReason: tailCoverageCheck.reason || "",
+      tailTargetEndSeconds: tailCoverageCheck.targetEndSeconds,
+      lastSegmentEndSeconds: tailCoverageCheck.lastSegmentEndSeconds,
+      tailGapSeconds: tailCoverageCheck.tailGapSeconds,
+      tailRms: tailCoverageCheck.tailRms,
+      tailPeak: tailCoverageCheck.tailPeak,
+      likelyTailSpeech: tailCoverageCheck.likelyTailSpeech
     });
 
     postMessage({

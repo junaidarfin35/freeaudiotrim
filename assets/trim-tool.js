@@ -20,6 +20,8 @@
     return Math.min(max, Math.max(min, value));
   }
 
+  var TRIM_HANDLE_HIT_ZONE = 5;
+
   function setPlayPauseButtonState(button, isPlaying) {
     if (!button) {
       return;
@@ -67,6 +69,13 @@
     renderLucideIcons();
   }
 
+  function placeStatusAfterFileRow(fileRow, statusEl) {
+    if (!fileRow || !statusEl || !fileRow.parentNode || statusEl.previousElementSibling === fileRow) {
+      return;
+    }
+    fileRow.insertAdjacentElement("afterend", statusEl);
+  }
+
   function prefersLowPowerWaveform() {
     var coarsePointer = typeof window !== "undefined" &&
       typeof window.matchMedia === "function" &&
@@ -80,6 +89,21 @@
     canvas.width = Math.max(1, width);
     canvas.height = Math.max(1, height);
     return canvas;
+  }
+
+  function roundedRectPath(ctx, x, y, width, height, radius) {
+    var safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + safeRadius, y);
+    ctx.lineTo(x + width - safeRadius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+    ctx.lineTo(x + width, y + height - safeRadius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+    ctx.lineTo(x + safeRadius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+    ctx.lineTo(x, y + safeRadius);
+    ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+    ctx.closePath();
   }
 
   function readFileAsArrayBuffer(file) {
@@ -886,7 +910,7 @@
   WaveformRenderer.prototype.resize = function () {
     var dpr = Math.max(1, Math.min(prefersLowPowerWaveform() ? 1.5 : 2, window.devicePixelRatio || 1));
     var width = Math.floor(this.canvas.clientWidth || 600);
-    var height = Math.floor(this.canvas.clientHeight || 180);
+    var height = Math.floor(this.canvas.clientHeight || 200);
     this.canvas.width = Math.max(1, Math.floor(width * dpr));
     this.canvas.height = Math.max(1, Math.floor(height * dpr));
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -962,6 +986,10 @@
     var mid = height / 2;
     var startX = this.ratioToX(this.selection.start);
     var endX = this.ratioToX(this.selection.end);
+    var edgeEpsilon = 0.0005;
+    var touchesStartEdge = this.selection.start <= edgeEpsilon;
+    var touchesEndEdge = this.selection.end >= 1 - edgeEpsilon;
+    var isFullWidthSelection = touchesStartEdge && touchesEndEdge;
 
     this._renderWaveformCache(width, height);
     if (this.waveformCache) {
@@ -980,6 +1008,56 @@
       (endX - startX) - 1,
       height - 1
       );
+
+    if (isFullWidthSelection) {
+      var glowWidth = Math.max(18, Math.min(30, width * 0.04));
+      var glowHeight = Math.max(34, Math.min(58, height * 0.5));
+      var glowTop = (height - glowHeight) / 2;
+
+      var leftGlow = ctx.createLinearGradient(0, 0, glowWidth, 0);
+      leftGlow.addColorStop(0, "rgba(79, 95, 224, 0.28)");
+      leftGlow.addColorStop(0.42, "rgba(79, 95, 224, 0.14)");
+      leftGlow.addColorStop(1, "rgba(79, 95, 224, 0)");
+      ctx.fillStyle = leftGlow;
+      ctx.fillRect(0, glowTop, glowWidth, glowHeight);
+
+      var rightGlow = ctx.createLinearGradient(width - glowWidth, 0, width, 0);
+      rightGlow.addColorStop(0, "rgba(79, 95, 224, 0)");
+      rightGlow.addColorStop(0.58, "rgba(79, 95, 224, 0.14)");
+      rightGlow.addColorStop(1, "rgba(79, 95, 224, 0.28)");
+      ctx.fillStyle = rightGlow;
+      ctx.fillRect(width - glowWidth, glowTop, glowWidth, glowHeight);
+    }
+
+    var capHeight = Math.max(30, Math.min(44, height * 0.34));
+    var capWidth = 8;
+    var capY = (height - capHeight) / 2;
+
+    if (touchesStartEdge) {
+      ctx.save();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+      ctx.strokeStyle = "rgba(63, 140, 212, 0.78)";
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = isFullWidthSelection ? "rgba(79, 95, 224, 0.18)" : "transparent";
+      ctx.shadowBlur = isFullWidthSelection ? 12 : 0;
+      roundedRectPath(ctx, 2, capY, capWidth, capHeight, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (touchesEndEdge) {
+      ctx.save();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+      ctx.strokeStyle = "rgba(63, 140, 212, 0.78)";
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = isFullWidthSelection ? "rgba(79, 95, 224, 0.18)" : "transparent";
+      ctx.shadowBlur = isFullWidthSelection ? 12 : 0;
+      roundedRectPath(ctx, width - capWidth - 2, capY, capWidth, capHeight, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // Fade visual overlays
     if (this.uiFadeIn > 0) {
@@ -1066,14 +1144,19 @@
     this.pendingEmit = false;
     this.emitFrame = null;
     this._boundDown = this.handlePointerDown.bind(this);
+    this._boundCanvasMove = this.handleCanvasPointerMove.bind(this);
     this._boundMove = this.handlePointerMove.bind(this);
     this._boundUp = this.handlePointerUp.bind(this);
+    this._boundLeave = this.handlePointerLeave.bind(this);
 
     canvas.addEventListener("pointerdown", this._boundDown);
+    canvas.addEventListener("pointermove", this._boundCanvasMove);
+    canvas.addEventListener("pointerleave", this._boundLeave);
     window.addEventListener("pointermove", this._boundMove);
     window.addEventListener("pointerup", this._boundUp);
     window.addEventListener("pointercancel", this._boundUp);
     renderer.setSelection(this.startRatio, this.endRatio);
+    this._setCursor(null);
   }
 
   TrimController.prototype.reset = function () {
@@ -1135,7 +1218,7 @@
     var x = event.clientX - rect.left;
     var startX = this.renderer.ratioToX(this.startRatio);
     var endX = this.renderer.ratioToX(this.endRatio);
-    var hitZone = 20;
+    var hitZone = TRIM_HANDLE_HIT_ZONE;
     var distStart = Math.abs(x - startX);
     var distEnd = Math.abs(x - endX);
     var ratio = this.renderer.xToRatio(x);
@@ -1146,6 +1229,7 @@
         this.dragOffsetRatio = ratio - this.startRatio;
         this.pointerId = event.pointerId;
         this.canvas.setPointerCapture(event.pointerId);
+        this._setCursor(this.dragging, true);
         event.preventDefault();
       }
       return;
@@ -1164,13 +1248,23 @@
 
     this.pointerId = event.pointerId;
     this.canvas.setPointerCapture(event.pointerId);
+    this._setCursor(this.dragging, true);
     event.preventDefault();
+  };
+
+  TrimController.prototype.handleCanvasPointerMove = function (event) {
+    if (this.dragging && this.pointerId === event.pointerId) {
+      this._setCursor(this.dragging, true);
+      return;
+    }
+    this._setCursor(this._getPointerIntent(event), false);
   };
 
   TrimController.prototype.handlePointerMove = function (event) {
     if (!this.dragging || this.pointerId !== event.pointerId) {
       return;
     }
+    this._setCursor(this.dragging, true);
     var rect = this.canvas.getBoundingClientRect();
     var ratio = this.renderer.xToRatio(event.clientX - rect.left);
     if (this.dragging === "seek") {
@@ -1203,12 +1297,66 @@
       return;
     }
     var wasSeeking = this.dragging === "seek";
+    try {
+      this.canvas.releasePointerCapture(event.pointerId);
+    } catch (err) {
+    }
     this.dragging = null;
     this.pointerId = null;
     this.dragOffsetRatio = 0;
+    this._setCursor(this._getPointerIntent(event), false);
     if (!wasSeeking) {
       this._flushEmit();
     }
+  };
+
+  TrimController.prototype.handlePointerLeave = function () {
+    if (this.dragging) {
+      return;
+    }
+    this._setCursor(null, false);
+  };
+
+  TrimController.prototype._getPointerIntent = function (event) {
+    if (!event) {
+      return null;
+    }
+    var rect = this.canvas.getBoundingClientRect();
+    var x = event.clientX - rect.left;
+    var startX = this.renderer.ratioToX(this.startRatio);
+    var endX = this.renderer.ratioToX(this.endRatio);
+    var hitZone = TRIM_HANDLE_HIT_ZONE;
+    var distStart = Math.abs(x - startX);
+    var distEnd = Math.abs(x - endX);
+
+    if (this.lockedSelectionRatio != null) {
+      return x >= startX && x <= endX ? "window" : null;
+    }
+
+    if (distStart <= hitZone || distEnd <= hitZone) {
+      return distStart <= distEnd ? "start" : "end";
+    }
+
+    if (x > startX && x < endX) {
+      return "seek";
+    }
+
+    return null;
+  };
+
+  TrimController.prototype._setCursor = function (intent, dragging) {
+    if (!this.canvas || !this.canvas.style) {
+      return;
+    }
+    var cursor = "";
+    if (intent === "start" || intent === "end") {
+      cursor = "ew-resize";
+    } else if (intent === "window") {
+      cursor = dragging ? "grabbing" : "grab";
+    } else if (intent === "seek") {
+      cursor = "pointer";
+    }
+    this.canvas.style.cursor = cursor;
   };
 
   TrimController.prototype._emit = function () {
@@ -1239,9 +1387,12 @@
 
   TrimController.prototype.destroy = function () {
     this.canvas.removeEventListener("pointerdown", this._boundDown);
+    this.canvas.removeEventListener("pointermove", this._boundCanvasMove);
+    this.canvas.removeEventListener("pointerleave", this._boundLeave);
     window.removeEventListener("pointermove", this._boundMove);
     window.removeEventListener("pointerup", this._boundUp);
     window.removeEventListener("pointercancel", this._boundUp);
+    this._setCursor(null);
     if (this.emitFrame != null) {
       cancelAnimationFrame(this.emitFrame);
       this.emitFrame = null;
@@ -1288,6 +1439,7 @@
     this.fileRow = this.root.querySelector('[data-role="fileRow"]');
     this.fileNameEl = this.root.querySelector('[data-role="fileName"]');
     this.changeFileBtn = this.root.querySelector('[data-role="changeFile"]');
+    placeStatusAfterFileRow(this.fileRow, this.statusEl);
     this.renderer = new WaveformRenderer(this.canvas);
     this.trim = new TrimController(
       this.canvas,
@@ -1437,6 +1589,10 @@
       /ready|download started|reset/.test(text) ? "success" :
       /decoding|encoding|loading/.test(text) ? "processing" :
       "idle";
+  };
+
+  UIController.prototype.setPlayPauseVisualState = function (isPlaying) {
+    setPlayPauseButtonState(this.playPauseBtn, !!isPlaying);
   };
 
   UIController.prototype.onFileChange = async function () {

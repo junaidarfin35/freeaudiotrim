@@ -7,7 +7,7 @@
   var ENABLE_DESKTOP_TRANSCRIPTION_VAD = false;
   var srtContent = "";
   var vttContent = "";
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-06-11-4";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-06-13-tail-coverage-quiet-1";
   var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-25-24";
   var MOBILE_VAD_WORKER_URL = "/assets/mobile-vad-worker.js?v=2026-05-25-24";
   var MOBILE_VAD_TIMEOUT_MS = 9000;
@@ -491,9 +491,10 @@
   var MODEL_LOCK_HEARTBEAT_MS = 5000;
   var IDLE_UNLOAD_VISIBLE_MS = 90000;
   var IDLE_UNLOAD_HIDDEN_MS = 15000;
-  var CONTROLLED_WINDOW_MIN_DURATION_SECONDS = 75;
+  var CONTROLLED_WINDOW_MIN_DURATION_SECONDS = 30;
   var CONTROLLED_WINDOW_LENGTH_SECONDS = 29;
   var CONTROLLED_WINDOW_STRIDE_SECONDS = 5;
+  var CONTROLLED_FINAL_DUPLICATE_MAX_GAP_SECONDS = 0.12;
   var CONTROLLED_FIRST_FALLBACK_SPLIT_SECONDS = 5;
   var CONTROLLED_FIRST_FALLBACK_OVERLAP_SECONDS = 1;
   var CONTROLLED_REMAINING_FALLBACK_SPLIT_SECONDS = 8;
@@ -551,17 +552,6 @@
     return 0;
   }
 
-  function shouldEnableAdaptiveSmallWindows(modelKey) {
-    return modelKey === "triceratop" || modelKey === "t-rex";
-  }
-
-  function getControlledWindowMaxConsecutiveEmptyWindows(modelKey) {
-    if (modelKey === "t-rex") {
-      return 3;
-    }
-    return 2;
-  }
-
   function hasUsefulControlledWindowText(text) {
     var normalized = typeof text === "string"
       ? text.replace(/["'\u200e\u200f\u202a-\u202e]/g, "").replace(/\s+/g, " ").trim()
@@ -604,7 +594,101 @@
       startSample += advanceSamples;
     }
 
+    windows.forEach(function (windowMeta, index) {
+      var nextWindow = index + 1 < windows.length ? windows[index + 1] : null;
+      var coreStartSec = windowMeta.startSec;
+      var coreEndSec = nextWindow ? nextWindow.startSec : windowMeta.endSec;
+      var coreStartSample = windowMeta.startSample;
+      var coreEndSample = nextWindow ? nextWindow.startSample : windowMeta.endSample;
+      windowMeta.coreStartSec = coreStartSec;
+      windowMeta.coreEndSec = Math.max(coreStartSec, coreEndSec);
+      windowMeta.coreStartSample = coreStartSample;
+      windowMeta.coreEndSample = Math.max(coreStartSample, coreEndSample);
+    });
+
     return windows;
+  }
+
+  function attachControlledWindowMetadataToSegments(segments, windowMeta) {
+    var parentWindowIndex = Number.isFinite(Number(windowMeta && windowMeta.parentWindowIndex))
+      ? Number(windowMeta.parentWindowIndex)
+      : Number(windowMeta && windowMeta.index);
+    var safeWindowStartSec = Number.isFinite(Number(windowMeta && windowMeta.startSec))
+      ? Number(windowMeta.startSec)
+      : 0;
+    var safeWindowEndSec = Number.isFinite(Number(windowMeta && windowMeta.endSec))
+      ? Number(windowMeta.endSec)
+      : safeWindowStartSec;
+
+    return (Array.isArray(segments) ? segments : []).map(function (segment) {
+      if (!segment || typeof segment !== "object") {
+        return segment;
+      }
+      return Object.assign({}, segment, {
+        parentWindowIndex: parentWindowIndex,
+        windowStartSec: Number.isFinite(Number(segment.windowStartSec))
+          ? Number(segment.windowStartSec)
+          : safeWindowStartSec,
+        windowEndSec: Number.isFinite(Number(segment.windowEndSec))
+          ? Number(segment.windowEndSec)
+          : safeWindowEndSec
+      });
+    });
+  }
+
+  function getControlledSegmentOwnerWindowIndex(segment, windowPlan) {
+    var windows = Array.isArray(windowPlan) ? windowPlan : [];
+    var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp : null;
+    var start = timestamp ? Number(timestamp[0]) : NaN;
+    var end = timestamp ? Number(timestamp[1]) : NaN;
+    var midpoint;
+    var bestWindow = null;
+    var bestOverlap = -1;
+
+    if (!windows.length || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      return Number.isFinite(Number(segment && segment.parentWindowIndex))
+        ? Number(segment.parentWindowIndex)
+        : -1;
+    }
+
+    midpoint = start + ((end - start) / 2);
+    windows.forEach(function (windowMeta) {
+      var coreStart = Number.isFinite(Number(windowMeta && windowMeta.coreStartSec))
+        ? Number(windowMeta.coreStartSec)
+        : Number(windowMeta && windowMeta.startSec) || 0;
+      var coreEnd = Number.isFinite(Number(windowMeta && windowMeta.coreEndSec))
+        ? Number(windowMeta.coreEndSec)
+        : Number(windowMeta && windowMeta.endSec) || coreStart;
+      var overlap = Math.max(0, Math.min(end, coreEnd) - Math.max(start, coreStart));
+      var bestMidpointInside = bestWindow
+        ? midpoint >= Number(bestWindow.coreStartSec) && midpoint < Number(bestWindow.coreEndSec)
+        : false;
+      var midpointInside = midpoint >= coreStart && midpoint < coreEnd;
+
+      if (
+        overlap > bestOverlap + 0.000001
+        || (
+          Math.abs(overlap - bestOverlap) <= 0.000001
+          && midpointInside
+          && !bestMidpointInside
+        )
+        || (
+          Math.abs(overlap - bestOverlap) <= 0.000001
+          && midpointInside === bestMidpointInside
+          && (!bestWindow || Number(windowMeta.index) > Number(bestWindow.index))
+        )
+      ) {
+        bestWindow = windowMeta;
+        bestOverlap = overlap;
+      }
+    });
+
+    return bestWindow ? Number(bestWindow.index) : -1;
+  }
+
+  function shouldEnforceControlledWindowOwnership(windowPlan) {
+    var windows = Array.isArray(windowPlan) ? windowPlan : [];
+    return windows.length >= 4;
   }
 
   function inspectControlledWindowSlice(audioData, windowMeta) {
@@ -811,7 +895,7 @@
     };
   }
 
-  function getWindowRetryOverrides(modelKey, language) {
+  function getWindowRetryOverrides(language) {
     var overrides = {
       condition_on_prev_tokens: false,
       no_repeat_ngram_size: 3,
@@ -819,10 +903,6 @@
       do_sample: false,
       task: "transcribe"
     };
-    if (modelKey === "t-rex") {
-      overrides.no_speech_threshold = 0.3;
-      overrides.compression_ratio_threshold = 2.2;
-    }
     if (language && language !== "auto") {
       overrides.language = language;
     }
@@ -907,53 +987,7 @@
   }
 
   function areOverlapSegmentTextsSimilar(leftText, rightText) {
-    return getOverlapSegmentSimilarityScore(leftText, rightText) >= 0.92;
-  }
-
-  function hasMeaningfulTimestampOverlap(previousStart, previousEnd, currentStart, currentEnd) {
-    var overlapSeconds;
-    var previousDuration;
-    var currentDuration;
-    var shorterDuration;
-
-    if (
-      !Number.isFinite(previousStart)
-      || !Number.isFinite(previousEnd)
-      || !Number.isFinite(currentStart)
-      || !Number.isFinite(currentEnd)
-    ) {
-      return false;
-    }
-
-    overlapSeconds = Math.min(previousEnd, currentEnd) - Math.max(previousStart, currentStart);
-    if (!(overlapSeconds > 0)) {
-      return false;
-    }
-
-    previousDuration = Math.max(0, previousEnd - previousStart);
-    currentDuration = Math.max(0, currentEnd - currentStart);
-    shorterDuration = Math.min(previousDuration, currentDuration);
-
-    if (!(shorterDuration > 0)) {
-      return overlapSeconds >= 0.35;
-    }
-
-    return overlapSeconds >= Math.max(0.35, shorterDuration * 0.45);
-  }
-
-  function shouldDropDuplicateFromOverlap(previousText, currentText, options) {
-    var config = options || {};
-    var similarityScore = getOverlapSegmentSimilarityScore(previousText, currentText);
-    var currentStart = Number.isFinite(Number(config.originalStart)) ? Number(config.originalStart) : Number(config.currentStart);
-    var currentEnd = Number.isFinite(Number(config.originalEnd)) ? Number(config.originalEnd) : Number(config.currentEnd);
-    var previousStart = Number(config.previousStart);
-    var previousEnd = Number(config.previousEnd);
-
-    if (similarityScore < 0.92) {
-      return false;
-    }
-
-    return hasMeaningfulTimestampOverlap(previousStart, previousEnd, currentStart, currentEnd);
+    return getOverlapSegmentSimilarityScore(leftText, rightText) >= 0.8;
   }
 
   function detectLeadingRepeatedIntroLoop(segments) {
@@ -1156,7 +1190,7 @@
     if (!incomingOriginalTokens.length) {
       return "";
     }
-    if (getOverlapSegmentSimilarityScore(previousText, incomingText) >= 0.92) {
+    if (getOverlapSegmentSimilarityScore(previousText, incomingText) >= 0.8) {
       return "";
     }
 
@@ -1300,7 +1334,7 @@
         return;
       }
       survived = acceptedTexts.some(function (acceptedText) {
-        return getOverlapSegmentSimilarityScore(acceptedText, normalizedText) >= 0.92
+        return getOverlapSegmentSimilarityScore(acceptedText, normalizedText) >= 0.8
           || acceptedText.indexOf(normalizedText) !== -1
           || normalizedText.indexOf(acceptedText) !== -1;
       });
@@ -1538,7 +1572,6 @@
       var similarityToPrevious;
       var validated;
       var originalStart;
-      var originalEnd;
       var timestampSource;
       var segmentWasClampedToWindowStart;
       var localTimestampOffsetApplied;
@@ -1554,7 +1587,6 @@
       start = Math.max(0, Number(timestamp[0]) || 0);
       end = Math.max(0, Number(timestamp[1]) || 0);
       originalStart = start;
-      originalEnd = end;
       timestampSource = segment && segment.timestampSource ? segment.timestampSource : "";
       segmentWasClampedToWindowStart = !!(segment && segment.firstSegmentWasClampedToWindowStart);
       localTimestampOffsetApplied = !!(segment && segment.localTimestampOffsetApplied);
@@ -1725,21 +1757,15 @@
       similarityToPrevious = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) : 0;
       if (
         previousNormalizedText
-        && result.length
-        && shouldDropDuplicateFromOverlap(result[result.length - 1].text, text, {
-          previousStart: result[result.length - 1].timestamp[0],
-          previousEnd: result[result.length - 1].timestamp[1],
-          currentStart: start,
-          currentEnd: end,
-          originalStart: originalStart,
-          originalEnd: originalEnd
-        })
+        && similarityToPrevious >= 0.8
+        && Number.isFinite(previousEnd)
+        && (start - previousEnd) <= CONTROLLED_FINAL_DUPLICATE_MAX_GAP_SECONDS
       ) {
         if (diagnostics) {
           diagnostics.adjacentDuplicateWarnings = (diagnostics.adjacentDuplicateWarnings || 0) + 1;
           recordOverlapDedupDiagnostic(diagnostics, {
             action: "dropped_adjacent_duplicate",
-            reason: "meaningful_timestamp_overlap_and_similar_text",
+            reason: "normalized_adjacent_similarity",
             textPreview: buildOverlapDedupPreview(text),
             previousTextPreview: result.length ? buildOverlapDedupPreview(result[result.length - 1].text) : "",
             previousSegmentStart: result.length ? result[result.length - 1].timestamp[0] : null,
@@ -1751,9 +1777,9 @@
           recordSegmentLifecycleEvent(diagnostics, segment, {
             sourceStage: "final_timeline_validation",
             actionTaken: "dropped",
-            reason: "meaningful_timestamp_overlap_and_similar_text",
+            reason: "normalized_adjacent_similarity",
             removedByStage: "final_timeline_validation",
-            removalReason: "meaningful_timestamp_overlap_and_similar_text",
+            removalReason: "normalized_adjacent_similarity",
             finalStart: start,
             finalEnd: end,
             textPreview: text
@@ -1777,26 +1803,12 @@
         droppedSegmentsInGap.forEach(function (event) {
           var candidateText = cleanText(event && event.text);
           var candidateNormalized = normalizeOverlapComparisonText(candidateText);
+          var previousSimilarity = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, candidateNormalized) : 0;
+          var nextSimilarity = getOverlapSegmentSimilarityScore(candidateNormalized, normalizedText);
           var insertStart = Math.max(gapStart + 0.001, Number(event.start) || gapStart);
           var insertEnd = Math.min(gapEnd - 0.001, Number(event.end) || gapEnd);
-          var duplicateWithPrevious = result.length && shouldDropDuplicateFromOverlap(result[result.length - 1].text, candidateText, {
-            previousStart: result[result.length - 1].timestamp[0],
-            previousEnd: result[result.length - 1].timestamp[1],
-            currentStart: insertStart,
-            currentEnd: insertEnd,
-            originalStart: Number(event.start),
-            originalEnd: Number(event.end)
-          });
-          var duplicateWithNext = shouldDropDuplicateFromOverlap(text, candidateText, {
-            previousStart: start,
-            previousEnd: end,
-            currentStart: insertStart,
-            currentEnd: insertEnd,
-            originalStart: Number(event.start),
-            originalEnd: Number(event.end)
-          });
 
-          if (!candidateText || !candidateNormalized || duplicateWithPrevious || duplicateWithNext) {
+          if (!candidateText || !candidateNormalized || previousSimilarity >= 0.8 || nextSimilarity >= 0.8) {
             return;
           }
           if (!(insertEnd > insertStart)) {
@@ -1890,21 +1902,15 @@
       similarityToPrevious = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) : 0;
       if (
         previousNormalizedText
-        && result.length
-        && shouldDropDuplicateFromOverlap(result[result.length - 1].text, text, {
-          previousStart: result[result.length - 1].timestamp[0],
-          previousEnd: result[result.length - 1].timestamp[1],
-          currentStart: start,
-          currentEnd: end,
-          originalStart: originalStart,
-          originalEnd: originalEnd
-        })
+        && similarityToPrevious >= 0.8
+        && Number.isFinite(previousEnd)
+        && (start - previousEnd) <= CONTROLLED_FINAL_DUPLICATE_MAX_GAP_SECONDS
       ) {
         if (diagnostics) {
           diagnostics.adjacentDuplicateWarnings = (diagnostics.adjacentDuplicateWarnings || 0) + 1;
           recordOverlapDedupDiagnostic(diagnostics, {
             action: "dropped_adjacent_duplicate_after_gap_recovery",
-            reason: "meaningful_timestamp_overlap_and_similar_text_after_reinsert",
+            reason: "normalized_adjacent_similarity_after_reinsert",
             textPreview: buildOverlapDedupPreview(text),
             previousTextPreview: result.length ? buildOverlapDedupPreview(result[result.length - 1].text) : "",
             previousSegmentStart: result.length ? result[result.length - 1].timestamp[0] : null,
@@ -1924,6 +1930,9 @@
         rawTimestamp: rawTimestamp ? rawTimestamp.slice(0, 2) : null,
         timestampSource: timestampSource,
         windowStartSec: windowStartSec,
+        parentWindowIndex: Number.isFinite(Number(segment && segment.parentWindowIndex))
+          ? Number(segment.parentWindowIndex)
+          : null,
         firstSegmentWasClampedToWindowStart: segmentWasClampedToWindowStart,
         localTimestampOffsetApplied: localTimestampOffsetApplied
       };
@@ -1943,8 +1952,9 @@
     return result;
   }
 
-  function mergeControlledWindowSegments(targetSegments, incomingSegments, overlapDiagnostics) {
+  function mergeControlledWindowSegments(targetSegments, incomingSegments, overlapDiagnostics, windowPlan) {
     var target = Array.isArray(targetSegments) ? targetSegments : [];
+    var enforceWindowOwnership = shouldEnforceControlledWindowOwnership(windowPlan);
     (Array.isArray(incomingSegments) ? incomingSegments : []).forEach(function (segment) {
       var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp.slice(0, 2) : null;
       var text = segment && typeof segment.text === "string" ? segment.text : "";
@@ -1957,6 +1967,10 @@
       if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
         return;
       }
+      var sourceWindowIndex = Number.isFinite(Number(segment && segment.parentWindowIndex))
+        ? Number(segment.parentWindowIndex)
+        : -1;
+      var ownerWindowIndex = getControlledSegmentOwnerWindowIndex(segment, windowPlan);
       var rawAuditSegment = {
         segmentId: getSegmentLifecycleId(segment),
         start: start,
@@ -1964,26 +1978,45 @@
         text: text,
         timestamp: [start, end],
         rawTimestamp: Array.isArray(segment && segment.rawTimestamp) ? segment.rawTimestamp.slice(0, 2) : null,
-        windowStartSec: Number.isFinite(Number(segment && segment.windowStartSec)) ? Number(segment.windowStartSec) : null
+        windowStartSec: Number.isFinite(Number(segment && segment.windowStartSec)) ? Number(segment.windowStartSec) : null,
+        parentWindowIndex: sourceWindowIndex
       };
       recordRawSegmentAudit(overlapDiagnostics, rawAuditSegment, "seen", "incoming_before_merge");
+
+      if (enforceWindowOwnership && sourceWindowIndex >= 0 && ownerWindowIndex >= 0 && sourceWindowIndex !== ownerWindowIndex) {
+        if (overlapDiagnostics) {
+          recordOverlapDedupDiagnostic(overlapDiagnostics, {
+            action: "dropped_outside_owner_core",
+            reason: "segment_owned_by_adjacent_window_core",
+            textPreview: buildOverlapDedupPreview(text),
+            droppedSegmentStart: start,
+            droppedSegmentEnd: end,
+            sourceWindowIndex: sourceWindowIndex,
+            ownerWindowIndex: ownerWindowIndex
+          });
+          recordSegmentLifecycleEvent(overlapDiagnostics, rawAuditSegment, {
+            sourceStage: "window_core_ownership",
+            actionTaken: "dropped",
+            reason: "segment_owned_by_adjacent_window_core",
+            removedByStage: "window_core_ownership",
+            removalReason: "segment_owned_by_adjacent_window_core",
+            finalStart: start,
+            finalEnd: end,
+            textPreview: text
+          });
+        }
+        recordRawSegmentAudit(overlapDiagnostics, rawAuditSegment, "dropped", "segment_owned_by_adjacent_window_core");
+        return;
+      }
 
       var lastSegment = target.length ? target[target.length - 1] : null;
       var lastEnd = lastSegment && Array.isArray(lastSegment.timestamp) ? Number(lastSegment.timestamp[1]) : null;
       if (Number.isFinite(lastEnd)) {
         var hasOverlap = start < lastEnd;
         var similarityScore = getOverlapSegmentSimilarityScore(lastSegment && lastSegment.text, text);
-        var textsAreSimilar = similarityScore >= 0.92;
-        var strongOverlapDuplicate = lastSegment && shouldDropDuplicateFromOverlap(lastSegment.text, text, {
-          previousStart: lastSegment && lastSegment.timestamp ? Number(lastSegment.timestamp[0]) : null,
-          previousEnd: lastEnd,
-          currentStart: start,
-          currentEnd: end,
-          originalStart: start,
-          originalEnd: end
-        });
+        var textsAreSimilar = similarityScore >= 0.8;
         var adjustedStartCandidate = hasOverlap ? lastEnd + 0.001 : start;
-        if (end <= lastEnd + 0.12 && strongOverlapDuplicate) {
+        if (end <= lastEnd + 0.12 && textsAreSimilar) {
           if (overlapDiagnostics) {
             overlapDiagnostics.droppedOverlapDuplicateCount = (overlapDiagnostics.droppedOverlapDuplicateCount || 0) + 1;
             overlapDiagnostics.droppedNearDuplicateOverlapCount = (overlapDiagnostics.droppedNearDuplicateOverlapCount || 0) + 1;
@@ -2008,7 +2041,7 @@
           if (overlapDiagnostics) {
             overlapDiagnostics.invalidTimestampPreventedCount = (overlapDiagnostics.invalidTimestampPreventedCount || 0) + 1;
           }
-          if (strongOverlapDuplicate) {
+          if (textsAreSimilar) {
             if (overlapDiagnostics) {
               overlapDiagnostics.droppedNearDuplicateOverlapCount = (overlapDiagnostics.droppedNearDuplicateOverlapCount || 0) + 1;
               recordOverlapDedupDiagnostic(overlapDiagnostics, {
@@ -2125,6 +2158,7 @@
         rawTimestamp: Array.isArray(segment && segment.rawTimestamp) ? segment.rawTimestamp.slice(0, 2) : null,
         timestampSource: segment && segment.timestampSource ? segment.timestampSource : "",
         windowStartSec: Number.isFinite(Number(segment && segment.windowStartSec)) ? Number(segment.windowStartSec) : null,
+        parentWindowIndex: sourceWindowIndex >= 0 ? sourceWindowIndex : null,
         firstSegmentWasClampedToWindowStart: !!(segment && segment.firstSegmentWasClampedToWindowStart),
         localTimestampOffsetApplied: !!(segment && segment.localTimestampOffsetApplied)
       });
@@ -6096,7 +6130,6 @@ function generateVTT(segments) {
     var diagnostics = window.__lastTranscriptionRunDiagnostics || null;
     var previousEnd = null;
     var previousNormalizedText = "";
-    var previousPreparedSegment = null;
     var prepared = [];
 
     sourceSegments.forEach(function (segment) {
@@ -6168,22 +6201,16 @@ function generateVTT(segments) {
       }
       if (
         previousNormalizedText
-        && previousPreparedSegment
-        && shouldDropDuplicateFromOverlap(previousPreparedSegment.text, text, {
-          previousStart: previousPreparedSegment.timestamp[0],
-          previousEnd: previousPreparedSegment.timestamp[1],
-          currentStart: start,
-          currentEnd: end,
-          originalStart: Array.isArray(segment && segment.rawTimestamp) ? Number(segment.rawTimestamp[0]) : start,
-          originalEnd: Array.isArray(segment && segment.rawTimestamp) ? Number(segment.rawTimestamp[1]) : end
-        })
+        && getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) >= 0.8
+        && Number.isFinite(previousEnd)
+        && (start - previousEnd) <= CONTROLLED_FINAL_DUPLICATE_MAX_GAP_SECONDS
       ) {
         recordSegmentLifecycleEvent(diagnostics, segment, {
           sourceStage: "final_export",
           actionTaken: "dropped",
-          reason: "overlap_export_duplicate",
+          reason: "adjacent_export_duplicate",
           removedByStage: "final_export",
-          removalReason: "overlap_export_duplicate",
+          removalReason: "adjacent_export_duplicate",
           finalStart: start,
           finalEnd: end,
           textPreview: text
@@ -6191,12 +6218,11 @@ function generateVTT(segments) {
         return;
       }
 
-      previousPreparedSegment = {
+      prepared.push({
         segmentId: getSegmentLifecycleId(segment),
         text: text,
         timestamp: [start, end]
-      };
-      prepared.push(previousPreparedSegment);
+      });
       recordSegmentLifecycleEvent(diagnostics, segment, {
         sourceStage: "final_export",
         actionTaken: "exported",
@@ -7606,12 +7632,12 @@ function generateVTT(segments) {
           requestConfig: {
             chunkingMode: "app_controlled_windows",
             disablePromptIds: !!useRetryOverrides,
-            overrides: useRetryOverrides ? getWindowRetryOverrides(this.modelKey, this.language) : null
+            overrides: useRetryOverrides ? getWindowRetryOverrides(this.language) : null
           }
         };
       },
       recordAdaptiveSmallWindowsEnabled: function (windowMeta) {
-        if (this.adaptiveSmallWindowsEnabled || !shouldEnableAdaptiveSmallWindows(this.modelKey)) {
+        if (this.adaptiveSmallWindowsEnabled || this.modelKey !== "triceratop") {
           return;
         }
         this.adaptiveSmallWindowsEnabled = true;
@@ -7627,7 +7653,6 @@ function generateVTT(segments) {
       },
       finalizeSplitWindowResult: function (splitResult) {
         var self = this;
-        var maxConsecutiveEmptyWindows = getControlledWindowMaxConsecutiveEmptyWindows(this.modelKey);
         splitResult.reports.forEach(function (report) {
           self.runReports.push(report);
         });
@@ -7641,7 +7666,7 @@ function generateVTT(segments) {
               textPreview: segment && segment.text
             });
           });
-          mergeControlledWindowSegments(this.aggregateSegments, splitResult.segments, this.overlapDedupDiagnostics);
+          mergeControlledWindowSegments(this.aggregateSegments, splitResult.segments, this.overlapDedupDiagnostics, this.windows);
           splitResult.warnings.forEach(this.markWarning.bind(this));
           this.consecutiveEmptyWindows = 0;
           this.completedWindows += 1;
@@ -7654,7 +7679,7 @@ function generateVTT(segments) {
         this.markWarning("weak_audio");
         this.markWarning("repetition");
         this.consecutiveEmptyWindows += 1;
-        if (this.consecutiveEmptyWindows >= maxConsecutiveEmptyWindows) {
+        if (this.consecutiveEmptyWindows >= 2) {
           this.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
           return;
         }
@@ -7665,7 +7690,6 @@ function generateVTT(segments) {
       },
       runDirectSplitWindow: function (windowMeta, reason) {
         var self = this;
-        var maxConsecutiveEmptyWindows = getControlledWindowMaxConsecutiveEmptyWindows(this.modelKey);
         this.clearTimers();
         setStatus(this.statusEl, "Transcribing smaller windows for the remaining difficult region...", "processing");
         setProgressMessage("Transcribing smaller windows for the remaining difficult region...");
@@ -7675,7 +7699,7 @@ function generateVTT(segments) {
           self.markWarning("weak_audio");
           self.markWarning("repetition");
           self.consecutiveEmptyWindows += 1;
-          if (self.consecutiveEmptyWindows >= maxConsecutiveEmptyWindows) {
+          if (self.consecutiveEmptyWindows >= 2) {
             self.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
             return;
           }
@@ -7711,7 +7735,7 @@ function generateVTT(segments) {
             worker.postMessage(payload, [payload.audio]);
             result = await this.waitForSingleWindowResult();
             text = result && typeof result.text === "string" ? result.text : "";
-            mergeControlledWindowSegments(segments, Array.isArray(result && result.segments) ? result.segments : [], this.overlapDedupDiagnostics);
+            mergeControlledWindowSegments(segments, Array.isArray(result && result.segments) ? result.segments : [], this.overlapDedupDiagnostics, this.windows);
             (Array.isArray(result && result.warnings) ? result.warnings : []).forEach(function (warning) {
               warnings.push(warning);
             });
@@ -7762,7 +7786,7 @@ function generateVTT(segments) {
           this.finish();
           return;
         }
-        if (this.adaptiveSmallWindowsEnabled && shouldEnableAdaptiveSmallWindows(this.modelKey) && this.currentAttempt === 0) {
+        if (this.adaptiveSmallWindowsEnabled && this.modelKey === "triceratop" && this.currentAttempt === 0) {
           this.runDirectSplitWindow(windowMeta, "adaptive_small_windows");
           return;
         }
@@ -7904,14 +7928,14 @@ function generateVTT(segments) {
                 reports.push(report);
               });
               if (microRetry.success) {
-                mergeControlledWindowSegments(segments, microRetry.segments, this.overlapDedupDiagnostics);
+                mergeControlledWindowSegments(segments, microRetry.segments, this.overlapDedupDiagnostics, this.windows);
                 microRetry.warnings.forEach(function (warning) {
                   warnings.push(warning);
                 });
                 continue;
               }
             }
-            mergeControlledWindowSegments(segments, Array.isArray(result && result.segments) ? result.segments : [], this.overlapDedupDiagnostics);
+            mergeControlledWindowSegments(segments, Array.isArray(result && result.segments) ? result.segments : [], this.overlapDedupDiagnostics, this.windows);
             (Array.isArray(result && result.warnings) ? result.warnings : []).forEach(function (warning) {
               warnings.push(warning);
             });
@@ -8029,7 +8053,7 @@ function generateVTT(segments) {
         this.activeFallbackEvent = fallbackEvent;
         this.fullWindowFallbackEvents.push(fallbackEvent);
         this.abandonCurrentAttemptAndSwapWorker();
-        if (shouldEnableAdaptiveSmallWindows(this.modelKey) && this.splitFallbackCount >= 2) {
+        if (this.modelKey === "triceratop" && this.splitFallbackCount >= 2) {
           this.recordAdaptiveSmallWindowsEnabled(windowMeta);
         }
         this.retryAsSplitWindows(windowMeta, reason).then(function (splitResult) {
@@ -8049,13 +8073,12 @@ function generateVTT(segments) {
           self.activeFallbackEvent = null;
           self.finalizeSplitWindowResult(splitResult);
         }).catch(function () {
-          var maxConsecutiveEmptyWindows = getControlledWindowMaxConsecutiveEmptyWindows(self.modelKey);
           fallbackEvent.splitFallbackFinishedMs = Date.now();
           self.activeFallbackEvent = null;
           self.markWarning("weak_audio");
           self.markWarning("repetition");
           self.consecutiveEmptyWindows += 1;
-          if (self.consecutiveEmptyWindows >= maxConsecutiveEmptyWindows) {
+          if (self.consecutiveEmptyWindows >= 2) {
             self.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
             return;
           }
@@ -8134,7 +8157,7 @@ function generateVTT(segments) {
             droppedSegmentStart: windowMeta.startSec,
             droppedSegmentEnd: windowMeta.endSec
           });
-          mergeControlledWindowSegments(this.aggregateSegments, filteredSegments, this.overlapDedupDiagnostics);
+          mergeControlledWindowSegments(this.aggregateSegments, filteredSegments, this.overlapDedupDiagnostics, this.windows);
           this.completedWindows += 1;
           this.currentWindowIndex += 1;
           this.currentAttempt = 0;
@@ -8190,8 +8213,8 @@ function generateVTT(segments) {
             action: recoverySegments.length ? "accepted" : "empty",
             reason: "leading_hallucination_loop_recovery"
           });
-          mergeControlledWindowSegments(self.aggregateSegments, filteredSegments, self.overlapDedupDiagnostics);
-          mergeControlledWindowSegments(self.aggregateSegments, recoverySegments, self.overlapDedupDiagnostics);
+          mergeControlledWindowSegments(self.aggregateSegments, filteredSegments, self.overlapDedupDiagnostics, self.windows);
+          mergeControlledWindowSegments(self.aggregateSegments, recoverySegments, self.overlapDedupDiagnostics, self.windows);
           self.overlapDedupDiagnostics.firstWindowAcceptedSegments = filteredSegments.concat(recoverySegments).map(function (segment) {
             return {
               textPreview: buildSegmentLifecycleTextPreview(segment && segment.text),
@@ -8228,7 +8251,7 @@ function generateVTT(segments) {
             droppedSegmentStart: recoveryPlan && Number.isFinite(Number(recoveryPlan.actualStartSec)) ? Number(recoveryPlan.actualStartSec) : windowMeta.startSec,
             droppedSegmentEnd: recoveryPlan && Number.isFinite(Number(recoveryPlan.actualEndSec)) ? Number(recoveryPlan.actualEndSec) : windowMeta.endSec
           });
-          mergeControlledWindowSegments(self.aggregateSegments, filteredSegments, self.overlapDedupDiagnostics);
+          mergeControlledWindowSegments(self.aggregateSegments, filteredSegments, self.overlapDedupDiagnostics, self.windows);
           self.completedWindows += 1;
           self.currentWindowIndex += 1;
           self.currentAttempt = 0;
@@ -8242,9 +8265,11 @@ function generateVTT(segments) {
         var diagnostics = payload && payload.diagnostics ? payload.diagnostics : null;
         var windowMeta = this.getWindowMeta();
         var text = payload && typeof payload.text === "string" ? payload.text : "";
-        var segments = Array.isArray(payload && payload.segments) ? payload.segments : [];
+        var segments = attachControlledWindowMetadataToSegments(
+          Array.isArray(payload && payload.segments) ? payload.segments : [],
+          windowMeta
+        );
         var elapsedMs = Math.max(0, Date.now() - this.currentWindowStartMs);
-        var maxConsecutiveEmptyWindows = getControlledWindowMaxConsecutiveEmptyWindows(this.modelKey);
         var severity = getRunawayWindowSeverity(text.length);
         var shouldSplitRetry = severity === "severe"
           || (this.modelKey === "triceratop" && elapsedMs > 60000);
@@ -8272,6 +8297,10 @@ function generateVTT(segments) {
               end: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[1]) : null
             };
           });
+        }
+
+        if (payload && typeof payload === "object") {
+          payload.segments = segments;
         }
 
         if (this._pendingSplitResolve) {
@@ -8329,7 +8358,7 @@ function generateVTT(segments) {
           action: "accepted",
           reason: severity ? ("runaway_text_" + severity) : ""
         });
-        mergeControlledWindowSegments(this.aggregateSegments, segments, this.overlapDedupDiagnostics);
+        mergeControlledWindowSegments(this.aggregateSegments, segments, this.overlapDedupDiagnostics, this.windows);
         (Array.isArray(payload && payload.warnings) ? payload.warnings : []).forEach(this.markWarning.bind(this));
         if (severity) {
           this.markWarning("repetition");
@@ -8339,7 +8368,7 @@ function generateVTT(segments) {
         } else {
           this.consecutiveEmptyWindows = 0;
         }
-        if (this.consecutiveEmptyWindows >= maxConsecutiveEmptyWindows) {
+        if (this.consecutiveEmptyWindows >= 2) {
           this.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
           return;
         }
@@ -8352,7 +8381,6 @@ function generateVTT(segments) {
         var windowMeta = this.getWindowMeta();
         var elapsedMs = Math.max(0, Date.now() - this.currentWindowStartMs);
         var errorMessage = payload && payload.message ? payload.message : "Window transcription failed";
-        var maxConsecutiveEmptyWindows = getControlledWindowMaxConsecutiveEmptyWindows(this.modelKey);
         if (!windowMeta) {
           this.fail(new Error(errorMessage));
           return;
@@ -8393,7 +8421,7 @@ function generateVTT(segments) {
         this.markWarning("weak_audio");
         this.markWarning("repetition");
         this.consecutiveEmptyWindows += 1;
-        if (this.consecutiveEmptyWindows >= maxConsecutiveEmptyWindows) {
+        if (this.consecutiveEmptyWindows >= 2) {
           this.finishPartial("Transcription stopped after repeated empty windows. Accepted text was kept.");
           return;
         }

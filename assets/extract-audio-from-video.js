@@ -45,8 +45,9 @@ const SUPPORTED_VIDEO_ACCEPT = [
 ].join(",");
 const UNSUPPORTED_VIDEO_MESSAGE = "This file type is not supported yet. " + SUPPORT_COPY;
 const EXTRACT_BUTTON_LABEL = "Extract Audio";
-const DOWNLOAD_BUTTON_LABEL = "Download WAV";
+const DEFAULT_DOWNLOAD_BUTTON_LABEL = "Download Audio";
 const EXTRACTING_BUTTON_LABEL = "Extracting Audio...";
+const MP3_BITRATE = "256k";
 
 const state = {
   selectedFile: null,
@@ -54,24 +55,38 @@ const state = {
   ffmpegLoaded: false,
   ffmpegLoadingPromise: null,
   outputUrl: "",
+  outputFormat: "",
   extracting: false
 };
 
 const extractBtn = document.getElementById("extractBtn");
 const downloadLink = document.getElementById("downloadLink");
 const status = document.getElementById("status");
+const extractFormat = document.getElementById("extractFormat");
 const fileRow = document.querySelector('[data-role="fileRow"]');
 const fileName = document.querySelector('[data-role="fileName"]');
 const fileIcon = document.querySelector('[data-role="fileIcon"]');
 
 if (extractBtn && downloadLink && status) {
   extractBtn.addEventListener("click", function () {
-    if (state.outputUrl && downloadLink.href) {
+    if (state.outputUrl && downloadLink.href && state.outputFormat === getSelectedFormat()) {
       downloadLink.click();
       return;
     }
     void extractSelectedFile();
   });
+
+  if (extractFormat) {
+    extractFormat.addEventListener("change", function () {
+      if (state.outputFormat && state.outputFormat !== getSelectedFormat()) {
+        resetDownloadState();
+        if (state.selectedFile) {
+          setStatus("Format changed. Extract again to create the new file.", "idle");
+        }
+      }
+      syncActionButton();
+    });
+  }
 
   window.addEventListener("beforeunload", function () {
     if (state.ffmpeg && typeof state.ffmpeg.exit === "function") {
@@ -148,11 +163,26 @@ function revokeOutputUrl() {
     URL.revokeObjectURL(state.outputUrl);
     state.outputUrl = "";
   }
+  state.outputFormat = "";
 }
 
 function setStatus(message, nextState) {
   status.textContent = message;
   status.dataset.statusState = nextState || "idle";
+}
+
+function getSelectedFormat() {
+  return extractFormat && extractFormat.value === "mp3" ? "mp3" : "wav";
+}
+
+function getDownloadButtonLabel(format) {
+  if (format === "mp3") {
+    return "Download MP3";
+  }
+  if (format === "wav") {
+    return "Download WAV";
+  }
+  return DEFAULT_DOWNLOAD_BUTTON_LABEL;
 }
 
 function syncActionButton() {
@@ -165,7 +195,23 @@ function syncActionButton() {
     return;
   }
 
-  extractBtn.textContent = state.outputUrl ? DOWNLOAD_BUTTON_LABEL : EXTRACT_BUTTON_LABEL;
+  extractBtn.textContent = state.outputUrl
+    ? getDownloadButtonLabel(state.outputFormat || getSelectedFormat())
+    : EXTRACT_BUTTON_LABEL;
+}
+
+function syncFormatUi() {
+  if (!extractFormat) {
+    return;
+  }
+  extractFormat.disabled = !state.selectedFile || state.extracting;
+}
+
+function syncDownloadLinkLabel() {
+  if (!downloadLink) {
+    return;
+  }
+  downloadLink.textContent = getDownloadButtonLabel(state.outputFormat || getSelectedFormat());
 }
 
 function resetDownloadState() {
@@ -173,6 +219,7 @@ function resetDownloadState() {
   downloadLink.removeAttribute("href");
   downloadLink.removeAttribute("download");
   downloadLink.classList.add("is-hidden");
+  syncDownloadLinkLabel();
   syncActionButton();
 }
 
@@ -203,6 +250,7 @@ function setSelectedFile(file) {
   state.extracting = false;
   resetDownloadState();
   syncFileUi();
+  syncFormatUi();
   syncActionButton();
 
   extractBtn.classList.remove("is-hidden");
@@ -218,7 +266,7 @@ function setSelectedFile(file) {
     return;
   }
 
-  setStatus("Video ready. Extract audio when you are ready.", "success");
+  setStatus("Video ready. Extract WAV or MP3 when you are ready.", "success");
 }
 
 async function ensureFFmpegReady() {
@@ -291,6 +339,7 @@ async function extractSelectedFile() {
 
   state.extracting = true;
   extractBtn.disabled = true;
+  syncFormatUi();
   resetDownloadState();
   syncActionButton();
   setStatus("Preparing the browser extractor...", "processing");
@@ -298,44 +347,71 @@ async function extractSelectedFile() {
   let ffmpeg;
   let inputName = "";
   let outputName = "";
+  const outputFormat = getSelectedFormat();
 
   try {
     ffmpeg = await ensureFFmpegReady();
 
     inputName = buildTempFileName("input", file.name, ".bin");
-    outputName = buildTempFileName("output", stripExtension(file.name) + ".wav", ".wav");
+    outputName = buildTempFileName(
+      "output",
+      stripExtension(file.name) + "." + outputFormat,
+      "." + outputFormat
+    );
 
     setStatus("Loading your video into the extractor...", "processing");
     await ffmpeg.FS("writeFile", inputName, await window.FFmpeg.fetchFile(file));
 
     setStatus("Extracting the audio track...", "processing");
-    const exitCode = await ffmpeg.run(
+    const args = [
       "-i",
       inputName,
       "-vn",
       "-map",
-      "0:a:0",
-      "-c:a",
-      "pcm_s16le",
-      outputName
-    );
+      "0:a:0"
+    ];
+
+    if (outputFormat === "mp3") {
+      args.push(
+        "-c:a",
+        "libmp3lame",
+        "-b:a",
+        MP3_BITRATE,
+        outputName
+      );
+    } else {
+      args.push(
+        "-c:a",
+        "pcm_s16le",
+        outputName
+      );
+    }
+
+    const exitCode = await ffmpeg.run.apply(ffmpeg, args);
 
     if (exitCode !== 0) {
       throw new Error("FFMPEG_EXIT_" + exitCode);
     }
 
-    const wavData = await ffmpeg.FS("readFile", outputName);
-    const wavBlob = new Blob([wavData.buffer.slice(wavData.byteOffset, wavData.byteOffset + wavData.byteLength)], {
-      type: "audio/wav"
+    const outputData = await ffmpeg.FS("readFile", outputName);
+    const outputBlob = new Blob([outputData.buffer.slice(outputData.byteOffset, outputData.byteOffset + outputData.byteLength)], {
+      type: outputFormat === "mp3" ? "audio/mpeg" : "audio/wav"
     });
 
     revokeOutputUrl();
-    state.outputUrl = URL.createObjectURL(wavBlob);
+    state.outputUrl = URL.createObjectURL(outputBlob);
+    state.outputFormat = outputFormat;
 
     downloadLink.href = state.outputUrl;
-    downloadLink.download = stripExtension(file.name) + ".wav";
+    downloadLink.download = stripExtension(file.name) + "." + outputFormat;
+    syncDownloadLinkLabel();
 
-    setStatus("Audio extracted successfully. Download your WAV file when ready.", "ready");
+    setStatus(
+      outputFormat === "mp3"
+        ? "Audio extracted successfully. Download your 256 kbps MP3 file when ready."
+        : "Audio extracted successfully. Download your WAV file when ready.",
+      "ready"
+    );
   } catch (error) {
     console.error(error);
     setStatus(buildExtractionErrorMessage(file, error), "error");
@@ -344,6 +420,7 @@ async function extractSelectedFile() {
     await safeDelete(ffmpeg, outputName);
     state.extracting = false;
     extractBtn.disabled = !state.selectedFile;
+    syncFormatUi();
     syncActionButton();
   }
 }

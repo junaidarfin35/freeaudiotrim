@@ -710,7 +710,7 @@
     const mono = mergeToMono(buffer);
     const analysis = measureVoice(mono, buffer.sampleRate);
     const loudnessGainDb = settings.targetLufsEstimate - analysis.loudnessEstimate;
-    const appliedGainDb = clamp(loudnessGainDb, -12, 12);
+    const appliedGainDb = clamp(loudnessGainDb, -12, 6);
     info("loudness normalize start", {
       currentLoudnessEstimate: analysis.loudnessEstimate,
       targetLufsEstimate: settings.targetLufsEstimate,

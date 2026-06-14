@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
 <link rel="manifest" href="/assets/brand/site.webmanifest">
 
-<link rel="stylesheet" href="/css/global.css?v=2026-05-18-1">
+<link rel="stylesheet" href="/css/global.css?v=2026-06-12-status-order-1">
 <link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
 <link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-1">
 
@@ -210,6 +210,10 @@
               </button>
             </div>
 
+            <div class="at-row at-status" id="status" data-status-state="idle">
+              Choose a file to start.
+            </div>
+
             <div class="at-row at-wave-wrap">
               <canvas id="waveformCanvas" class="at-wave" aria-label="Waveform preview"></canvas>
             </div>
@@ -230,7 +234,7 @@
               </button>
 
               <div class="pitch-inline speed-inline">
-                <input id="speedRange" type="range" min="0.5" max="2" step="0.05" value="1">
+                <input id="speedRange" type="range" min="-1" max="1" step="0.05" value="0">
                 <span id="speedValue" class="pitch-bubble">1.00x</span>
               </div>
 
@@ -241,10 +245,6 @@
               <button class="at-btn at-btn-soft" id="exportBtn" type="button">
                 Export audio
               </button>
-            </div>
-
-            <div class="at-row at-status" id="status" data-status-state="idle">
-              Choose a file to start.
             </div>
 
             <details class="at-advanced">
@@ -644,7 +644,7 @@
 </footer>
 
 <script src="/assets/audio-engine.js?v=2026-05-18-1" defer></script>
-<script src="/assets/speed-tool.js?v=2026-05-25-1" defer></script>
+<script src="/assets/speed-tool.js?v=2026-06-12-speed-center-1" defer></script>
 <script src="/assets/upload.js?v=2026-05-25-2" defer></script>
 <script>
 window.AudioToolUploadPolicy = function() {
