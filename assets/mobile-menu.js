@@ -81,6 +81,34 @@
     }
   }
 
+  function isLocalPreviewHost(hostname) {
+    const value = String(hostname || "").toLowerCase();
+    return value === "localhost"
+      || value === "0.0.0.0"
+      || value === "::1"
+      || value.startsWith("127.")
+      || value.endsWith(".local");
+  }
+
+  function getGoogleTranslateSourceUrl() {
+    const currentUrl = new URL(window.location.href);
+
+    if (!isLocalPreviewHost(currentUrl.hostname)) {
+      return currentUrl.toString();
+    }
+
+    const liveUrl = new URL(currentUrl.pathname + currentUrl.search + currentUrl.hash, "https://freeaudiotrim.com");
+    return liveUrl.toString();
+  }
+
+  function openGoogleTranslateArabicPage() {
+    const translateUrl = new URL("https://translate.google.com/translate");
+    translateUrl.searchParams.set("sl", "en");
+    translateUrl.searchParams.set("tl", "ar");
+    translateUrl.searchParams.set("u", getGoogleTranslateSourceUrl());
+    window.open(translateUrl.toString(), "_blank", "noopener,noreferrer");
+  }
+
   function maybeRedirectByLocalePreference() {
     const normalizedPath = normalizePath(window.location.pathname);
     const preferredLocale = getEffectiveLocalePreference();
@@ -158,7 +186,7 @@
 
     text.textContent = hasArabicVariant
       ? "هذه الصفحة لها نسخة عربية. سنحوّلك إليها تلقائيًا عند فتح الصفحة بالإنجليزية."
-      : "هذه الصفحة متاحة بالإنجليزية حاليًا. سنحوّلك تلقائيًا إلى الصفحات العربية عندما تكون متوفرة، ويمكنك متابعة التصفح من الصفحة العربية الرئيسية أو أداة التفريغ العربية.";
+      : "هذه الصفحة متاحة بالإنجليزية حاليًا. سنحوّلك تلقائيًا إلى الصفحات العربية عندما تكون متوفرة، ويمكنك استخدام ترجمة تلقائية لهذه الصفحة أو متابعة التصفح من الصفحة العربية الرئيسية.";
 
     copy.appendChild(title);
     copy.appendChild(text);
@@ -169,10 +197,15 @@
         navigateTo("/ar/");
       }, "primary"));
 
+      actions.appendChild(createHelperButton("ترجمة هذه الصفحة", () => {
+        setStoredLocalePreference("ar");
+        openGoogleTranslateArabicPage();
+      }, "secondary"));
+
       actions.appendChild(createHelperButton("أداة تحويل الصوت إلى نص", () => {
         setStoredLocalePreference("ar");
         navigateTo("/ar/audio-video-transcription-online.html");
-      }, "secondary"));
+      }));
     }
 
     actions.appendChild(createHelperButton("استخدام الإنجليزية", () => {

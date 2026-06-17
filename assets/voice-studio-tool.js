@@ -807,29 +807,9 @@
     if (!elements.presetHint) {
       return;
     }
-    const tierLabel = deviceProfile.label || "Balanced creator";
     const presetLabel = voiceApi.PRESETS[deviceProfile.recommendedPreset]?.label || "Balanced Clean";
-    const maxLabel = voiceApi.PRESETS[deviceProfile.maxPresetKey]?.label || presetLabel;
-    const tierCopy = tierLabel === "Studio creator"
-      ? "Your device can handle the richest cleanup modes."
-      : tierLabel === "Balanced creator"
-        ? "This device looks best suited to balanced voice cleanup."
-        : tierLabel === "Starter creator"
-          ? "This device is better suited to lighter cleanup modes."
-          : tierLabel === "High-end mobile"
-            ? "This device can handle richer mobile voice cleanup."
-            : tierLabel === "Balanced mobile"
-              ? "This device looks best suited to balanced mobile cleanup."
-              : "This device is better suited to lighter mobile cleanup.";
-    const recommendationCopy = `${presetLabel} is recommended right now.`;
-    const ceilingCopy = deviceProfile.maxPresetKey === "cinematic"
-      ? "You can still try the other presets if you want."
-      : `${maxLabel} is the highest preset recommended for this browser right now.`;
-    const durationCopy = getDurationHintCopy();
-    const benchmarkCopy = deviceProfile.benchmark
-      ? " Performance check complete."
-      : " Checking performance in the background.";
-    elements.presetHint.textContent = `${tierCopy} ${recommendationCopy} ${ceilingCopy} ${durationCopy}${benchmarkCopy}`.trim();
+    const benchmarkCopy = deviceProfile.benchmark ? "Performance check complete." : "Checking performance.";
+    elements.presetHint.textContent = `${presetLabel} is recommended for this device. ${benchmarkCopy}`;
   }
 
   async function scheduleDeviceBenchmark() {

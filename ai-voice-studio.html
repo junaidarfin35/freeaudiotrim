@@ -17,30 +17,30 @@
 <link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
 <link rel="stylesheet" href="/assets/upload.css?v=2026-05-18-1">
 
-<title>Free AI Voice Enhancer - Clean, Studio-Style Voiceovers</title>
-<meta name="description" content="FreeAudioTrim gives creators free AI voice enhancement without signup, subscription, install, or cloud upload. Clean up voice recordings in your browser with original and enhanced preview plus WAV export.">
+<title>Free Speech Enhancement - AI Voice Enhancer Online</title>
+<meta name="description" content="Free speech enhancement for spoken recordings. Clean up voice notes, laptop audio, and rough voice clips in your browser with private preview and WAV export.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://freeaudiotrim.com/ai-voice-studio.html">
 
-<meta property="og:title" content="Free AI Voice Enhancer - Clean, Studio-Style Voiceovers">
-<meta property="og:description" content="FreeAudioTrim gives creators clean voice enhancement without signup, subscription, install, or cloud upload. Preview original and enhanced audio in your browser, then export WAV.">
+<meta property="og:title" content="Free Speech Enhancement - AI Voice Enhancer Online">
+<meta property="og:description" content="Free speech enhancement for spoken recordings. Clean up voice notes, laptop audio, and rough voice clips in your browser with private preview and WAV export.">
 <meta property="og:url" content="https://freeaudiotrim.com/ai-voice-studio.html">
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
 <meta property="og:site_name" content="FreeAudioTrim">
 
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Free AI Voice Enhancer - Clean, Studio-Style Voiceovers">
-<meta name="twitter:description" content="FreeAudioTrim gives creators clean voice enhancement without signup, subscription, install, or cloud upload. Preview original and enhanced audio in your browser, then export WAV.">
+<meta name="twitter:title" content="Free Speech Enhancement - AI Voice Enhancer Online">
+<meta name="twitter:description" content="Free speech enhancement for spoken recordings. Clean up voice notes, laptop audio, and rough voice clips in your browser with private preview and WAV export.">
 <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "Free AI Voice Enhancer",
+  "name": "Free Speech Enhancement",
   "url": "https://freeaudiotrim.com/ai-voice-studio.html",
-  "description": "FreeAudioTrim gives creators free AI voice enhancement without signup, subscription, install, or cloud upload. Clean up voice recordings in your browser with original and enhanced preview plus WAV export."
+  "description": "FreeAudioTrim gives creators free speech enhancement for spoken recordings without signup, subscription, install, or cloud upload. Clean up voice notes, laptop audio, and rough voice clips in your browser with private preview and WAV export."
 }
 </script>
 
@@ -52,7 +52,7 @@
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "Web Browser",
   "url": "https://freeaudiotrim.com/ai-voice-studio.html",
-  "description": "Browser-based voice enhancement for creators. FreeAudioTrim improves speech clarity and studio-style polish without signup, subscription, install, or cloud upload. Preview original and enhanced audio, then export WAV privately on your device.",
+  "description": "Browser-based speech enhancement for creators. FreeAudioTrim improves speech clarity in voice notes, laptop recordings, and rough spoken clips without signup, subscription, install, or cloud upload. Preview original and enhanced audio, then export WAV privately on your device.",
   "offers": {
     "@type": "Offer",
     "price": "0",
@@ -173,13 +173,23 @@
 
 <main class="container">
   <section class="content-section section-intro hero">
-    <h1>Free AI Voice Enhancer<span class="hero-highlight">For Clean, Studio-Style Voiceovers</span></h1>
-    <p>FreeAudioTrim gives creators clean voice enhancement without signup, subscription, install, or cloud upload. Improve phone voice notes, laptop mic audio, podcast takes, and cheap microphone recordings directly in your browser with original and enhanced preview plus WAV export.</p>
+    <h1>Free Speech Enhancement<span class="hero-highlight">For Clearer Voice Recordings</span></h1>
+    <p>FreeAudioTrim gives creators free speech enhancement without signup, subscription, install, or cloud upload. Use this browser-based AI voice enhancer to improve phone voice notes, laptop mic audio, podcast takes, and cheap microphone recordings with original and enhanced preview plus WAV export.</p>
   </section>
 
   <section class="content-section tool-section">
     <div class="tool-ui">
       <input id="audioFileInput" class="is-hidden" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-ms-wma,audio/ogg,audio/m4r,audio/3gpp,audio/opus,audio/m4a,audio/x-m4a,audio/aac,audio/amr,audio/flac,audio/x-flac,audio/aiff,audio/x-aiff,audio/ape,audio/x-ape">
+      <div class="voice-input-switch" role="group" aria-label="Choose voice source">
+        <button class="voice-input-switch__btn" type="button" data-voice-input-mode="upload" aria-pressed="true">
+          <i data-lucide="file" aria-hidden="true"></i>
+          <span>File upload</span>
+        </button>
+        <button class="voice-input-switch__btn" type="button" data-voice-input-mode="record" aria-pressed="false">
+          <i data-lucide="disc" aria-hidden="true"></i>
+          <span>Record audio</span>
+        </button>
+      </div>
       <div class="upload-shell" id="upload-shell">
         <div class="upload-box"
           id="upload-dropzone"
@@ -198,8 +208,95 @@
         </div>
       </div>
 
-      <div id="tool-shell" class="tool-shell is-hidden">
-        <div id="audio-tool" class="at-root">
+      <div class="voice-record-shell is-hidden" id="voice-record-shell" data-record-state="idle" aria-live="polite">
+        <div class="voice-record-panel voice-record-panel--idle" data-record-panel="idle">
+          <div class="voice-record-panel__icon">
+            <i data-lucide="mic" aria-hidden="true"></i>
+          </div>
+          <p class="voice-record-panel__copy">Press the button and grant microphone access to start recording</p>
+          <button class="voice-record-primary" type="button" data-recorder-action="start">
+            <i data-lucide="circle" aria-hidden="true"></i>
+            <span>Start recording</span>
+          </button>
+        </div>
+
+          <div class="voice-record-panel voice-record-panel--live is-hidden" data-record-panel="recording">
+            <div class="voice-record-timer">
+              <span class="voice-record-dot" aria-hidden="true"></span>
+              <span data-record-time>00:00.00</span>
+            </div>
+            <div class="voice-record-wave" data-record-waveform aria-hidden="true"></div>
+            <div class="voice-record-actions">
+              <button class="voice-record-secondary" type="button" data-recorder-action="discard">
+                <i data-lucide="trash-2" aria-hidden="true"></i>
+                <span>Discard</span>
+              </button>
+              <button class="voice-record-secondary" type="button" data-recorder-action="pause">
+                <i data-lucide="pause" aria-hidden="true"></i>
+                <span>Pause</span>
+              </button>
+              <button class="voice-record-finish" type="button" data-recorder-action="finish">
+                <i data-lucide="square" aria-hidden="true"></i>
+                <span>Finish</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="voice-record-panel voice-record-panel--live is-hidden" data-record-panel="paused">
+            <div class="voice-record-timer">
+              <span class="voice-record-dot voice-record-dot--paused" aria-hidden="true"></span>
+              <span data-record-time>00:00.00</span>
+            </div>
+            <div class="voice-record-wave voice-record-wave--paused" data-record-waveform aria-hidden="true"></div>
+            <div class="voice-record-actions">
+              <button class="voice-record-secondary" type="button" data-recorder-action="discard">
+                <i data-lucide="trash-2" aria-hidden="true"></i>
+                <span>Discard</span>
+              </button>
+              <button class="voice-record-secondary" type="button" data-recorder-action="resume">
+                <i data-lucide="play" aria-hidden="true"></i>
+                <span>Resume</span>
+              </button>
+              <button class="voice-record-finish" type="button" data-recorder-action="finish">
+                <i data-lucide="square" aria-hidden="true"></i>
+                <span>Finish</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="voice-record-panel voice-record-panel--ready is-hidden" data-record-panel="ready">
+            <div class="voice-record-ready__head">
+              <i data-lucide="check-circle-2" aria-hidden="true"></i>
+              <div>
+                <h3>Recording ready</h3>
+                <p>Listen, download the raw take, or use it for voice enhancement.</p>
+              </div>
+            </div>
+            <div class="voice-record-ready-preview">
+              <button class="voice-record-playback" type="button" data-recorder-action="toggle-preview" disabled aria-label="Play recorded audio" title="Play recorded audio">
+                <i data-lucide="play" aria-hidden="true"></i>
+              </button>
+              <div class="voice-record-preview" data-record-waveform aria-hidden="true"></div>
+            </div>
+            <div class="voice-record-actions">
+              <button class="voice-record-secondary" type="button" data-recorder-action="discard">
+                <i data-lucide="trash-2" aria-hidden="true"></i>
+                <span>Discard</span>
+              </button>
+              <button class="voice-record-secondary" type="button" data-recorder-action="download" disabled title="Finish a recording first">
+                <i data-lucide="download" aria-hidden="true"></i>
+                <span>Download</span>
+              </button>
+              <button class="voice-record-use" type="button" data-recorder-action="use" disabled title="Finish a recording first">
+                <i data-lucide="wand-sparkles" aria-hidden="true"></i>
+                <span>Use recording</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="tool-shell" class="tool-shell is-hidden">
+          <div id="audio-tool" class="at-root">
           <div id="voice-studio-tool"></div>
         </div>
       </div>
@@ -238,7 +335,7 @@
   </section>
 
   <section class="content-section section-surface">
-    <h2>Why Creators Use It</h2>
+    <h2>Why Creators Use It for Speech Enhancement</h2>
     <div class="why-grid">
       <div class="why-item">
         <h3>Private by Design</h3>
@@ -261,9 +358,9 @@
       <div class="compare-callout__intro">
         <p class="compare-callout__eyebrow">How FreeAudioTrim Is Different</p>
         <h3>See why creators pick FreeAudioTrim first.</h3>
-        <p>Most online AI voice enhancers add friction before you even hear the result. FreeAudioTrim is built for creators who want clean voice enhancement right in the browser without signing up or handing files over to a cloud workflow first.</p>
+        <p>Most online AI voice enhancers add friction before you even hear the result. FreeAudioTrim is built for creators who want fast speech enhancement right in the browser without signing up or handing files over to a cloud workflow first.</p>
       </div>
-      <div class="compare-columns" role="table" aria-label="FreeAudioTrim AI Voice Enhancer comparison">
+      <div class="compare-columns" role="table" aria-label="FreeAudioTrim speech enhancement comparison">
         <div class="compare-columns__row compare-columns__row--head" role="row">
           <div class="compare-column compare-column--features" role="columnheader">
             <span class="compare-column__label">Feature</span>
@@ -403,17 +500,17 @@
   </section>
 
   <section class="content-section content-flow">
-    <h2>What Studio-Style Enhancement Means</h2>
+    <h2>What Speech Enhancement Means Here</h2>
     <p>AI Voice Studio is for making spoken recordings cleaner, clearer, and more controlled. When supported, it starts with local AI noise reduction for steady background noise, then applies speech-focused tone shaping, compression, limiting, and loudness polish.</p>
-    <p>Studio-style does not mean the same result as a treated room and professional microphone. It means the voice should feel more present, more even, and easier to listen to while still sounding like the same speaker. If the AI denoise stage cannot load, the tool still runs the voice polishing chain locally and tells you clearly.</p>
+    <p>That does not mean the same result as a treated room and professional microphone. It means the voice should feel more present, more even, and easier to listen to while still sounding like the same speaker. If the AI denoise stage cannot load, the tool still runs the voice polishing chain locally and tells you clearly.</p>
   </section>
 
   <section class="content-section section-surface">
-    <h2>Why This Matters in Real Production</h2>
+    <h2>Why This Matters for Real Spoken-Audio Workflows</h2>
     <div class="why-grid">
       <div class="why-item">
         <h3>Cleaner Handoff</h3>
-        <p>Rough voice audio often moves into a podcast editor, video timeline, subtitle workflow, or client review. A cleaner WAV handoff can make the next step easier without pretending the original recording never mattered.</p>
+        <p>Rough voice audio often moves into a podcast editor, video timeline, subtitle workflow, or client review. Cleaner spoken audio can make the next step easier without pretending the original recording never mattered.</p>
       </div>
       <div class="why-item">
         <h3>Privacy Note</h3>
@@ -431,7 +528,7 @@
   </section>
 
   <section class="content-section use-cases">
-    <h2>Common Voice Enhancement Workflows</h2>
+    <h2>Common Speech Enhancement Workflows</h2>
     <div class="use-case-grid">
       <div class="use-case">
         <div class="use-icon"><i data-lucide="smartphone"></i></div>
@@ -458,30 +555,30 @@
 
   <section class="content-section content-flow">
     <h2>Recommended Workflow</h2>
-    <p>For most voice projects, start by cutting obvious dead space with the <a href="/audio-cutter-online.html">audio cutter</a> or removing long gaps with <a href="/remove-silence-from-audio.html">Remove Silence</a>. Then run AI Voice Studio so the enhancement focuses on the speech you plan to keep.</p>
+    <p>For most voice projects, start by cutting obvious dead space with the <a href="/audio-cutter-online.html">audio cutter</a> or removing long gaps with <a href="/remove-silence-from-audio.html">Remove Silence</a>. Then run AI Voice Studio so the speech enhancement focuses on the parts you plan to keep.</p>
     <p>After enhancement, use <a href="/normalize-audio-volume.html">Normalize Audio</a> only if you need a specific final loudness across several files. If your next step is transcription or subtitles, enhance the voice before running <a href="/audio-video-transcription-online.html">audio and video transcription</a> so the speech is easier to follow. If you want the full beginner-friendly order, read <a href="/blog/how-to-edit-audio-online.html">How to Edit Audio Online</a>.</p>
   </section>
 
   <section class="content-section content-flow">
     <h2>Limits to Know Before You Export</h2>
-    <p>AI enhancement can reduce steady noise and make speech more present, but it cannot fully rebuild clipped peaks, severe distortion, heavy echo, strong room reverb, music under speech, or multiple people talking over each other. The closer and cleaner the original recording is, the better the result will be.</p>
+    <p>Speech enhancement can reduce steady noise and make speech more present, but it cannot fully rebuild clipped peaks, severe distortion, heavy echo, strong room reverb, music under speech, or multiple people talking over each other. The closer and cleaner the original recording is, the better the result will be.</p>
     <p>Strong settings can make a voice sound more processed. Switch between the original and enhanced preview before export to make sure the speaker still sounds like themselves.</p>
   </section>
 
   <section class="content-section content-flow">
-    <h2>AI Voice Studio FAQ</h2>
+    <h2>Speech Enhancement FAQ</h2>
     <h3>Can I improve phone, laptop, or cheap mic recordings?</h3>
     <p>Yes. The tool is built for everyday voice recordings from phones, laptop microphones, headset mics, desktop mics, and inexpensive USB microphones. It can make speech cleaner and more controlled, but it cannot make every rough recording sound like it was captured in a treated studio.</p>
     <h3>Can it remove background noise and make speech clearer?</h3>
     <p>It can reduce steady background noise and then use voice-focused processing to make speech easier to hear. Heavy noise, music under speech, overlapping speakers, and sudden sounds may still remain.</p>
-    <h3>What does studio-style voice enhancement mean?</h3>
+    <h3>What does speech enhancement mean in this tool?</h3>
     <p>It means a practical voice chain: noise reduction when available, tone shaping, compression, limiting, and loudness polish. The goal is clearer, more even speech, not a replacement for a treated room, careful mic placement, and a professional recording chain.</p>
     <h3>Can it fix clipping, distortion, echo, or reverb?</h3>
     <p>Only partly. Clipping and distortion remove detail from the original audio, so they cannot be fully restored. Strong echo and room reverb can be reduced only a little in this browser tool.</p>
     <h3>Does AI voice enhancement change the speaker's voice?</h3>
-    <p>The goal is to keep the same speaker while improving the recording. Strong enhancement settings can change tone or add a processed sound, so compare the original and enhanced versions before exporting.</p>
+    <p>The goal is to keep the same speaker while improving the recording. Strong speech enhancement settings can change tone or add a processed sound, so compare the original and enhanced versions before exporting.</p>
     <h3>Is browser voice enhancement private?</h3>
-    <p>Yes. This page processes the recording locally in your browser. Your file stays on your device, with no upload required for the voice enhancement workflow.</p>
+    <p>Yes. This page processes the recording locally in your browser. Your file stays on your device, with no upload required for the speech enhancement workflow.</p>
     <h3>Can I use this before podcast editing, video editing, or transcription?</h3>
     <p>Yes. Export WAV after enhancement, then use it in your podcast editor, video timeline, subtitle workflow, or transcription tool. For video files, you can first use <a href="/extract-audio-from-video.html">Extract Audio</a>, enhance the voice, then continue editing or transcribing.</p>
     <h3>Should I normalize or trim before voice enhancement?</h3>
@@ -571,18 +668,560 @@
 <script src="/assets/upload.js?v=2026-06-07-ship-1" defer></script>
 <script src="/assets/related-tools.js?v=2026-05-23-1"></script>
 <script>
+(function() {
+  const modeButtons = Array.from(document.querySelectorAll("[data-voice-input-mode]"));
+  const inputSwitch = document.querySelector(".voice-input-switch");
+  const uploadShell = document.getElementById("upload-shell");
+  const recordShell = document.getElementById("voice-record-shell");
+  const toolShell = document.getElementById("tool-shell");
+  const panels = Array.from(document.querySelectorAll("[data-record-panel]"));
+  const timeOutputs = Array.from(document.querySelectorAll("[data-record-time]"));
+  const waveformNodes = Array.from(document.querySelectorAll("[data-record-waveform]"));
+  const idleCopy = recordShell?.querySelector(".voice-record-panel__copy");
+  const useRecordingButton = recordShell?.querySelector('[data-recorder-action="use"]');
+  const downloadRecordingButton = recordShell?.querySelector('[data-recorder-action="download"]');
+  const previewButton = recordShell?.querySelector('[data-recorder-action="toggle-preview"]');
+  const defaultIdleCopy = idleCopy?.textContent || "";
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  const waveformIntervalMs = 85;
+  const supportedMimeTypes = [
+    "audio/webm;codecs=opus",
+    "audio/ogg;codecs=opus",
+    "audio/mp4",
+    "audio/webm"
+  ];
+  let inputMode = "upload";
+  let recordState = "idle";
+  let elapsedMs = 0;
+  let startedAt = 0;
+  let timerId = 0;
+  let mediaRecorder = null;
+  let mediaStream = null;
+  let recordedChunks = [];
+  let recordedFile = null;
+  let discardRequested = false;
+  let isStopping = false;
+  let audioContext = null;
+  let analyser = null;
+  let analyserData = null;
+  let waveformFrameId = 0;
+  let lastWaveformAt = 0;
+  let waveformBars = [];
+  let previewAudio = null;
+  let previewUrl = "";
+  let activeInputSource = "upload";
+
+  function getSupportedMimeType() {
+    if (!window.MediaRecorder || typeof window.MediaRecorder.isTypeSupported !== "function") {
+      return "";
+    }
+    return supportedMimeTypes.find((type) => window.MediaRecorder.isTypeSupported(type)) || "";
+  }
+
+  function getRecordingExtension(mimeType) {
+    if (mimeType.includes("ogg")) return "ogg";
+    if (mimeType.includes("mp4")) return "m4a";
+    return "webm";
+  }
+
+  function setIdleCopy(message) {
+    if (idleCopy) {
+      idleCopy.textContent = message || defaultIdleCopy;
+    }
+  }
+
+  function setUseRecordingReady(isReady) {
+    if (!useRecordingButton) return;
+    useRecordingButton.disabled = !isReady;
+    useRecordingButton.title = isReady ? "Use this recording for voice enhancement" : "Finish a recording first";
+  }
+
+  function setDownloadRecordingReady(isReady) {
+    if (!downloadRecordingButton) return;
+    downloadRecordingButton.disabled = !isReady;
+    downloadRecordingButton.title = isReady ? "Download the raw recording" : "Finish a recording first";
+  }
+
+  function setPreviewReady(isReady) {
+    if (!previewButton) return;
+    previewButton.disabled = !isReady;
+    previewButton.title = isReady ? "Play recorded audio" : "Finish a recording first";
+    previewButton.setAttribute("aria-label", isReady ? "Play recorded audio" : "Recorded audio preview unavailable");
+  }
+
+  function setPreviewPlaying(isPlaying) {
+    if (!previewButton) return;
+    previewButton.dataset.previewState = isPlaying ? "playing" : "paused";
+    previewButton.innerHTML = isPlaying
+      ? '<i data-lucide="pause" aria-hidden="true"></i>'
+      : '<i data-lucide="play" aria-hidden="true"></i>';
+    previewButton.title = isPlaying ? "Pause recorded audio" : "Play recorded audio";
+    previewButton.setAttribute("aria-label", isPlaying ? "Pause recorded audio" : "Play recorded audio");
+    if (window.lucide?.createIcons) {
+      window.lucide.createIcons();
+    }
+  }
+
+  function revokePreviewUrl() {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      previewUrl = "";
+    }
+  }
+
+  function resetPreviewAudio() {
+    if (previewAudio) {
+      previewAudio.pause();
+      previewAudio.removeAttribute("src");
+      previewAudio.load();
+      previewAudio = null;
+    }
+    revokePreviewUrl();
+    setPreviewPlaying(false);
+    setPreviewReady(false);
+  }
+
+  function stopPreviewPlayback() {
+    if (previewAudio && !previewAudio.paused) {
+      previewAudio.pause();
+      previewAudio.currentTime = 0;
+    }
+    setPreviewPlaying(false);
+  }
+
+  function setupPreviewAudio(file) {
+    resetPreviewAudio();
+    if (!file) return;
+    previewUrl = URL.createObjectURL(file);
+    previewAudio = new Audio(previewUrl);
+    previewAudio.addEventListener("ended", () => setPreviewPlaying(false));
+    previewAudio.addEventListener("pause", () => setPreviewPlaying(false));
+    previewAudio.addEventListener("play", () => setPreviewPlaying(true));
+    setPreviewReady(true);
+  }
+
+  function renderWaveform() {
+    const fragment = document.createDocumentFragment();
+    waveformBars.forEach((height) => {
+      const bar = document.createElement("span");
+      bar.style.setProperty("--bar", String(height));
+      fragment.appendChild(bar);
+    });
+
+    waveformNodes.forEach((node) => {
+      node.replaceChildren(fragment.cloneNode(true));
+    });
+  }
+
+  function getVisibleWaveformBarLimit() {
+    const visibleNode = waveformNodes.find((node) => node.offsetParent !== null) || waveformNodes[0];
+    const width = visibleNode?.clientWidth || 720;
+    if (!visibleNode) return 90;
+
+    const styles = window.getComputedStyle(visibleNode);
+    const gap = Number.parseFloat(styles.columnGap || styles.gap) || 5;
+    const existingBar = visibleNode.querySelector("span");
+    const barWidth = existingBar ? Number.parseFloat(window.getComputedStyle(existingBar).width) || 3 : (window.matchMedia("(max-width: 700px)").matches ? 2 : 3);
+
+    return Math.max(12, Math.floor((width + gap) / (barWidth + gap)));
+  }
+
+  function addWaveformBar(height) {
+    waveformBars.push(Math.max(8, Math.min(90, Math.round(height))));
+    const visibleBarLimit = getVisibleWaveformBarLimit();
+    if (waveformBars.length > visibleBarLimit) {
+      waveformBars = waveformBars.slice(-visibleBarLimit);
+    }
+    renderWaveform();
+  }
+
+  function resetWaveform() {
+    waveformBars = [];
+    renderWaveform();
+  }
+
+  function stopWaveformCapture() {
+    if (waveformFrameId) {
+      window.cancelAnimationFrame(waveformFrameId);
+      waveformFrameId = 0;
+    }
+  }
+
+  async function stopAudioAnalysis() {
+    stopWaveformCapture();
+    analyser = null;
+    analyserData = null;
+    if (audioContext) {
+      try {
+        await audioContext.close();
+      } catch (error) {
+        // Ignore close errors; recording cleanup should never block the UI.
+      }
+      audioContext = null;
+    }
+  }
+
+  async function startAudioAnalysis(stream) {
+    if (!AudioContextCtor || !stream) {
+      resetWaveform();
+      return;
+    }
+
+    await stopAudioAnalysis();
+    audioContext = new AudioContextCtor();
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+
+    const source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.72;
+    analyserData = new Uint8Array(analyser.fftSize);
+    source.connect(analyser);
+    resetWaveform();
+    lastWaveformAt = 0;
+    tickWaveform();
+  }
+
+  function tickWaveform(timestamp = 0) {
+    if (recordState !== "recording" || !analyser || !analyserData) {
+      waveformFrameId = 0;
+      return;
+    }
+
+    waveformFrameId = window.requestAnimationFrame(tickWaveform);
+    if (timestamp - lastWaveformAt < waveformIntervalMs) {
+      return;
+    }
+    lastWaveformAt = timestamp;
+
+    analyser.getByteTimeDomainData(analyserData);
+    let sumSquares = 0;
+    for (let index = 0; index < analyserData.length; index += 1) {
+      const centeredSample = (analyserData[index] - 128) / 128;
+      sumSquares += centeredSample * centeredSample;
+    }
+
+    const rms = Math.sqrt(sumSquares / analyserData.length);
+    const barHeight = 10 + Math.min(1, rms * 5.5) * 80;
+    addWaveformBar(barHeight);
+  }
+
+  function formatTime(ms) {
+    const totalCentiseconds = Math.floor(ms / 10);
+    const centiseconds = totalCentiseconds % 100;
+    const totalSeconds = Math.floor(totalCentiseconds / 100);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`;
+  }
+
+  function updateTime() {
+    const visibleElapsed = recordState === "recording" ? elapsedMs + Date.now() - startedAt : elapsedMs;
+    timeOutputs.forEach((node) => {
+      node.textContent = formatTime(visibleElapsed);
+    });
+  }
+
+  function stopTimer() {
+    if (timerId) {
+      window.clearInterval(timerId);
+      timerId = 0;
+    }
+  }
+
+  function startTimer() {
+    stopTimer();
+    startedAt = Date.now();
+    timerId = window.setInterval(updateTime, 67);
+    updateTime();
+  }
+
+  function stopMediaStream() {
+    if (mediaStream) {
+      mediaStream.getTracks().forEach((track) => track.stop());
+      mediaStream = null;
+    }
+  }
+
+  function resetRecordingData() {
+    recordedChunks = [];
+    recordedFile = null;
+    discardRequested = false;
+    isStopping = false;
+    setUseRecordingReady(false);
+    setDownloadRecordingReady(false);
+    resetPreviewAudio();
+    resetWaveform();
+  }
+
+  function setRecordState(nextState) {
+    if (recordState === "recording") {
+      elapsedMs += Date.now() - startedAt;
+    }
+    recordState = nextState;
+
+    if (nextState === "idle") {
+      elapsedMs = 0;
+      stopTimer();
+    } else if (nextState === "recording") {
+      startTimer();
+      tickWaveform();
+    } else {
+      stopTimer();
+      stopWaveformCapture();
+    }
+
+    if (recordShell) {
+      recordShell.setAttribute("data-record-state", nextState);
+    }
+    panels.forEach((panel) => {
+      panel.classList.toggle("is-hidden", panel.getAttribute("data-record-panel") !== nextState);
+    });
+    updateTime();
+  }
+
+  function activateToolWithFile(file, source = inputMode) {
+    if (!file) return;
+    activeInputSource = source === "record" ? "record" : "upload";
+    stopPreviewPlayback();
+    if (inputSwitch) inputSwitch.classList.add("is-hidden");
+    if (uploadShell) uploadShell.classList.add("is-hidden");
+    if (recordShell) recordShell.classList.add("is-hidden");
+    if (toolShell) toolShell.classList.remove("is-hidden");
+
+    const fileRow = document.querySelector('[data-role="fileRow"]');
+    if (fileRow) fileRow.classList.remove("is-hidden");
+
+    const fileNameEl = document.querySelector('[data-role="fileName"]');
+    if (fileNameEl) fileNameEl.textContent = file.name;
+
+    if (window.VoiceStudioTool && typeof window.VoiceStudioTool.addFile === "function") {
+      window.VoiceStudioTool.addFile(file);
+    }
+
+    if (toolShell) {
+      const offset = 100;
+      const y = toolShell.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top: y, behavior: "smooth" });
+    }
+  }
+
+  async function startRecording() {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setIdleCopy("Recording is not supported in this browser. Please upload an audio file instead.");
+      setRecordState("idle");
+      return;
+    }
+
+    try {
+      resetRecordingData();
+      setIdleCopy();
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      await startAudioAnalysis(mediaStream);
+      const mimeType = getSupportedMimeType();
+      mediaRecorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : undefined);
+
+      mediaRecorder.addEventListener("dataavailable", (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunks.push(event.data);
+        }
+      });
+
+      mediaRecorder.addEventListener("stop", () => {
+        stopMediaStream();
+        void stopAudioAnalysis();
+        isStopping = false;
+
+        if (discardRequested) {
+          resetRecordingData();
+          setRecordState("idle");
+          return;
+        }
+
+        const recordingType = mediaRecorder?.mimeType || mimeType || "audio/webm";
+        const blob = new Blob(recordedChunks, { type: recordingType });
+        if (!blob.size) {
+          resetRecordingData();
+          setIdleCopy("No audio was captured. Please try recording again.");
+          setRecordState("idle");
+          return;
+        }
+
+        const extension = getRecordingExtension(recordingType);
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        recordedFile = new File([blob], `voice-recording-${timestamp}.${extension}`, {
+          type: recordingType,
+          lastModified: Date.now()
+        });
+        recordedChunks = [];
+        setUseRecordingReady(true);
+        setDownloadRecordingReady(true);
+        setupPreviewAudio(recordedFile);
+        setRecordState("ready");
+      });
+
+      mediaRecorder.start();
+      setRecordState("recording");
+    } catch (error) {
+      stopMediaStream();
+      void stopAudioAnalysis();
+      resetRecordingData();
+      setIdleCopy(error?.name === "NotAllowedError"
+        ? "Microphone access was blocked. Allow microphone access or upload an audio file instead."
+        : "Could not start recording. Please try again or upload an audio file.");
+      setRecordState("idle");
+    }
+  }
+
+  function pauseRecording() {
+    if (mediaRecorder?.state === "recording") {
+      mediaRecorder.pause();
+      setRecordState("paused");
+    }
+  }
+
+  function resumeRecording() {
+    if (mediaRecorder?.state === "paused") {
+      mediaRecorder.resume();
+      setRecordState("recording");
+    }
+  }
+
+  function finishRecording() {
+    if (!mediaRecorder || mediaRecorder.state === "inactive" || isStopping) return;
+    isStopping = true;
+    mediaRecorder.stop();
+  }
+
+  function discardRecording() {
+    discardRequested = true;
+    if (mediaRecorder && mediaRecorder.state !== "inactive" && !isStopping) {
+      isStopping = true;
+      mediaRecorder.stop();
+      return;
+    }
+    stopMediaStream();
+    resetRecordingData();
+    setIdleCopy();
+    setRecordState("idle");
+  }
+
+  function togglePreviewPlayback() {
+    if (!previewAudio || !recordedFile) return;
+    if (previewAudio.paused) {
+      void previewAudio.play();
+    } else {
+      previewAudio.pause();
+    }
+  }
+
+  function downloadRecording() {
+    if (!recordedFile) return;
+    const downloadUrl = URL.createObjectURL(recordedFile);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = recordedFile.name || "voice-recording.webm";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+  }
+
+  function setInputMode(nextMode) {
+    inputMode = nextMode === "record" ? "record" : "upload";
+    modeButtons.forEach((button) => {
+      const selected = button.getAttribute("data-voice-input-mode") === inputMode;
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+    });
+
+    const toolIsOpen = !!toolShell && !toolShell.classList.contains("is-hidden");
+    if (inputSwitch) {
+      inputSwitch.classList.toggle("is-hidden", toolIsOpen);
+    }
+    if (uploadShell) {
+      uploadShell.classList.toggle("is-hidden", inputMode !== "upload" || toolIsOpen);
+    }
+    if (recordShell) {
+      recordShell.classList.toggle("is-hidden", inputMode !== "record" || toolIsOpen);
+    }
+    if (inputMode === "upload" && recordState !== "idle") {
+      discardRecording();
+    }
+  }
+
+  modeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      setInputMode(button.getAttribute("data-voice-input-mode"));
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-recorder-action]");
+    if (!button || !recordShell?.contains(button)) return;
+
+    const action = button.getAttribute("data-recorder-action");
+    if (action === "start") void startRecording();
+    if (action === "pause") pauseRecording();
+    if (action === "resume") resumeRecording();
+    if (action === "finish") finishRecording();
+    if (action === "discard") discardRecording();
+    if (action === "toggle-preview") togglePreviewPlayback();
+    if (action === "download") downloadRecording();
+    if (action === "use") activateToolWithFile(recordedFile, "record");
+  });
+
+  window.__syncVoiceStudioInputMode = function syncVoiceStudioInputMode(options = {}) {
+    if (options.resetRecorder) {
+      discardRecording();
+    }
+    setInputMode(options.mode || inputMode);
+  };
+
+  window.__openVoiceStudioInputMode = function openVoiceStudioInputMode(mode = inputMode, options = {}) {
+    if (toolShell) toolShell.classList.add("is-hidden");
+    if (window.VoiceStudioTool && typeof window.VoiceStudioTool.reset === "function") {
+      window.VoiceStudioTool.reset();
+    }
+    if (options.resetRecorder) {
+      discardRecording();
+    }
+    setInputMode(mode);
+  };
+
+  window.__getVoiceStudioInputSource = function getVoiceStudioInputSource() {
+    return activeInputSource;
+  };
+
+  window.__setVoiceStudioInputSource = function setVoiceStudioInputSource(source = "upload") {
+    activeInputSource = source === "record" ? "record" : "upload";
+  };
+
+  setInputMode("upload");
+  resetRecordingData();
+  setRecordState("idle");
+})();
+
 document.addEventListener('file:selected', function(e) {
   const file = e.detail.file;
   const input = e.detail.input;
 
   const uploadShell = document.getElementById('upload-shell');
+  const recordShell = document.getElementById('voice-record-shell');
+  const inputSwitch = document.querySelector('.voice-input-switch');
   const toolShell = document.getElementById('tool-shell');
   const shouldActivateTool = !!toolShell && toolShell.classList.contains('is-hidden');
 
   if (!file || (input && input.id !== 'audioFileInput')) return;
+  if (window.__setVoiceStudioInputSource) {
+    window.__setVoiceStudioInputSource('upload');
+  }
 
   if (shouldActivateTool) {
+    if (inputSwitch) inputSwitch.classList.add('is-hidden');
     if (uploadShell) uploadShell.classList.add('is-hidden');
+    if (recordShell) recordShell.classList.add('is-hidden');
     if (toolShell) toolShell.classList.remove('is-hidden');
   }
 
@@ -610,6 +1249,12 @@ document.addEventListener("click", function(e) {
   e.preventDefault();
   e.stopPropagation();
 
+  const source = window.__getVoiceStudioInputSource?.() || 'upload';
+  if (source === 'record' && window.__openVoiceStudioInputMode) {
+    window.__openVoiceStudioInputMode('record', { resetRecorder: true });
+    return;
+  }
+
   const input = document.getElementById("audioFileInput");
   if (!input) return;
 
@@ -626,9 +1271,13 @@ document.addEventListener('converter:empty', () => {
     window.VoiceStudioTool.reset();
   }
 
-  if (uploadShell) uploadShell.classList.remove('is-hidden');
   if (toolShell) toolShell.classList.add('is-hidden');
   if (input) input.value = '';
+  if (window.__syncVoiceStudioInputMode) {
+    window.__syncVoiceStudioInputMode({ resetRecorder: true });
+  } else if (uploadShell) {
+    uploadShell.classList.remove('is-hidden');
+  }
 });
 </script>
 <script src="/assets/mobile-menu.js?v=2026-05-18-1"></script>
