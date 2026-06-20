@@ -1,13 +1,13 @@
 (function () {
   "use strict";
 
-  var DEBUG_TRANSCRIPTION = false;
+  var DEBUG_TRANSCRIPTION = true;
   var RAW_WHISPER_PASSTHROUGH = true;
   // Experimental only. Production desktop transcription defaults to full-audio sliding-window chunking.
   var ENABLE_DESKTOP_TRANSCRIPTION_VAD = false;
   var srtContent = "";
   var vttContent = "";
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-06-13-tail-coverage-quiet-1";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-06-19-subtitle-debug-1";
   var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-25-24";
   var MOBILE_VAD_WORKER_URL = "/assets/mobile-vad-worker.js?v=2026-05-25-24";
   var MOBILE_VAD_TIMEOUT_MS = 9000;
@@ -688,7 +688,7 @@
 
   function shouldEnforceControlledWindowOwnership(windowPlan) {
     var windows = Array.isArray(windowPlan) ? windowPlan : [];
-    return windows.length >= 4;
+    return windows.length >= 2;
   }
 
   function inspectControlledWindowSlice(audioData, windowMeta) {
@@ -897,7 +897,7 @@
 
   function getWindowRetryOverrides(language) {
     var overrides = {
-      condition_on_prev_tokens: false,
+      condition_on_prev_tokens: true,
       no_repeat_ngram_size: 3,
       repetition_penalty: 1.02,
       do_sample: false,
@@ -990,7 +990,11 @@
     return getOverlapSegmentSimilarityScore(leftText, rightText) >= 0.8;
   }
 
-  function detectLeadingRepeatedIntroLoop(segments) {
+  function shouldPreserveIntentionalRepeatedPhrasing(language, text) {
+    return isArabicLanguage(language) || containsArabicScript(text);
+  }
+
+  function detectLeadingRepeatedIntroLoop(segments, language) {
     var sorted = (Array.isArray(segments) ? segments : []).map(function (segment) {
       var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp : null;
       return {
@@ -1014,6 +1018,13 @@
     var loopEnd = 0;
     var index;
     var item;
+    var sampleText = sorted.slice(0, 4).map(function (segment) {
+      return segment.text;
+    }).join(" ");
+
+    if (shouldPreserveIntentionalRepeatedPhrasing(language, sampleText)) {
+      return null;
+    }
 
     if (!first || first.start > 0.35 || (first.end - first.start) > 4) {
       return null;
@@ -1044,7 +1055,7 @@
     return null;
   }
 
-  function detectWindowHallucinationLoop(segments, windowMeta) {
+  function detectWindowHallucinationLoop(segments, windowMeta, language) {
     var sorted = (Array.isArray(segments) ? segments : []).map(function (segment) {
       var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp : null;
       return {
@@ -1073,6 +1084,13 @@
     var index;
     var item;
     var similarity;
+    var sampleText = sorted.slice(0, 4).map(function (item) {
+      return item.text;
+    }).join(" ");
+
+    if (shouldPreserveIntentionalRepeatedPhrasing(language, sampleText)) {
+      return null;
+    }
 
     if (!first || first.start > windowStart + 0.75 || (first.end - first.start) > 4) {
       return null;
@@ -1316,6 +1334,80 @@
     };
   }
 
+  function logSubtitleBoundaryDebug(stage, segments, speechSpans, sampleRate) {
+    if (!DEBUG_TRANSCRIPTION || !window.console || typeof window.console.info !== "function") {
+      return;
+    }
+
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var segmentRows = (Array.isArray(segments) ? segments : []).map(function (segment, index) {
+      var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp : null;
+      var start = timestamp && Number.isFinite(Number(timestamp[0])) ? Number(timestamp[0]) : null;
+      var end = timestamp && Number.isFinite(Number(timestamp[1])) ? Number(timestamp[1]) : null;
+      return {
+        index: index,
+        start: start,
+        end: end,
+        duration: Number.isFinite(start) && Number.isFinite(end) ? Number((end - start).toFixed(3)) : null,
+        parentWindow: Number.isFinite(Number(segment && segment.parentWindowIndex))
+          ? Number(segment.parentWindowIndex)
+          : null,
+        text: cleanText(segment && (segment.text || segment.originalText || segment.editedText || segment.translatedText))
+      };
+    });
+    var previousSpeechEnd = null;
+    var speechRows = (Array.isArray(speechSpans) ? speechSpans : []).map(function (span, index) {
+      var start = Math.max(0, Number(span && span.startSample) || 0) / safeSampleRate;
+      var end = Math.max(0, Number(span && span.endSample) || 0) / safeSampleRate;
+      var row = {
+        index: index,
+        start: Number(start.toFixed(3)),
+        end: Number(end.toFixed(3)),
+        duration: Number(Math.max(0, end - start).toFixed(3)),
+        precedingSilence: Number.isFinite(previousSpeechEnd)
+          ? Number(Math.max(0, start - previousSpeechEnd).toFixed(3))
+          : null
+      };
+      previousSpeechEnd = end;
+      return row;
+    });
+    var report = {
+      stage: stage || "unknown",
+      rawWhisperPassthrough: RAW_WHISPER_PASSTHROUGH,
+      segments: segmentRows,
+      speechSpans: speechRows
+    };
+
+    window.__lastSubtitleBoundaryDebug = report;
+    window.__subtitleBoundaryDebugHistory = Array.isArray(window.__subtitleBoundaryDebugHistory)
+      ? window.__subtitleBoundaryDebugHistory
+      : [];
+    window.__subtitleBoundaryDebugHistory.push(report);
+    if (window.__subtitleBoundaryDebugHistory.length > 50) {
+      window.__subtitleBoundaryDebugHistory.splice(0, window.__subtitleBoundaryDebugHistory.length - 50);
+    }
+    if (typeof window.console.groupCollapsed === "function") {
+      window.console.groupCollapsed("[subtitle-boundary-debug] " + report.stage);
+    }
+    window.console.info("[subtitle-boundary-debug] mode", {
+      rawWhisperPassthrough: report.rawWhisperPassthrough,
+      segmentCount: segmentRows.length,
+      speechSpanCount: speechRows.length
+    });
+    if (typeof window.console.table === "function") {
+      window.console.table(segmentRows);
+      if (speechRows.length) {
+        window.console.table(speechRows);
+      }
+    } else {
+      window.console.info("[subtitle-boundary-debug] segments", segmentRows);
+      window.console.info("[subtitle-boundary-debug] speech-spans", speechRows);
+    }
+    if (typeof window.console.groupEnd === "function") {
+      window.console.groupEnd();
+    }
+  }
+
   function markLivePreviewRemovals(diagnostics, acceptedSegments) {
     if (!diagnostics || !Array.isArray(diagnostics.segmentLifecycleEvents)) {
       return;
@@ -1557,7 +1649,15 @@
     var sampleRate = Math.max(1, Number(config.sampleRate) || 16000);
     var diagnostics = config.diagnostics || null;
     var speechSpans = Array.isArray(config.speechSpans) ? config.speechSpans : [];
-    var leadingRepeatedIntroLoop = detectLeadingRepeatedIntroLoop(segments);
+    var preserveIntentionalRepeats = shouldPreserveIntentionalRepeatedPhrasing(
+      config.language,
+      (Array.isArray(segments) ? segments : []).slice(0, 8).map(function (segment) {
+        return cleanText(segment && typeof segment.text === "string" ? segment.text : "");
+      }).join(" ")
+    );
+    var leadingRepeatedIntroLoop = preserveIntentionalRepeats
+      ? null
+      : detectLeadingRepeatedIntroLoop(segments, config.language);
     var result = [];
     var previousEnd = null;
     var previousNormalizedText = "";
@@ -1756,6 +1856,8 @@
 
       similarityToPrevious = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) : 0;
       if (
+        !preserveIntentionalRepeats
+        &&
         previousNormalizedText
         && similarityToPrevious >= 0.8
         && Number.isFinite(previousEnd)
@@ -1901,6 +2003,8 @@
 
       similarityToPrevious = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) : 0;
       if (
+        !preserveIntentionalRepeats
+        &&
         previousNormalizedText
         && similarityToPrevious >= 0.8
         && Number.isFinite(previousEnd)
@@ -6111,7 +6215,7 @@ function generateVTT(segments) {
   }
 
   function getActiveTranscript() {
-    var activeSegments = getActiveSegments();
+    var activeSegments = getCurrentDisplaySegments();
     if (activeSegments.length) {
       return rebuildCanonicalTranscriptFromSegments(activeSegments, window.currentTab === "translated");
     }
@@ -6125,14 +6229,18 @@ function generateVTT(segments) {
     return window.currentSegments || [];
   }
 
-  function buildExportReadySegments(useTranslatedText) {
-    var sourceSegments = getActiveSegments();
-    var diagnostics = window.__lastTranscriptionRunDiagnostics || null;
+  function invalidateDisplayReadySegmentsCache() {
+    window.__transcriptDisplaySegmentsCache = null;
+  }
+
+  function buildPreparedDisplaySegments(useTranslatedText, options) {
+    var config = options || {};
+    var sourceSegments = Array.isArray(config.sourceSegments) ? config.sourceSegments : getActiveSegments();
+    var diagnostics = config.emitDiagnostics ? (window.__lastTranscriptionRunDiagnostics || null) : null;
     var previousEnd = null;
-    var previousNormalizedText = "";
     var prepared = [];
 
-    sourceSegments.forEach(function (segment) {
+    sourceSegments.forEach(function (segment, index) {
       var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp.slice(0, 2) : null;
       var start;
       var end;
@@ -6199,45 +6307,55 @@ function generateVTT(segments) {
         });
         return;
       }
-      if (
-        previousNormalizedText
-        && getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) >= 0.8
-        && Number.isFinite(previousEnd)
-        && (start - previousEnd) <= CONTROLLED_FINAL_DUPLICATE_MAX_GAP_SECONDS
-      ) {
+      prepared.push({
+        segmentId: getSegmentLifecycleId(segment),
+        sourceIndex: index,
+        text: text,
+        timestamp: [start, end]
+      });
+      if (diagnostics) {
         recordSegmentLifecycleEvent(diagnostics, segment, {
           sourceStage: "final_export",
-          actionTaken: "dropped",
-          reason: "adjacent_export_duplicate",
-          removedByStage: "final_export",
-          removalReason: "adjacent_export_duplicate",
+          actionTaken: "exported",
+          reason: useTranslatedText ? "translated_export_ready" : "original_export_ready",
+          appearedInFinalExport: true,
           finalStart: start,
           finalEnd: end,
           textPreview: text
         });
-        return;
       }
-
-      prepared.push({
-        segmentId: getSegmentLifecycleId(segment),
-        text: text,
-        timestamp: [start, end]
-      });
-      recordSegmentLifecycleEvent(diagnostics, segment, {
-        sourceStage: "final_export",
-        actionTaken: "exported",
-        reason: useTranslatedText ? "translated_export_ready" : "original_export_ready",
-        appearedInFinalExport: true,
-        finalStart: start,
-        finalEnd: end,
-        textPreview: text
-      });
       previousEnd = end;
-      previousNormalizedText = normalizedText;
     });
 
-    refreshTranscriptionLifecycleDebugReport(diagnostics);
+    if (diagnostics) {
+      refreshTranscriptionLifecycleDebugReport(diagnostics);
+      logSubtitleBoundaryDebug("export-ready", prepared, null, 16000);
+    }
     return prepared;
+  }
+
+  function getCurrentDisplaySegments() {
+    var cache = window.__transcriptDisplaySegmentsCache || null;
+    var tabKey = window.currentTab === "translated" ? "translated" : "original";
+
+    if (cache && cache.tabKey === tabKey && Array.isArray(cache.segments)) {
+      return cache.segments;
+    }
+
+    cache = {
+      tabKey: tabKey,
+      segments: buildPreparedDisplaySegments(tabKey === "translated", {
+        emitDiagnostics: false
+      })
+    };
+    window.__transcriptDisplaySegmentsCache = cache;
+    return cache.segments;
+  }
+
+  function buildExportReadySegments(useTranslatedText) {
+    return buildPreparedDisplaySegments(!!useTranslatedText, {
+      emitDiagnostics: true
+    });
   }
 
   function getTranscriptAudioPlayer() {
@@ -6268,7 +6386,7 @@ function generateVTT(segments) {
   }
 
   function getActiveTranscriptPlaybackSegmentIndex(timeSeconds) {
-    var segments = getActiveSegments();
+    var segments = getCurrentDisplaySegments();
     var time = Number(timeSeconds);
     var fallbackIndex = -1;
     var i;
@@ -6475,6 +6593,31 @@ function generateVTT(segments) {
     syncTranscriptPlaybackHighlight(root);
   }
 
+  function playTranscriptSegment(root, segmentIndex) {
+    var audioPlayer = getTranscriptAudioPlayer();
+    var segments = getCurrentDisplaySegments();
+    var segment = Number.isInteger(segmentIndex) ? segments[segmentIndex] : null;
+    var range = getTranscriptSegmentTimeRange(segment);
+    var duration;
+
+    if (!root || !audioPlayer || !audioPlayer.getAttribute("src") || !range) {
+      return;
+    }
+
+    duration = Number.isFinite(audioPlayer.duration) && audioPlayer.duration > 0
+      ? audioPlayer.duration
+      : null;
+    audioPlayer.currentTime = duration === null
+      ? Math.max(0, range.start)
+      : Math.max(0, Math.min(range.start, duration));
+    root.__transcriptPlaybackHasStarted = true;
+    setActiveTranscriptPlaybackSegment(root, segmentIndex);
+    syncTranscriptPlaybackUi(root);
+    audioPlayer.play().catch(function () {
+      syncTranscriptPlaybackUi(root);
+    });
+  }
+
   function bindTranscriptPlaybackUi(root) {
     var audioPlayer;
     var toggleBtn;
@@ -6493,6 +6636,43 @@ function generateVTT(segments) {
     toggleBtn = root.querySelector('[data-role="transcriptPlaybackToggle"]');
     progressSlider = root.querySelector('[data-role="transcriptPlaybackProgress"]');
     volumeSlider = root.querySelector('[data-role="transcriptPlaybackVolume"]');
+
+    root.addEventListener("click", function (event) {
+      var segmentEl = event.target && event.target.closest
+        ? event.target.closest(".ts-sentence.is-seekable[data-segment-index]")
+        : null;
+      var segmentIndex;
+
+      if (!segmentEl || !root.contains(segmentEl) || previewEditMode) {
+        return;
+      }
+
+      segmentIndex = Number(segmentEl.getAttribute("data-segment-index"));
+      if (!Number.isInteger(segmentIndex)) {
+        return;
+      }
+
+      playTranscriptSegment(root, segmentIndex);
+    });
+
+    root.addEventListener("keydown", function (event) {
+      var segmentEl = event.target && event.target.closest
+        ? event.target.closest(".ts-sentence.is-seekable[data-segment-index]")
+        : null;
+      var segmentIndex;
+
+      if (!segmentEl || !root.contains(segmentEl) || previewEditMode || (event.key !== "Enter" && event.key !== " ")) {
+        return;
+      }
+
+      segmentIndex = Number(segmentEl.getAttribute("data-segment-index"));
+      if (!Number.isInteger(segmentIndex)) {
+        return;
+      }
+
+      event.preventDefault();
+      playTranscriptSegment(root, segmentIndex);
+    });
 
     if (toggleBtn) {
       toggleBtn.addEventListener("click", function () {
@@ -6618,6 +6798,7 @@ function generateVTT(segments) {
     if (window.currentTab === "translated") {
       window.currentTab = "original";
     }
+    invalidateDisplayReadySegmentsCache();
   }
 
   function normalizePreviewSegments(segments) {
@@ -6817,6 +6998,7 @@ function generateVTT(segments) {
       var start = Array.isArray(segment.timestamp)
         ? segment.timestamp[0]
         : (Number.isFinite(segment.start) ? segment.start : null);
+      var sourceIndex = Number.isInteger(segment && segment.sourceIndex) ? segment.sourceIndex : index;
       var lineText = getSegmentText(segment, useTranslatedText);
       var wrapper;
       var textEl;
@@ -6828,12 +7010,19 @@ function generateVTT(segments) {
       wrapper = document.createElement("span");
       wrapper.className = "ts-sentence";
       wrapper.setAttribute("data-segment-index", String(index));
+      if (!previewEditMode) {
+        wrapper.classList.add("is-seekable");
+        wrapper.setAttribute("role", "button");
+        wrapper.setAttribute("tabindex", "0");
+        wrapper.setAttribute("aria-label", "Play audio from " + formatTranscriptPlaybackClock(start));
+      }
 
       textEl = document.createElement("span");
       textEl.className = "ts-segment-text";
       textEl.setAttribute("data-segment-editor", "1");
       textEl.setAttribute("data-transcript-text", "1");
-      textEl.setAttribute("data-index", String(index));
+      textEl.setAttribute("data-index", String(sourceIndex));
+      textEl.setAttribute("data-source-index", String(sourceIndex));
       textEl.contentEditable = previewEditMode ? "true" : "false";
       textEl.spellcheck = false;
       if (showTimestamps && start !== null) {
@@ -6884,7 +7073,7 @@ function generateVTT(segments) {
       renderSegments(
         transcriptEl,
         window.translatedTitle || "",
-        getActiveSegments(),
+        getCurrentDisplaySegments(),
         true,
         getEffectiveTranslatedContentLanguage() || getEffectiveTranscriptionContentLanguage()
       );
@@ -6898,7 +7087,7 @@ function generateVTT(segments) {
       renderSegments(
         transcriptEl,
         "",
-        getActiveSegments(),
+        getCurrentDisplaySegments(),
         false,
         getEffectiveTranscriptionContentLanguage()
       );
@@ -6933,7 +7122,7 @@ function generateVTT(segments) {
   }
 
   function updateEditButton(editBtn) {
-    var hasSegments = getActiveSegments().length > 0;
+    var hasSegments = getCurrentDisplaySegments().length > 0;
     if (!editBtn) {
       return;
     }
@@ -7004,6 +7193,7 @@ function generateVTT(segments) {
     if (RAW_WHISPER_PASSTHROUGH) {
       previewEditMode = false;
       window.currentSegments = Array.isArray(segments) ? segments.slice() : [];
+      invalidateDisplayReadySegmentsCache();
       window.currentRawTranscript = typeof text === "string" ? text : "";
       window.currentTranscript = rebuildCanonicalTranscriptFromSegments(window.currentSegments, false) || window.currentRawTranscript || "";
       window.translatedTranscript = "";
@@ -7069,6 +7259,7 @@ function generateVTT(segments) {
     if (formattedText) {
       previewEditMode = false;
       window.currentSegments = normalizePreviewSegments(segments || []);
+      invalidateDisplayReadySegmentsCache();
       window.currentRawTranscript = rawText;
       window.currentTranscript = rebuildCanonicalTranscriptFromSegments(window.currentSegments, false) || formattedText;
       window.translatedTranscript = "";
@@ -7106,6 +7297,7 @@ function generateVTT(segments) {
       window.currentTranscript = "";
       window.currentRawTranscript = "";
       window.currentSegments = [];
+      invalidateDisplayReadySegmentsCache();
       window.translatedTranscript = "";
       window.translatedTitle = "";
       window.translatedSubtitles = [];
@@ -7565,8 +7757,10 @@ function generateVTT(segments) {
           audioData: this.audioData,
           sampleRate: this.sampleRate,
           speechSpans: this.timingSpeechSpans,
-          diagnostics: this.overlapDedupDiagnostics
+          diagnostics: this.overlapDedupDiagnostics,
+          language: this.language
         });
+        logSubtitleBoundaryDebug("accepted-final", finalSegments, this.timingSpeechSpans, this.sampleRate);
         markLivePreviewRemovals(this.overlapDedupDiagnostics, finalSegments);
         this.clearTimers();
         activeWindowedTranscriptionController = null;
@@ -7595,8 +7789,10 @@ function generateVTT(segments) {
           audioData: this.audioData,
           sampleRate: this.sampleRate,
           speechSpans: this.timingSpeechSpans,
-          diagnostics: this.overlapDedupDiagnostics
+          diagnostics: this.overlapDedupDiagnostics,
+          language: this.language
         });
+        logSubtitleBoundaryDebug("accepted-partial", finalSegments, this.timingSpeechSpans, this.sampleRate);
         markLivePreviewRemovals(this.overlapDedupDiagnostics, finalSegments);
         this.clearTimers();
         activeWindowedTranscriptionController = null;
@@ -8289,6 +8485,12 @@ function generateVTT(segments) {
             textPreview: segment && segment.text
           });
         }, this);
+        logSubtitleBoundaryDebug(
+          "worker-window-" + (windowMeta ? windowMeta.index : "unknown"),
+          segments,
+          null,
+          this.sampleRate
+        );
         if (windowMeta && windowMeta.index === 0) {
           this.overlapDedupDiagnostics.firstWindowRawSegments = segments.map(function (segment) {
             return {
@@ -8317,7 +8519,7 @@ function generateVTT(segments) {
           && this.currentAttemptType === "main_window"
           && !this.leadingHallucinationRecoveryDone
         ) {
-          leadingLoopInfo = detectWindowHallucinationLoop(segments, windowMeta);
+          leadingLoopInfo = detectWindowHallucinationLoop(segments, windowMeta, this.language);
           if (leadingLoopInfo) {
             this.recoverLeadingHallucinationLoop(windowMeta, payload, leadingLoopInfo, elapsedMs);
             return;
@@ -8827,7 +9029,9 @@ function generateVTT(segments) {
         const finalSegments = RAW_WHISPER_PASSTHROUGH
           ? (Array.isArray(segments) ? segments : [])
           : buildSubtitles(segments || [], activeLanguage);
+        logSubtitleBoundaryDebug("worker-final-result", finalSegments, null, 16000);
         window.currentSegments = finalSegments;
+        invalidateDisplayReadySegmentsCache();
         handleTranscriptionResult(
           RAW_WHISPER_PASSTHROUGH
             ? (typeof text === "string" ? text : "")
@@ -9040,6 +9244,7 @@ function generateVTT(segments) {
         stopProgressMessages(false);
         window.__lastTranscriptionRunDiagnostics = controlledResult && controlledResult.diagnostics ? controlledResult.diagnostics : null;
         window.currentSegments = Array.isArray(controlledResult && controlledResult.segments) ? controlledResult.segments : [];
+        invalidateDisplayReadySegmentsCache();
         handleTranscriptionResult(
           controlledResult && typeof controlledResult.text === "string" ? controlledResult.text : "",
           window.currentSegments,
@@ -9507,6 +9712,7 @@ function generateVTT(segments) {
       window.currentTranscript = "";
       window.currentRawTranscript = "";
       window.currentSegments = [];
+      invalidateDisplayReadySegmentsCache();
       window.translatedTranscript = "";
       window.translatedTitle = "";
       window.translatedSubtitles = [];
@@ -9871,7 +10077,7 @@ function generateVTT(segments) {
     }
     if (editBtn) {
       editBtn.addEventListener("click", function () {
-        if (!getActiveSegments().length) {
+        if (!getCurrentDisplaySegments().length) {
           return;
         }
         previewEditMode = !previewEditMode;
@@ -10102,7 +10308,7 @@ function generateVTT(segments) {
         }
 
         activeSegments = getActiveSegments();
-        index = Number(target.getAttribute("data-index"));
+        index = Number(target.getAttribute("data-source-index") || target.getAttribute("data-index"));
 
         if (!Number.isInteger(index) || !activeSegments[index]) {
           return;
@@ -10112,6 +10318,7 @@ function generateVTT(segments) {
 
         if (window.currentTab === "translated") {
           activeSegments[index].translatedText = nextText;
+          invalidateDisplayReadySegmentsCache();
           window.translatedTranscript = rebuildCanonicalTranscriptFromSegments(activeSegments, true);
           updateExportLabels(txtBtn, srtBtn, vttBtn);
         } else {
@@ -10119,6 +10326,7 @@ function generateVTT(segments) {
             clearTranslatedState();
           }
           activeSegments[index].editedText = nextText;
+          invalidateDisplayReadySegmentsCache();
           window.currentTranscript = rebuildCanonicalTranscriptFromSegments(activeSegments, false);
           updateExportLabels(txtBtn, srtBtn, vttBtn);
           syncTranslationReadyState();

@@ -7,8 +7,8 @@ let activeWorkerSessionId = "";
 let activeWorkerAttemptId = "";
 let modernTransformersRuntimePromise = null;
 let legacyTransformersRuntimePromise = null;
-const DEBUG_TRANSCRIPTION = false;
-const DEBUG_WHISPER_RAW = false;
+const DEBUG_TRANSCRIPTION = true;
+const DEBUG_WHISPER_RAW = true;
 const DEBUG_ARABIC_PROMPT = false;
 const RAW_WHISPER_PASSTHROUGH = true;
 const arabicPromptIdsByModel = new Map();
@@ -602,7 +602,7 @@ function getDefaultTranscriptionOptions(modelKey, useLegacyRuntime = false) {
     compression_ratio_threshold: useSmallerTimestampedDesktopDefaults ? 1.35 : 2.0,
     logprob_threshold: -1.0,
     ...(useTrexCodeSwitchingTuning ? { no_speech_threshold: 0.4 } : {}),
-    ...(useTrexCodeSwitchingTuning ? { condition_on_prev_tokens: false } : {})
+    ...(useTrexCodeSwitchingTuning ? { condition_on_prev_tokens: true } : {})
   };
 }
 

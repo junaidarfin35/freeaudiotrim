@@ -1,5 +1,7 @@
 {
   "scripts": {
+    "seo:check-sitemap": "python3 automation/update_sitemap.py --check",
+    "seo:update-sitemap": "python3 automation/update_sitemap.py",
     "seo:orchestrate": "node automation/seo-orchestrator/index.mjs",
     "seo:orchestrate:dry": "node automation/seo-orchestrator/index.mjs --dry-run"
   },
