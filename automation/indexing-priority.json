@@ -1,0 +1,32 @@
+{
+  "source": "/Users/junaid/Downloads/freeaudiotrim.com-Coverage-Valid-2026-06-20/Table.csv",
+  "primary": "audio-video-transcription-online.html",
+  "pages": [
+    "audio-video-transcription-online.html",
+    "ar/audio-video-transcription-online.html",
+    "audio-cutter-online.html",
+    "free-mp3-cutter.html",
+    "audio-pitch-changer.html",
+    "audio-speed-changer.html",
+    "blog/best-adobe-podcast-enhance-speech-alternatives.html",
+    "blog/convert-mp3-to-wav-guide.html",
+    "blog/extract-audio-from-video-guide.html",
+    "blog/how-to-edit-audio-online.html",
+    "blog/how-to-generate-subtitles.html",
+    "blog/how-to-transcribe-audio-to-text.html",
+    "blog/how-to-trim-mp3-online.html",
+    "blog/mp3-to-m4r-iphone-ringtone.html",
+    "blog/remove-silence-from-audio-guide.html",
+    "privacy-policy.html",
+    "terms-of-service.html"
+  ],
+  "excludedUtilities": [
+    "translate-transcript.html",
+    "ar/translate-transcript.html"
+  ],
+  "intentOwners": {
+    "audio-video-transcription-online.html": "audio and video to text conversion with TXT, SRT, and VTT export",
+    "audio-cutter-online.html": "precise clip extraction across multiple audio formats",
+    "free-mp3-cutter.html": "fast MP3-only clips for ringtones, podcasts, and social posts"
+  }
+}

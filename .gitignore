@@ -5,7 +5,10 @@ _scripts/
 .claude/
 .codex-plugins/
 .vscode/
-automation/
+automation/*
+!automation/update_sitemap.py
+!automation/check_indexing_readiness.py
+!automation/indexing-priority.json
 free-claude-code/
 node_modules/
 _tmp/

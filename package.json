@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "seo:check-indexing": "python3 automation/check_indexing_readiness.py",
     "seo:check-sitemap": "python3 automation/update_sitemap.py --check",
     "seo:update-sitemap": "python3 automation/update_sitemap.py",
     "seo:orchestrate": "node automation/seo-orchestrator/index.mjs",
