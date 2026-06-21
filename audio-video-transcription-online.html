@@ -225,7 +225,7 @@
         <div class="upload-box" id="upload-dropzone" data-upload-dropzone data-upload-input="audioFileInput" role="button" tabindex="0" aria-label="Drop audio or video file here or click to choose a file">
           <div class="upload-content">
             <div class="upload-illustration" aria-hidden="true">
-              <img src="/assets/icons/upload-illustration.svg" width="822" height="427" alt="Illustration of audio files being converted to text." />
+              <img src="/assets/icons/upload-illustration.svg" width="822" height="427" alt="Illustration of audio files being converted to text." fetchpriority="high" decoding="async" />
             </div>
             <h2 class="upload-dropzone__primary">Drop audio or video here, or choose a file</h2>
             <!-- <p class="upload-dropzone__secondary">MP3, WAV, M4A, AAC, FLAC, OGG, MP4, MOV, WebM</p> -->
@@ -476,7 +476,7 @@
     <h2>Detailed Transcription Guides</h2>
     <div class="article-grid">
       <a href="/blog/how-to-transcribe-audio-to-text.html" class="article-card">
-        <img src="/assets/blog/audio-editing-guide.webp" alt="How to transcribe audio to text">
+        <img src="/assets/blog/audio-editing-guide.webp" alt="How to transcribe audio to text" loading="lazy" decoding="async">
         <div class="article-content">
           <p class="article-date">Guide</p>
           <h3>How to Transcribe Audio to Text</h3>
@@ -484,7 +484,7 @@
         </div>
       </a>
       <a href="/blog/how-to-transcribe-video-to-text.html" class="article-card">
-        <img src="/assets/blog/extract-audio-from-video-guide.webp" alt="How to transcribe video to text">
+        <img src="/assets/blog/extract-audio-from-video-guide.webp" alt="How to transcribe video to text" loading="lazy" decoding="async">
         <div class="article-content">
           <p class="article-date">Guide</p>
           <h3>How to Transcribe Video to Text</h3>
@@ -492,7 +492,7 @@
         </div>
       </a>
       <a href="/blog/how-to-generate-subtitles.html" class="article-card">
-        <img src="/assets/blog/trim-mp3-online-guide.webp" alt="How to generate subtitles">
+        <img src="/assets/blog/trim-mp3-online-guide.webp" alt="How to generate subtitles" loading="lazy" decoding="async">
         <div class="article-content">
           <p class="article-date">Guide</p>
           <h3>How to Generate Subtitles</h3>
@@ -595,11 +595,11 @@
   </div>
 </footer>
 
-<script src="/assets/encoders/lame.min.js?v=2026-05-18-1"></script>
-<script src="/assets/encoders/mp3-encoder.js?v=2026-05-18-1"></script>
+<script src="/assets/encoders/lame.min.js?v=2026-05-18-1" defer></script>
+<script src="/assets/encoders/mp3-encoder.js?v=2026-05-18-1" defer></script>
 <script src="/assets/upload.js?v=2026-05-20-1" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
-  <script src="/assets/transcribe-tool.js?v=2026-06-19-subtitle-debug-1"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js" defer></script>
+  <script src="/assets/transcribe-tool.js?v=2026-06-19-subtitle-debug-1" defer></script>
 <script>
   (function () {
     function isAppleMobileTranscriptionBrowser() {
@@ -686,11 +686,15 @@ document.addEventListener('converter:empty', function() {
   }
 });
 </script>
-<script src="/assets/related-tools.js?v=2026-05-18-1"></script>
-<script src="/assets/mobile-menu.js?v=2026-05-18-1"></script>
-<script src="/assets/vendor/lucide.min.js?v=0.544.0"></script>
+<script src="/assets/related-tools.js?v=2026-05-18-1" defer></script>
+<script src="/assets/mobile-menu.js?v=2026-05-18-1" defer></script>
+<script src="/assets/vendor/lucide.min.js?v=0.544.0" defer></script>
 <script>
-  lucide.createIcons();
+  document.addEventListener("DOMContentLoaded", function () {
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons();
+    }
+  }, { once: true });
 </script>
 </body>
 </html>
