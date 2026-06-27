@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var TRIM_TOOL_PATH = "/assets/trim-tool.js?v=2026-06-12-edge-cues-1";
+  var TRIM_TOOL_PATH = "/assets/trim-tool.js?v=2026-06-27-playhead-snap-2";
   var BOUND_FLAG = "trimToolLazyBound";
   var loadPromise = null;
 

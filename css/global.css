@@ -320,6 +320,49 @@ main.container {
   color: rgba(79, 95, 224, 0.72);
 }
 
+#audio-tool .at-snap-btn.at-icon-btn {
+  position: relative;
+  flex: 0 0 52px;
+  width: 52px;
+  min-width: 52px;
+  min-height: 52px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--color-primary-strong);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+
+#audio-tool .at-snap-btn.at-icon-btn .at-lucide-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+  stroke-width: 2;
+}
+
+#audio-tool .at-snap-btn.at-icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(108, 123, 255, 0.28);
+  color: var(--color-primary);
+}
+
+#audio-tool .at-snap-btn.at-icon-btn:focus-visible {
+  outline: 3px solid rgba(108, 123, 255, 0.14);
+  outline-offset: 2px;
+}
+
+#audio-tool .at-snap-btn.at-icon-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+
+#audio-tool .at-snap-btn.at-icon-btn:disabled {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: rgba(79, 95, 224, 0.72);
+}
+
 .tool-ui::after {
   content: "";
   position: absolute;
@@ -5692,6 +5735,19 @@ html[dir="rtl"] #audio-tool .at-transcript-player {
     min-width: 44px;
     min-height: 44px;
     padding: 0;
+  }
+
+  #audio-tool .at-snap-btn.at-icon-btn {
+    flex: 0 0 44px;
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+
+  #audio-tool .at-snap-btn.at-icon-btn .at-lucide-icon {
+    width: 16px;
+    height: 16px;
   }
 
   #audio-tool .at-btn-primary {

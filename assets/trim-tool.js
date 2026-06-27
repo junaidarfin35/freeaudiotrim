@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var ENCODER_PATH = "/assets/encoders/mp3-encoder.js";
+  var ENCODER_PATH = "/assets/encoders/mp3-encoder.js?v=2026-06-22-worker-export-1";
   var LAME_PATH = "/assets/encoders/lame.min.js";
   var BROWSER_SUPPORT_MESSAGE = "Supported formats depend on your browser. MP3, WAV, and M4A work on most devices.";
   var TRIM_AUDIO_ACCEPT = "audio/*,.mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.mpga";
@@ -18,6 +18,57 @@
 
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
+  }
+
+  function formatFileSize(bytes) {
+    var value = Math.max(0, Number(bytes) || 0);
+    if (value >= 1024 * 1024 * 1024) {
+      return (value / (1024 * 1024 * 1024)).toFixed(1) + " GB";
+    }
+    if (value >= 1024 * 1024) {
+      return (value / (1024 * 1024)).toFixed(1) + " MB";
+    }
+    if (value >= 1024) {
+      return Math.round(value / 1024) + " KB";
+    }
+    return Math.round(value) + " bytes";
+  }
+
+  function estimateSourceBitrateKbps(file, duration) {
+    var size = file && Number(file.size);
+    var safeDuration = Math.max(0, Number(duration) || 0);
+    if (!size || !safeDuration) {
+      return 0;
+    }
+    return (size * 8) / safeDuration / 1000;
+  }
+
+  function chooseSmartMp3Bitrate(file, duration) {
+    var sourceBitrate = estimateSourceBitrateKbps(file, duration);
+    var sourceName = file && String(file.name || "").toLowerCase();
+    var sourceType = file && String(file.type || "").toLowerCase();
+    var isMp3 = /\.mp3$/.test(sourceName) || sourceType === "audio/mpeg" || sourceType === "audio/mp3";
+    var supportedBitrates = [32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+
+    if (!isMp3 || sourceBitrate <= 0) {
+      return 128;
+    }
+
+    var target = supportedBitrates[0];
+    for (var i = 0; i < supportedBitrates.length; i += 1) {
+      if (supportedBitrates[i] <= sourceBitrate) {
+        target = supportedBitrates[i];
+      } else {
+        break;
+      }
+    }
+    return target;
+  }
+
+  function estimateMp3Bytes(durationSeconds, bitrateKbps) {
+    var safeDuration = Math.max(0, Number(durationSeconds) || 0);
+    var safeBitrate = Math.max(0, Number(bitrateKbps) || 0);
+    return Math.round((safeDuration * safeBitrate * 1000) / 8);
   }
 
   var TRIM_HANDLE_HIT_ZONE = 5;
@@ -40,6 +91,24 @@
     if (window.lucide && typeof window.lucide.createIcons === "function") {
       window.lucide.createIcons();
     }
+  }
+
+  function isArabicDocument() {
+    return String(document.documentElement.lang || "").toLowerCase().indexOf("ar") === 0;
+  }
+
+  function createSnapButton(role, label, iconName) {
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "at-btn at-icon-btn at-snap-btn";
+    button.dataset.role = role;
+    button.disabled = true;
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+    button.innerHTML =
+      '<i data-lucide="' + iconName + '" class="at-lucide-icon" aria-hidden="true"></i>' +
+      '<span class="at-sr-only">' + label + "</span>";
+    return button;
   }
 
   function setLoopToggleButtonState(button, isEnabled) {
@@ -816,10 +885,36 @@
     return new Blob([buffer], { type: "audio/wav" });
   };
 
-  AudioEngine.prototype.exportMp3 = async function (start, end, bitrateKbps, fadeInSec, fadeOutSec) {
-    var sliced = this._sliceChannels(start, end);
-    if (!sliced) {
+  AudioEngine.prototype.estimateWavBytes = function (start, end) {
+    if (!this.buffer) {
+      return 0;
+    }
+    var safeStart = clamp(start, 0, this.buffer.duration);
+    var safeEnd = clamp(end, safeStart, this.buffer.duration);
+    var channelCount = Math.max(1, this.buffer.numberOfChannels || 1);
+    var frameCount = Math.ceil((safeEnd - safeStart) * this.buffer.sampleRate);
+    return Math.max(0, frameCount * channelCount * 2);
+  };
+
+  AudioEngine.prototype.estimateMp3Bytes = function (start, end, bitrateKbps) {
+    if (!this.buffer) {
+      return 0;
+    }
+    var safeStart = clamp(start, 0, this.buffer.duration);
+    var safeEnd = clamp(end, safeStart, this.buffer.duration);
+    return estimateMp3Bytes(safeEnd - safeStart, bitrateKbps);
+  };
+
+  AudioEngine.prototype.exportMp3 = async function (start, end, bitrateKbps, fadeInSec, fadeOutSec, progressCallback) {
+    if (!this.buffer) {
       throw new Error("No audio loaded.");
+    }
+    var sampleRate = this.buffer.sampleRate;
+    var startFrame = Math.floor(clamp(start, 0, this.buffer.duration) * sampleRate);
+    var endFrame = Math.ceil(clamp(end, start, this.buffer.duration) * sampleRate);
+    var channels = [];
+    for (var c = 0; c < Math.min(this.buffer.numberOfChannels, 2); c += 1) {
+      channels.push(this.buffer.getChannelData(c));
     }
     var appliedFadeIn = Number(fadeInSec);
     var appliedFadeOut = Number(fadeOutSec);
@@ -829,12 +924,17 @@
     if (!isFinite(appliedFadeOut)) {
       appliedFadeOut = Number(this.uiFadeOut) || 0;
     }
-    this._applyFadeToSliced(sliced, appliedFadeIn, appliedFadeOut);
     var mp3 = await loadMp3Module();
-    return mp3.encode({
-      channels: sliced.channels,
-      sampleRate: sliced.sampleRate,
-      bitrateKbps: bitrateKbps || 192
+    var encodeMethod = typeof mp3.encodeAsync === "function" ? mp3.encodeAsync : mp3.encode;
+    return encodeMethod({
+      channels: channels,
+      sampleRate: sampleRate,
+      bitrateKbps: bitrateKbps || 192,
+      startFrame: startFrame,
+      endFrame: endFrame,
+      fadeInFrames: Math.floor(Math.max(0, appliedFadeIn) * sampleRate),
+      fadeOutFrames: Math.floor(Math.max(0, appliedFadeOut) * sampleRate),
+      onProgress: progressCallback
     });
   };
 
@@ -1178,6 +1278,22 @@
     this._emit();
   };
 
+  TrimController.prototype.setStartRatio = function (ratio) {
+    this.lockedSelectionRatio = null;
+    this.startRatio = clamp(Number(ratio) || 0, 0, this.endRatio - this.minGap);
+    this.renderer.setSelection(this.startRatio, this.endRatio);
+    this._emit();
+    return this.startRatio;
+  };
+
+  TrimController.prototype.setEndRatio = function (ratio) {
+    this.lockedSelectionRatio = null;
+    this.endRatio = clamp(Number(ratio) || 0, this.startRatio + this.minGap, 1);
+    this.renderer.setSelection(this.startRatio, this.endRatio);
+    this._emit();
+    return this.endRatio;
+  };
+
   TrimController.prototype.setLockedSelectionLength = function (seconds, duration) {
     if (!duration || duration <= 0) {
       this.lockedSelectionRatio = null;
@@ -1420,6 +1536,27 @@
   UIController.prototype.build = function () {
     this.fadeInToggle = this.root.querySelector('[data-role="fadeInToggle"]');
     this.fadeOutToggle = this.root.querySelector('[data-role="fadeOutToggle"]');
+    this.setStartBtn = this.root.querySelector('[data-role="setStartToPlayhead"]');
+    this.setEndBtn = this.root.querySelector('[data-role="setEndToPlayhead"]');
+    var fadeControlsRow = this.fadeOutToggle && this.fadeOutToggle.closest
+      ? this.fadeOutToggle.closest(".at-row")
+      : null;
+    if (fadeControlsRow && (!this.setStartBtn || !this.setEndBtn)) {
+      var startLabel = isArabicDocument() ? "تعيين البداية" : "Set Start";
+      var endLabel = isArabicDocument() ? "تعيين النهاية" : "Set End";
+      var firstFadeControl = this.fadeInToggle && this.fadeInToggle.closest
+        ? this.fadeInToggle.closest("label")
+        : null;
+      if (!this.setStartBtn) {
+        this.setStartBtn = createSnapButton("setStartToPlayhead", startLabel, "arrow-right-to-line");
+        fadeControlsRow.insertBefore(this.setStartBtn, firstFadeControl);
+      }
+      if (!this.setEndBtn) {
+        this.setEndBtn = createSnapButton("setEndToPlayhead", endLabel, "arrow-left-to-line");
+        fadeControlsRow.insertBefore(this.setEndBtn, firstFadeControl);
+      }
+      renderLucideIcons();
+    }
     this.fadeInOverlay = this.root.querySelector('.fade-in');
     this.fadeOutOverlay = this.root.querySelector('.fade-out');
     this.fileInput = this.root.querySelector(".at-file");
@@ -1429,6 +1566,32 @@
     this.resetBtn = this.root.querySelector('[data-role="reset"]');
     this.exportWavBtn = this.root.querySelector('[data-role="exportWav"]');
     this.exportMp3Btn = this.root.querySelector('[data-role="exportMp3"]');
+    this.mp3QualitySelect = this.root.querySelector('[data-role="mp3Quality"]');
+    if (!this.mp3QualitySelect && this.exportMp3Btn) {
+      var isArabic = String(document.documentElement.lang || "").toLowerCase().indexOf("ar") === 0;
+      this.mp3QualitySelect = document.createElement("select");
+      this.mp3QualitySelect.dataset.role = "mp3Quality";
+      this.mp3QualitySelect.setAttribute("aria-label", isArabic ? "جودة MP3" : "MP3 quality");
+      this.mp3QualitySelect.title = isArabic ? "اختر جودة وحجم ملف MP3" : "Choose MP3 quality and file size";
+      this.mp3QualitySelect.disabled = true;
+      this.mp3QualitySelect.style.width = "auto";
+      this.mp3QualitySelect.style.maxWidth = "100%";
+      [
+        { value: "auto", label: isArabic ? "تلقائي (موصى به)" : "Auto (recommended)" },
+        { value: "64", label: isArabic ? "صغير · 64 kbps" : "Small · 64 kbps" },
+        { value: "80", label: isArabic ? "صغير · 80 kbps" : "Small · 80 kbps" },
+        { value: "96", label: isArabic ? "متوازن · 96 kbps" : "Balanced · 96 kbps" },
+        { value: "128", label: isArabic ? "متوازن · 128 kbps" : "Balanced · 128 kbps" },
+        { value: "192", label: isArabic ? "عالي · 192 kbps" : "High · 192 kbps" }
+      ].forEach(function (item) {
+        var option = document.createElement("option");
+        option.value = item.value;
+        option.textContent = item.label;
+        option.dataset.baseLabel = item.label;
+        this.mp3QualitySelect.appendChild(option);
+      }, this);
+      this.exportMp3Btn.parentNode.insertBefore(this.mp3QualitySelect, this.exportMp3Btn);
+    }
     this.statusEl = this.root.querySelector('[data-role="status"]');
     this.advancedPanel = this.root.querySelector('[data-role="advancedPanel"]');
     this.fadeInSelect = this.root.querySelector('[data-role="fadeIn"]') || this.root.querySelector('[data-role="fadeInToggle"]');
@@ -1452,6 +1615,43 @@
     setLoopToggleButtonState(this.loopToggleBtn, this.loopEnabled);
     setResetButtonIcon(this.resetBtn);
     this.updateTimeText();
+    this.updateMp3QualityEstimate();
+  };
+
+  UIController.prototype.getSelectedMp3Bitrate = function () {
+    var selected = this.mp3QualitySelect ? this.mp3QualitySelect.value : "auto";
+    var explicitBitrate = Number(selected);
+    if (selected !== "auto" && isFinite(explicitBitrate) && explicitBitrate > 0) {
+      return explicitBitrate;
+    }
+    return chooseSmartMp3Bitrate(this.currentFile, this.duration);
+  };
+
+  UIController.prototype.updateMp3QualityEstimate = function () {
+    if (!this.mp3QualitySelect) {
+      return;
+    }
+    var autoOption = this.mp3QualitySelect.querySelector('option[value="auto"]');
+    if (!autoOption) {
+      return;
+    }
+    var isArabic = String(document.documentElement.lang || "").toLowerCase().indexOf("ar") === 0;
+    if (!this.currentFile || !this.duration || !this.trim) {
+      autoOption.textContent = isArabic ? "تلقائي (موصى به)" : "Auto (recommended)";
+      return;
+    }
+    var selection = this._getSelection();
+    var bitrate = chooseSmartMp3Bitrate(this.currentFile, this.duration);
+    var size = this.audio.estimateMp3Bytes(selection.start, selection.end, bitrate);
+    autoOption.textContent = (isArabic ? "تلقائي" : "Auto") + " · " + bitrate + " kbps · ~" + formatFileSize(size);
+    Array.prototype.forEach.call(this.mp3QualitySelect.options, function (option) {
+      if (option.value === "auto") {
+        return;
+      }
+      var optionBitrate = Number(option.value);
+      var optionSize = this.audio.estimateMp3Bytes(selection.start, selection.end, optionBitrate);
+      option.textContent = (option.dataset.baseLabel || option.textContent) + " · ~" + formatFileSize(optionSize);
+    }, this);
   };
 
   UIController.prototype.updateFadeOverlay = function () {
@@ -1498,6 +1698,12 @@
     this.resetBtn.addEventListener("click", this.onReset.bind(this));
     this.exportWavBtn.addEventListener("click", this.onExportWav.bind(this));
     this.exportMp3Btn.addEventListener("click", this.onExportMp3.bind(this));
+    if (this.setStartBtn) {
+      this.setStartBtn.addEventListener("click", this.onSetStartToPlayhead.bind(this));
+    }
+    if (this.setEndBtn) {
+      this.setEndBtn.addEventListener("click", this.onSetEndToPlayhead.bind(this));
+    }
     if (this.changeFileBtn && this.fileInput) {
       this.changeFileBtn.addEventListener("click", () => {
         this.fileInput.click();
@@ -1574,11 +1780,60 @@
     this.resetBtn.disabled = !enabled;
     this.exportWavBtn.disabled = !enabled;
     this.exportMp3Btn.disabled = !enabled;
+    if (this.mp3QualitySelect) {
+      this.mp3QualitySelect.disabled = !enabled;
+    }
+    if (this.setStartBtn) {
+      this.setStartBtn.disabled = !enabled;
+    }
+    if (this.setEndBtn) {
+      this.setEndBtn.disabled = !enabled;
+    }
   };
 
   UIController.prototype.onLoopToggle = function () {
     this.loopEnabled = !this.loopEnabled;
     setLoopToggleButtonState(this.loopToggleBtn, this.loopEnabled);
+  };
+
+  UIController.prototype.onSetStartToPlayhead = function () {
+    if (!this.duration) {
+      return;
+    }
+    var position = clamp(this.audio.getCurrentPosition(), 0, this.duration);
+    var appliedRatio = this.trim.setStartRatio(position / this.duration);
+    var appliedPosition = appliedRatio * this.duration;
+    if (typeof window.AudioToolDidSetTrimBoundary === "function") {
+      window.AudioToolDidSetTrimBoundary(this, {
+        boundary: "start",
+        position: appliedPosition
+      });
+    }
+    this.setStatus(
+      isArabicDocument()
+        ? "تم تعيين البداية عند " + formatTime(appliedPosition) + "."
+        : "Start set to " + formatTime(appliedPosition) + "."
+    );
+  };
+
+  UIController.prototype.onSetEndToPlayhead = function () {
+    if (!this.duration) {
+      return;
+    }
+    var position = clamp(this.audio.getCurrentPosition(), 0, this.duration);
+    var appliedRatio = this.trim.setEndRatio(position / this.duration);
+    var appliedPosition = appliedRatio * this.duration;
+    if (typeof window.AudioToolDidSetTrimBoundary === "function") {
+      window.AudioToolDidSetTrimBoundary(this, {
+        boundary: "end",
+        position: appliedPosition
+      });
+    }
+    this.setStatus(
+      isArabicDocument()
+        ? "تم تعيين النهاية عند " + formatTime(appliedPosition) + "."
+        : "End set to " + formatTime(appliedPosition) + "."
+    );
   };
 
   UIController.prototype.setStatus = function (message) {
@@ -1703,6 +1958,7 @@
       this.renderer.setPeaksFromBuffer(buffer);
       this._setControlsEnabled(true);
       this.updateTimeText();
+      this.updateMp3QualityEstimate();
       this.updateFadeOverlay();
       if (convertedForCompatibility) {
         this.setStatus("Ready. File converted for compatibility.");
@@ -1727,6 +1983,7 @@
 
   UIController.prototype.onTrimChanged = function () {
     this.updateTimeText();
+    this.updateMp3QualityEstimate();
     this.updateFadeOverlay();
     this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
     if (!this.audio.isPlaying) {
@@ -1818,12 +2075,22 @@
     }
     try {
       var selection = this._getSelection();
+      var estimatedBytes = this.audio.estimateWavBytes(selection.start, selection.end);
+      if (estimatedBytes >= 100 * 1024 * 1024) {
+        var shouldContinue = window.confirm(
+          "This WAV will be about " + formatFileSize(estimatedBytes) + " because WAV is uncompressed. Continue, or use MP3 for a smaller file?"
+        );
+        if (!shouldContinue) {
+          this.setStatus("WAV export canceled. Use MP3 for a smaller download.");
+          return;
+        }
+      }
       this.audio.uiFadeIn = this.fadeInDuration;
       this.audio.uiFadeOut = this.fadeOutDuration;
       var wav = this.audio.exportWav(selection.start, selection.end, this.fadeInDuration, this.fadeOutDuration);
       var base = this.currentFile.name.replace(/\.[^/.]+$/, "") || "trimmed";
       this._downloadBlob(wav, base + "-trimmed.wav");
-      this.setStatus("WAV ready. Download started.");
+      this.setStatus("WAV ready (" + formatFileSize(wav.size) + "). Download started.");
     } catch (err) {
       this.setStatus("WAV export failed.");
     }
@@ -1833,17 +2100,33 @@
     if (!this.duration || !this.currentFile) {
       return;
     }
-    this.setStatus("Encoding MP3...");
+    var selection = this._getSelection();
+    var bitrateKbps = this.getSelectedMp3Bitrate();
+    var estimatedSize = this.audio.estimateMp3Bytes(selection.start, selection.end, bitrateKbps);
+    var self = this;
+    this.setStatus("Encoding MP3 at " + bitrateKbps + " kbps...");
+    this._setControlsEnabled(false);
     try {
-      var selection = this._getSelection();
       this.audio.uiFadeIn = this.fadeInDuration;
       this.audio.uiFadeOut = this.fadeOutDuration;
-      var mp3 = await this.audio.exportMp3(selection.start, selection.end, 192, this.fadeInDuration, this.fadeOutDuration);
+      var mp3 = await this.audio.exportMp3(
+        selection.start,
+        selection.end,
+        bitrateKbps,
+        this.fadeInDuration,
+        this.fadeOutDuration,
+        function (progress) {
+          var percent = Math.max(0, Math.min(100, Math.round((Number(progress) || 0) * 100)));
+          self.setStatus("Encoding MP3 at " + bitrateKbps + " kbps... " + percent + "%");
+        }
+      );
       var base = this.currentFile.name.replace(/\.[^/.]+$/, "") || "trimmed";
       this._downloadBlob(mp3, base + "-trimmed.mp3");
-      this.setStatus("MP3 ready. Download started.");
+      this.setStatus("MP3 ready (" + formatFileSize(mp3.size || estimatedSize) + "). Download started.");
     } catch (err) {
       this.setStatus("MP3 export failed: " + err.message);
+    } finally {
+      this._setControlsEnabled(true);
     }
   };
 

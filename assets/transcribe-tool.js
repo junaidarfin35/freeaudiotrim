@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var DEBUG_TRANSCRIPTION = true;
+  var DEBUG_TRANSCRIPTION = false;
   var RAW_WHISPER_PASSTHROUGH = true;
   // Experimental only. Production desktop transcription defaults to full-audio sliding-window chunking.
   var ENABLE_DESKTOP_TRANSCRIPTION_VAD = false;
@@ -72,24 +72,24 @@
       "t-rex": 150
     },
     low: {
-      "baby-raptor": 90,
-      triceratop: 150,
-      "t-rex": 120
+      "baby-raptor": 1200,
+      triceratop: 900,
+      "t-rex": 600
     },
     standard: {
-      "baby-raptor": 300,
-      triceratop: 240,
-      "t-rex": 180
+      "baby-raptor": 1200,
+      triceratop: 900,
+      "t-rex": 600
     },
     high: {
-      "baby-raptor": 480,
-      triceratop: 360,
-      "t-rex": 240
+      "baby-raptor": 1200,
+      triceratop: 900,
+      "t-rex": 600
     },
     ultra: {
-      "baby-raptor": 720,
-      triceratop: 480,
-      "t-rex": 300
+      "baby-raptor": 1200,
+      triceratop: 900,
+      "t-rex": 600
     }
   };
   var DEFAULT_TRANSCRIPTION_MODEL_KEY = "triceratop";
@@ -1845,7 +1845,21 @@
       }
 
       if (Number.isFinite(previousEnd) && start < previousEnd) {
-        start = previousEnd + 0.001;
+        similarityToPrevious = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) : 0;
+        if (similarityToPrevious >= 0.8) {
+          start = previousEnd + 0.001;
+        } else if (diagnostics) {
+          diagnostics.preservedWhisperOverlapBoundaryCount = (diagnostics.preservedWhisperOverlapBoundaryCount || 0) + 1;
+          recordOverlapDedupDiagnostic(diagnostics, {
+            action: "preserved_whisper_overlap_boundary",
+            reason: "overlap_text_differs",
+            textPreview: buildOverlapDedupPreview(text),
+            previousTextPreview: result.length ? buildOverlapDedupPreview(result[result.length - 1].text) : "",
+            previousSegmentEnd: previousEnd,
+            originalStart: start,
+            overlapSimilarityScore: similarityToPrevious
+          });
+        }
       }
       if (!(end > start)) {
         if (diagnostics) {
@@ -2237,12 +2251,14 @@
           });
         }
         if (hasOverlap) {
-          start = adjustedStartCandidate;
-          if (overlapDiagnostics) {
+          if (textsAreSimilar) {
+            start = adjustedStartCandidate;
+          }
+          if (textsAreSimilar && overlapDiagnostics) {
             overlapDiagnostics.adjustedOverlapTimestampCount = (overlapDiagnostics.adjustedOverlapTimestampCount || 0) + 1;
             recordOverlapDedupDiagnostic(overlapDiagnostics, {
               action: "adjusted_overlap_timestamp",
-              reason: textsAreSimilar ? "monotonic_after_overlap_similar_text" : "monotonic_after_overlap_different_text",
+              reason: "monotonic_after_overlap_similar_text",
               textPreview: buildOverlapDedupPreview(text),
               previousTextPreview: buildOverlapDedupPreview(lastSegment && lastSegment.text),
               adjustedStart: start,
@@ -6238,6 +6254,7 @@ function generateVTT(segments) {
     var sourceSegments = Array.isArray(config.sourceSegments) ? config.sourceSegments : getActiveSegments();
     var diagnostics = config.emitDiagnostics ? (window.__lastTranscriptionRunDiagnostics || null) : null;
     var previousEnd = null;
+    var previousNormalizedText = "";
     var prepared = [];
 
     sourceSegments.forEach(function (segment, index) {
@@ -6246,6 +6263,7 @@ function generateVTT(segments) {
       var end;
       var text;
       var normalizedText;
+      var similarityToPrevious;
 
       if (!timestamp || timestamp.length < 2) {
         recordSegmentLifecycleEvent(diagnostics, segment, {
@@ -6275,23 +6293,6 @@ function generateVTT(segments) {
         return;
       }
 
-      if (Number.isFinite(previousEnd) && start < previousEnd) {
-        start = previousEnd + 0.001;
-      }
-      if (!(end > start)) {
-        recordSegmentLifecycleEvent(diagnostics, segment, {
-          sourceStage: "final_export",
-          actionTaken: "dropped",
-          reason: "unresolved_timing_conflict",
-          removedByStage: "final_export",
-          removalReason: "unresolved_timing_conflict",
-          finalStart: start,
-          finalEnd: end,
-          textPreview: segment && (segment.text || segment.originalText || segment.editedText || segment.translatedText)
-        });
-        return;
-      }
-
       text = getSegmentText(segment, !!useTranslatedText);
       normalizedText = normalizeOverlapComparisonText(text);
       if (!text || !normalizedText) {
@@ -6307,6 +6308,38 @@ function generateVTT(segments) {
         });
         return;
       }
+
+      if (Number.isFinite(previousEnd) && start < previousEnd) {
+        similarityToPrevious = previousNormalizedText ? getOverlapSegmentSimilarityScore(previousNormalizedText, normalizedText) : 0;
+        if (similarityToPrevious >= 0.8) {
+          start = previousEnd + 0.001;
+        } else if (diagnostics) {
+          diagnostics.preservedWhisperOverlapBoundaryCount = (diagnostics.preservedWhisperOverlapBoundaryCount || 0) + 1;
+          recordOverlapDedupDiagnostic(diagnostics, {
+            action: "preserved_whisper_overlap_boundary_for_export",
+            reason: "overlap_text_differs",
+            textPreview: buildOverlapDedupPreview(text),
+            previousTextPreview: prepared.length ? buildOverlapDedupPreview(prepared[prepared.length - 1].text) : "",
+            previousSegmentEnd: previousEnd,
+            originalStart: start,
+            overlapSimilarityScore: similarityToPrevious
+          });
+        }
+      }
+      if (!(end > start)) {
+        recordSegmentLifecycleEvent(diagnostics, segment, {
+          sourceStage: "final_export",
+          actionTaken: "dropped",
+          reason: "unresolved_timing_conflict",
+          removedByStage: "final_export",
+          removalReason: "unresolved_timing_conflict",
+          finalStart: start,
+          finalEnd: end,
+          textPreview: text
+        });
+        return;
+      }
+
       prepared.push({
         segmentId: getSegmentLifecycleId(segment),
         sourceIndex: index,
@@ -6325,6 +6358,7 @@ function generateVTT(segments) {
         });
       }
       previousEnd = end;
+      previousNormalizedText = normalizedText;
     });
 
     if (diagnostics) {
