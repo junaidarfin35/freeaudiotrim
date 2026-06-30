@@ -10,16 +10,16 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
 <link rel="manifest" href="/assets/brand/site.webmanifest">
 <title>How to Transcribe Video to Text: Private Workflow Guide</title>
-<meta name="description" content="Learn how to transcribe video to text, create TXT, SRT, or VTT files, prepare YouTube captions, and avoid upload, codec, and accuracy problems.">
+<meta name="description" content="Transcribe MP4, MOV, WebM, and other video files locally. Learn when to extract audio, choose a model, edit the transcript, and export TXT, SRT, or VTT.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://freeaudiotrim.com/blog/how-to-transcribe-video-to-text.html">
 <meta property="og:title" content="How to Transcribe Video to Text: Private Workflow Guide">
-<meta property="og:description" content="Learn how to transcribe video to text, create TXT, SRT, or VTT files, prepare YouTube captions, and avoid upload, codec, and accuracy problems.">
+<meta property="og:description" content="Learn how local video transcription handles MP4, MOV, and WebM files, when to extract audio, and how to review and export the result.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://freeaudiotrim.com/blog/how-to-transcribe-video-to-text.html">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="How to Transcribe Video to Text: Private Workflow Guide">
-<meta name="twitter:description" content="Learn how to transcribe video to text, create TXT, SRT, or VTT files, prepare YouTube captions, and avoid upload, codec, and accuracy problems.">
+<meta name="twitter:description" content="Learn how local video transcription handles MP4, MOV, and WebM files, when to extract audio, and how to review and export the result.">
 <link rel="stylesheet" href="/css/global.css?v=2026-05-18-1">
 <link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
 <link rel="stylesheet" href="/css/blog.css?v=2026-05-18-1">
@@ -46,7 +46,7 @@
       },
       "mainEntityOfPage": "https://freeaudiotrim.com/blog/how-to-transcribe-video-to-text.html",
       "datePublished": "2026-04-30",
-      "dateModified": "2026-06-20"
+      "dateModified": "2026-06-30"
     },
     {
       "@type": "FAQPage",
@@ -105,7 +105,7 @@
           "name": "Should I translate subtitles before or after editing the transcript?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Edit the source transcript first. Correct names, sentence breaks, speaker labels, and unclear words before translation. After translation, review caption timing again because translated text can change length."
+            "text": "Edit the source transcript first. Correct names, sentence breaks, and unclear words before translation. Add speaker labels yourself if the project needs them. After translation, review caption timing again because translated text can change length."
           }
         },
         {
@@ -152,6 +152,7 @@
 <a href="/" class="logo" aria-label="FreeAudioTrim home"><img src="/assets/brand/logo.svg" alt="FreeAudioTrim" width="207" height="32" decoding="async"></a>
       <button class="menu-toggle" aria-label="Toggle menu">&#9776;</button>
       <nav class="nav-links">
+  <a href="/">Home</a>
   <a href="/tools.html">All Tools</a>
   <a href="/blog/">Blog</a>
   <a href="/about.html">About</a>
@@ -162,16 +163,16 @@
   </header>
   <main class="container blog-layout blog-article-layout">
     <h1>How to Transcribe Video to Text</h1>
-    <p class="article-meta">By FreeAudioTrim Editorial Team | Published April 30, 2026 | Updated June 20, 2026</p>
+    <p class="article-meta">By FreeAudioTrim Editorial Team | Published April 30, 2026 | Updated June 30, 2026</p>
 
     <section>
-      <h2>Direct Answer</h2>
-      <p>To transcribe video to text, open a browser-based <a href="/audio-video-transcription-online.html">audio and video transcription tool</a>, select a supported video file such as MP4, MOV, or WebM, generate the transcript, review the text against the video, then export the result as TXT, SRT, or VTT. For private recordings, use a no-upload workflow where supported files are processed locally in your browser and stay on your device.</p>
+      <h2>Direct answer</h2>
+      <p>To transcribe video to text, open the <a href="/audio-video-transcription-online.html">FreeAudioTrim audio and video transcription tool</a>, select a supported MP4, MOV, WebM, M4V, MPEG, or MPG file, then choose the spoken language and an available model. The browser extracts and processes the audio locally. Review the result against the video before downloading TXT, SRT, or VTT.</p>
       <p>If the video is large, slow to load, or saved with a codec your browser cannot read, extract the audio first with <a href="/extract-audio-from-video.html">Extract Audio from Video</a>, then transcribe the cleaner audio file instead of forcing the full video through the workflow.</p>
     </section>
 
     <section>
-      <h2>When to Use This Workflow</h2>
+      <h2>When to use this workflow</h2>
       <p>Video-to-text transcription is useful when the spoken content matters more than the picture. It is a good fit for interviews, lectures, client review videos, meeting recordings, webinars, YouTube drafts, podcasts recorded on camera, and social clips that need captions.</p>
       <p>Use this workflow when you need one of these outputs:</p>
       <ul>
@@ -183,21 +184,49 @@
     </section>
 
     <section>
-      <h2>Why this matters in real production</h2>
+      <h2>How the transcript fits into an edit</h2>
       <p>In a real edit, the transcript is rarely the final deliverable. It becomes a review document, a quote source, a subtitle file, or the clean source text for translation. That is why the review step matters as much as the automatic transcription step.</p>
       <p><strong>Privacy note:</strong> client review cuts, internal videos, and unreleased YouTube drafts can contain sensitive context. For supported files, a local browser workflow avoids sending the whole video through a normal upload queue.</p>
       <p><strong>Practical tip:</strong> export SRT for YouTube, Premiere Pro, and DaVinci Resolve, export VTT for web players, and keep TXT as a backup for translation preparation or client text review.</p>
     </section>
 
     <section>
-      <h2>Step-by-Step: Transcribe Video to Text</h2>
+      <h2>What happens to the video in your browser</h2>
+      <p>The tool does not analyze the picture. It reads the video's audio track, mixes it to mono, resamples it to 16 kHz, and sends that prepared audio to a local Whisper model. The video remains available for playback so you can check the transcript against the source.</p>
+      <p>For files longer than 30 seconds on desktop, the tool uses overlapping 29-second windows. Five seconds of overlap gives the model context around each split. The results are placed back on the full timeline, then repeated text near the joins is removed.</p>
+      <p>Direct video transcription is a desktop feature. Phone mode blocks video because decoding a full video and running a speech model can exhaust mobile browser memory. On a phone, use <a href="/extract-audio-from-video.html">Extract Audio from Video</a> first and upload the smaller audio file.</p>
+    </section>
+
+    <section>
+      <h2>Upload methods and supported file types</h2>
+      <p>You can click the upload area or drag and drop a file. The tool processes one file at a time. The file picker lists MP3, WAV, M4A, AAC, FLAC, OGG, OGA, MPGA, MP4, M4V, MOV, WebM, MPEG, and MPG.</p>
+      <p>The browser may also accept another file when it reports a valid <code>audio/*</code> or <code>video/*</code> media type. That is only the first check. A familiar extension can still contain a codec the browser cannot decode.</p>
+      <p>On iPhone or iPad, use <strong>Browse &gt; Files</strong> when choosing a video. Importing directly from the Photo Library can stall in Safari. Mobile video transcription is blocked even when the picker accepts the file, so extract the audio first.</p>
+    </section>
+
+    <section>
+      <h2>How phone mode is detected</h2>
+      <p>The tool looks for a mobile browser identifier. It can also switch to phone mode when it sees a coarse pointer and a shortest screen side of 480 pixels or less. Phone mode uses a separate single-threaded worker and only offers Baby Raptor.</p>
+      <p>The mobile worker uses 30-second chunks with five seconds of overlap. Mobile Safari uses 29-second chunks with the same overlap. These settings keep memory use steadier than the desktop path.</p>
+      <p>File-size warnings arrive before the model starts. Mobile Safari warns about WAV files over 8 MB and general files over 48 MB. Other phone browsers use 12 MB for WAV and 64 MB for general media. These are reliability warnings, not universal upload limits.</p>
+    </section>
+
+    <section>
+      <h2>How difficult sections are recovered</h2>
+      <p>A long file is not abandoned because one window is troublesome. The desktop controller can retry the first part as a 5-second split with one second of overlap, then use 8-second pieces with two seconds of overlap. It can also fall back to 14-second windows or 3-second micro-windows when a first split is unusually slow.</p>
+      <p>A local Silero voice-activity model checks where speech is likely to begin and end. Full VAD-selected desktop transcription is still experimental and disabled by default, but the speech spans help the tool check timing and recover difficult regions. The phone worker can use speech-aware chunks when those spans are available.</p>
+      <p>The recovery code also looks for repeated intros, suspiciously long output, silence hallucinations, and duplicated text from overlapping windows. A live preview can briefly show words that disappear from the final transcript after these checks. That is expected.</p>
+    </section>
+
+    <section>
+      <h2>How to transcribe video to text</h2>
       <ol>
         <li><strong>Choose the right source file.</strong> Start with the clearest version of the video you have. Speech with low background noise, steady volume, and minimal overlap will transcribe better.</li>
         <li><strong>Decide whether to extract audio first.</strong> For short MP4 or WebM files that open quickly, direct transcription is usually fine. For long videos, huge exports, or files with browser playback issues, <a href="/extract-audio-from-video.html">extract the audio from the video</a> first.</li>
         <li><strong>Trim obvious dead space if needed.</strong> Cut long intros, silence, or unrelated sections with the <a href="/audio-cutter-online.html">online audio cutter</a> before transcription. Less irrelevant audio means less text to review.</li>
         <li><strong>Clean rough speech when needed.</strong> If the voice sounds thin, noisy, or hard to follow after extraction, run the audio through <a href="/ai-voice-studio.html">AI Voice Studio</a> before transcription. This is most useful for webcam audio, laptop mics, phone recordings, and draft voiceovers.</li>
-        <li><strong>Transcribe the file.</strong> Open <a href="/audio-video-transcription-online.html">Audio &amp; Video Transcription Online</a>, select the video or extracted audio file, and let the browser process the speech.</li>
-        <li><strong>Edit while listening back.</strong> Check names, technical terms, brand names, numbers, and places. Transcription accuracy depends on audio clarity, accents, language, background music, and speakers talking over each other.</li>
+        <li><strong>Transcribe the file.</strong> Open <a href="/audio-video-transcription-online.html">Audio &amp; Video Transcription Online</a>, select the video or extracted audio file, choose the spoken language, and pick an available model. Triceratops is the balanced desktop default. T-Rex is available only when stronger hardware passes the WebGPU check.</li>
+        <li><strong>Edit while listening back.</strong> Play the source in the built-in player and watch the active transcript segment highlight. Click a segment to replay it, then use <strong>Edit transcript</strong> to fix names, technical terms, brand names, numbers, and places.</li>
         <li><strong>Export the right format.</strong> Download TXT for a plain transcript, SRT for subtitles in most editing and publishing workflows, or VTT for web captions.</li>
         <li><strong>Do a final caption pass.</strong> Before publishing, check timing, line breaks, punctuation, speaker changes, and any translated text against the actual video.</li>
       </ol>
@@ -207,35 +236,36 @@
       <h2>TXT vs SRT vs VTT</h2>
       <p>Choose the export format based on where the text will go next:</p>
       <ul>
-        <li><strong>TXT:</strong> Best for plain text transcripts, notes, blog drafts, research, and search within a recording. TXT does not include subtitle timing.</li>
-        <li><strong>SRT:</strong> Best for most subtitle workflows. SRT includes caption numbers, timecodes, and subtitle text, so it works well for YouTube captions, Premiere Pro caption imports, DaVinci Resolve subtitle tracks, and client review files.</li>
-        <li><strong>VTT:</strong> Best for web captions. VTT also includes timecodes, and it is commonly used with HTML5 video players and web accessibility workflows.</li>
+        <li>Choose TXT for plain transcripts, notes, blog drafts, research, or searching within a recording. TXT does not include subtitle timing.</li>
+        <li>Choose SRT for YouTube, Premiere Pro, DaVinci Resolve, and most client subtitle handoffs. It includes cue numbers, timecodes, and subtitle text.</li>
+        <li>Choose VTT for HTML5 video players and other web caption workflows.</li>
       </ul>
       <p>If you are not sure what to export, choose TXT for reading and editing, SRT for video platforms or editing software, and VTT for website video captions.</p>
     </section>
 
     <section>
-      <h2>YouTube, Premiere Pro, and DaVinci Resolve Workflows</h2>
+      <h2>YouTube, Premiere Pro, and DaVinci Resolve workflows</h2>
       <p>For YouTube subtitles, export SRT, upload it in the video's subtitle area, then preview the full video before publishing. Check that the first caption does not start too early, that music-only sections are not filled with incorrect speech, and that names or product terms are spelled correctly.</p>
       <p>For Premiere Pro, import the SRT into the project, place it on the caption track, then review timing against the sequence. If your edit has changed since transcription, move or retime captions before export.</p>
       <p>For DaVinci Resolve, import the SRT as a subtitle track, check the timeline timing, and adjust caption length or line breaks where needed. Subtitle files are timing files, not finished typography, so the final look still depends on your editor, platform, and export settings.</p>
     </section>
 
     <section>
-      <h2>Prepare Subtitles for Translation</h2>
-      <p>If you plan to translate subtitles, clean the source transcript before translation. Fix names, repeated words, broken sentences, and unclear speaker labels first. A messy source transcript usually creates a messier translation.</p>
-      <p>For English-to-Arabic, Arabic-to-English, or any bilingual subtitle workflow, keep sentences short and avoid splitting one idea across too many caption blocks. After translation, review timing again because translated text can be longer or shorter than the original speech.</p>
+      <h2>Prepare subtitles for translation</h2>
+      <p>If you plan to translate subtitles, clean the source transcript first. Fix names, repeated words, broken sentences, and unclear wording. The tool supports translation between 20 listed languages and uses your edited segments as the source.</p>
+      <p>The translation opens in a temporary browser page and uses Google Translate, so this optional step is not local in the same way as transcription. You can download the translated result as TXT, SRT, or VTT. Review it against the video because translated sentences can be longer or shorter than the original speech.</p>
     </section>
 
     <section>
-      <h2>Privacy and No-Upload Workflow</h2>
+      <h2>Privacy and the no-upload workflow</h2>
       <p>Many video transcription tools require you to upload the whole video before anything happens. That can be uncomfortable for client footage, interviews, internal meetings, student recordings, legal notes, or unreleased content.</p>
       <p>FreeAudioTrim is designed around browser-based workflows where supported files can be processed locally. That means the file is handled on your device instead of being sent to an upload queue. This is especially useful when you only need a quick transcript or subtitle file and do not want another account, subscription, or server copy of the recording.</p>
-      <p>There are still practical limits: your browser must be able to read the file, your device needs enough memory, and long recordings can take longer to process.</p>
+      <p>There are still practical limits: your browser must be able to read the file, your device needs enough memory, and long recordings can take longer to process. The model and runtime are downloaded from external repositories, but the selected media is not sent to a FreeAudioTrim transcription server.</p>
+      <p>If you use the optional translation view, transcript text is processed by Google Translate. The ChatGPT refinement button opens a custom GPT in another tab and does not send the transcript automatically.</p>
     </section>
 
     <section>
-      <h2>Codec, Browser, and File Size Limits</h2>
+      <h2>Codec, browser, and file limits</h2>
       <p>A file extension such as MP4 or MOV does not tell the whole story. The video container can hold different audio and video codecs, and browsers do not support every possible combination. That is why one MP4 may open normally while another MP4 from a camera, recorder, or editing app may fail or play without audio.</p>
       <p><strong>Limitations to know:</strong> long timelines, unsupported codecs, mobile browser limits, Arabic RTL display, and mixed-language captions can all require a second pass inside your editor or publishing platform.</p>
       <p>If a video does not load, try these fixes:</p>
@@ -246,17 +276,18 @@
         <li>Trim a long file into smaller sections before transcription.</li>
         <li>Close heavy apps or tabs if browser memory is the problem.</li>
       </ul>
+      <p>Desktop limits also depend on model size: up to 20 minutes for Baby Raptor, 15 minutes for Triceratops, and 10 minutes for T-Rex. These are browser stability limits, not limits imposed by the video container.</p>
     </section>
 
     <section>
-      <h2>Extract Audio First or Transcribe Directly?</h2>
+      <h2>Extract audio first or transcribe directly?</h2>
       <p>Direct video transcription is fastest when the video is short, the file opens cleanly, and you want a transcript or subtitles without preparing extra files. It keeps the workflow simple: select video, transcribe, edit, export.</p>
       <p>Extract audio first when the video file is huge, the codec is not supported, the browser struggles to decode it, or you only need the spoken track. Audio-only files are usually smaller and easier to trim, normalize, or clean before transcription.</p>
       <p>A practical FreeAudioTrim workflow is: <a href="/extract-audio-from-video.html">Extract Audio from Video</a>, then use <a href="/audio-cutter-online.html">Audio Cutter Online</a> to remove unwanted sections, optionally use <a href="/normalize-audio-volume.html">Normalize Audio Volume</a> or <a href="/ai-voice-studio.html">AI Voice Studio</a> for clearer speech, and finish by <a href="/audio-video-transcription-online.html">turning the prepared video or audio track into editable text, SRT, or VTT</a>.</p>
     </section>
 
     <section>
-      <h2>Common Mistakes to Avoid</h2>
+      <h2>Common mistakes to avoid</h2>
       <ul>
         <li><strong>Assuming every MP4 is browser-compatible.</strong> The container may hold an unsupported audio codec even when another MP4 works normally.</li>
         <li><strong>Retrying a video with no readable audio track.</strong> Extract or convert the audio instead of repeating the same failed decode.</li>
@@ -267,7 +298,7 @@
     </section>
 
     <section>
-      <h2>Recommended FreeAudioTrim Workflow Links</h2>
+      <h2>Related FreeAudioTrim tools and guides</h2>
       <ul>
         <li><a href="/audio-video-transcription-online.html">Audio &amp; Video Transcription Online</a> for turning video or audio into TXT, SRT, or VTT.</li>
         <li><a href="/extract-audio-from-video.html">Extract Audio from Video</a> when the video is large, private, or hard for the browser to decode.</li>
@@ -300,38 +331,78 @@
       <p>SRT is the safest starting point for most editing workflows. Import it into your editor, place it on the caption or subtitle track, then check timing against the final sequence.</p>
 
       <h3>Should I translate subtitles before or after editing the transcript?</h3>
-      <p>Edit the source transcript first. Correct names, sentence breaks, speaker labels, and unclear words before translation. After translation, review caption timing again because translated text can change length.</p>
+      <p>Edit the source transcript first. Correct names, sentence breaks, and unclear words before translation. Add speaker labels yourself if the project needs them. After translation, review caption timing again because translated text can change length.</p>
 
       <h3>What should I check before publishing captions?</h3>
-      <p>Watch the full video with captions turned on. Check timing, spelling, punctuation, reading speed, speaker changes, line breaks, music-only sections, and whether the caption file matches the final edited video.</p>
+      <p>Watch the full video with captions turned on. Check timing, spelling, punctuation, reading speed, line breaks, music-only sections, and whether the caption file matches the final edited video. Add speaker labels yourself if the project needs them because the tool does not perform speaker identification.</p>
     </section>
   </main>
-  <footer>
-    <div class="footer-container">
-      <div class="blog-footer-grid">
-        <div>
-          <div class="footer-title">AudioTools</div>
-          <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
-        </div>
-        <div>
-          <div class="footer-title">Tools</div>
-          <p><a href="/" class="footer-text">MP3 Trimmer</a></p>
-          <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
-          <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
-        </div>
-        <div>
-          <div class="footer-title">Legal</div>
-          <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
-          <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
-          <p><a href="/about.html" class="footer-text">About</a></p>
-          <p><a href="/contact.html" class="footer-text">Contact</a></p>
-        </div>
-      </div>
-      <div class="footer-small">
-        (c) 2026 AudioTools. All rights reserved.
-      </div>
+  <footer class="site-footer">
+
+  <div class="footer-container">
+
+    <!-- Brand -->
+    <div class="footer-brand">
+      <h3>FreeAudioTrim</h3>
+      <p>Simple, fast, and private audio tools that run entirely in your browser.</p>
     </div>
-  </footer>
+
+    <!-- Tools -->
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <ul>
+        <li><a href="/audio-cutter-online.html">Audio Cutter</a></li>
+        <li><a href="/free-mp3-cutter.html">MP3 Cutter</a></li>
+        <li><a href="/merge-audio-files.html">Merge Audio</a></li>
+        <li><a href="/remove-silence-from-audio.html">Remove Silence</a></li>
+        <li><a href="/normalize-audio-volume.html">Normalize Audio</a></li>
+        <li><a href="/audio-converter.html">Audio Converter</a></li>
+      </ul>
+    </div>
+
+    <!-- More Tools -->
+    <div class="footer-col">
+      <h4>More Tools</h4>
+      <ul>
+        <li><a href="/audio-speed-changer.html">Speed Changer</a></li>
+        <li><a href="/audio-pitch-changer.html">Pitch Changer</a></li>
+        <li><a href="/extract-audio-from-video.html">Extract Audio</a></li>
+        <li><a href="/convert-mp3-to-wav.html">MP3 to WAV</a></li>
+        <li><a href="/mp3-to-m4r.html">MP3 to M4R</a></li>
+        <li><a href="/ringtone-maker.html">Ringtone Maker</a></li>
+      </ul>
+    </div>
+
+    <!-- Resources -->
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <ul>
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="/blog/audio-editing-guide.html">Audio Editing Guide</a></li>
+        <li><a href="/blog/how-to-trim-mp3-online.html">Trim MP3 Guide</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- Bottom Bar -->
+  <div class="footer-bottom">
+
+    <div class="footer-legal">
+      <a href="/terms-of-service.html">Terms</a>
+      <a href="/privacy-policy.html">Privacy</a>
+      <a href="/about.html">About</a>
+    </div>
+
+    <div class="footer-social">
+      <a href="https://x.com/FreeAudioTrim" target="_blank" rel="noopener noreferrer">X</a>
+      <a href="https://www.youtube.com/@freeaudiotrim" target="_blank" rel="noopener noreferrer">YouTube</a>
+    </div>
+
+  </div>
+
+</footer>
   <script src="/assets/mobile-menu.js"></script>
 </body>
 </html>

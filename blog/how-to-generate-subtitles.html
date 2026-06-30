@@ -9,17 +9,17 @@
 <link rel="icon" type="image/png" sizes="48x48" href="/assets/brand/favicon-48x48.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
 <link rel="manifest" href="/assets/brand/site.webmanifest">
-<title>How to Generate Subtitles: SRT, VTT, YouTube and Editor Workflow</title>
-<meta name="description" content="Generate subtitles from audio or video, choose TXT vs SRT vs VTT, sync timing, prepare translations, and import captions into YouTube, Premiere Pro, or DaVinci Resolve.">
+<title>How to Generate Subtitles: SRT, VTT and Video Workflow</title>
+<meta name="description" content="Generate and edit subtitles from audio or video, review them with synchronized playback, translate corrected text, and export SRT or VTT files.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://freeaudiotrim.com/blog/how-to-generate-subtitles.html">
-<meta property="og:title" content="How to Generate Subtitles: SRT, VTT, YouTube and Editor Workflow">
-<meta property="og:description" content="A practical subtitle workflow for SRT, VTT, YouTube, Premiere Pro, DaVinci Resolve, translation, timing, accessibility, and private no-upload processing.">
+<meta property="og:title" content="How to Generate Subtitles: SRT, VTT and Video Workflow">
+<meta property="og:description" content="Generate editable subtitles locally, review timed segments with playback, translate corrected text, and export SRT or VTT for your final platform.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://freeaudiotrim.com/blog/how-to-generate-subtitles.html">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="How to Generate Subtitles: SRT, VTT, YouTube and Editor Workflow">
-<meta name="twitter:description" content="Generate accurate subtitles, choose the right export format, fix timing, prepare translations, and keep supported files on your device.">
+<meta name="twitter:title" content="How to Generate Subtitles: SRT, VTT and Video Workflow">
+<meta name="twitter:description" content="Generate editable subtitles locally, review timed segments with playback, translate corrected text, and export SRT or VTT for your final platform.">
 <link rel="stylesheet" href="/css/global.css?v=2026-05-18-1">
 <link rel="stylesheet" href="/assets/layout.css?v=2026-05-18-1">
 <link rel="stylesheet" href="/css/blog.css?v=2026-05-18-1">
@@ -30,7 +30,7 @@
     {
       "@type": "Article",
       "@id": "https://freeaudiotrim.com/blog/how-to-generate-subtitles.html#article",
-      "headline": "How to Generate Subtitles: SRT, VTT, YouTube and Editor Workflow",
+      "headline": "How to Generate Subtitles: SRT, VTT and Video Workflow",
       "description": "Generate subtitles from audio or video, choose TXT vs SRT vs VTT, sync timing, prepare translations, and import captions into YouTube, Premiere Pro, or DaVinci Resolve.",
       "author": {
         "@type": "Person",
@@ -43,7 +43,7 @@
       },
       "mainEntityOfPage": "https://freeaudiotrim.com/blog/how-to-generate-subtitles.html",
       "datePublished": "2026-04-30",
-      "dateModified": "2026-06-20"
+      "dateModified": "2026-06-30"
     },
     {
       "@type": "FAQPage",
@@ -125,6 +125,7 @@
 <a href="/" class="logo" aria-label="FreeAudioTrim home"><img src="/assets/brand/logo.svg" alt="FreeAudioTrim" width="207" height="32" decoding="async"></a>
       <button class="menu-toggle" aria-label="Toggle menu">&#9776;</button>
       <nav class="nav-links">
+  <a href="/">Home</a>
   <a href="/tools.html">All Tools</a>
   <a href="/blog/">Blog</a>
   <a href="/about.html">About</a>
@@ -135,47 +136,49 @@
   </header>
   <main class="container blog-layout blog-article-layout">
     <h1>How to Generate Subtitles for a Video</h1>
-    <p class="article-meta">By FreeAudioTrim Editorial Team | Published April 30, 2026 | Updated June 20, 2026</p>
+    <p class="article-meta">By FreeAudioTrim Editorial Team | Published April 30, 2026 | Updated June 30, 2026</p>
 
     <section>
-      <h2>Direct Answer</h2>
-      <p>To generate subtitles, start with the final audio or video, create an automatic transcript, review the words, split the text into readable subtitle lines, sync the timing, then export the right file format. Use TXT for a plain transcript, SRT for YouTube and most video editors, and VTT for web video players. With FreeAudioTrim, supported files can be processed in your browser without uploading the media to a server.</p>
+      <h2>Direct answer</h2>
+      <p>To generate subtitles, start with the final audio or video and open <a href="/audio-video-transcription-online.html">FreeAudioTrim Audio &amp; Video Transcription</a>. Choose the spoken language and an available Whisper model, then review the timed transcript while listening to the source. Correct the text before downloading SRT for YouTube and most editors or VTT for web players. Supported media stays on your device during transcription.</p>
     </section>
 
     <section>
-      <h2>When to Use This Workflow</h2>
+      <h2>When to use this workflow</h2>
       <p>This workflow is best when you need subtitles that are useful beyond a quick social caption. It works for YouTube videos, online courses, interviews, podcasts turned into clips, client edits, accessibility captions, translated subtitle preparation, and videos that will move through Premiere Pro, DaVinci Resolve, or a web player.</p>
       <p>It is also a good fit when the media is private. Browser-based processing helps avoid upload queues and unnecessary copies of client footage, interviews, lectures, or internal recordings. Browser support, device power, file size, and format compatibility can still affect performance, so long files may take longer on older machines.</p>
     </section>
 
     <section>
-      <h2>Step-by-Step Subtitle Workflow</h2>
+      <h2>How to make a subtitle file</h2>
       <h3>1. Start with clean, final audio</h3>
       <p>Subtitles follow the audio. If you trim the video after generating captions, the timing can drift. Before you create subtitles, remove unwanted sections with the <a href="/audio-cutter-online.html">audio cutter</a>, reduce long pauses with <a href="/remove-silence-from-audio.html">remove silence from audio</a>, or even out speech volume with <a href="/normalize-audio-volume.html">normalize audio volume</a>.</p>
 
       <h3>2. Generate the transcript and subtitle draft</h3>
-      <p><a href="/audio-video-transcription-online.html">Turn your final audio or video into editable text, SRT, or VTT</a>. For supported workflows, the file is processed locally in your browser, so the media stays on your device. Correct the words before you shape cue timing or choose the delivery format.</p>
+      <p><a href="/audio-video-transcription-online.html">Turn your final audio or video into editable text, SRT, or VTT</a>. Select the spoken language instead of asking the model to guess. The tool lists 100 language options and offers up to three model sizes depending on the device. A live preview shows provisional text while the uploaded file is processed.</p>
 
       <h3>3. Review the words before fixing the timing</h3>
-      <p>Correct names, brand terms, technical vocabulary, punctuation, numbers, and speaker changes. Automatic subtitles are a strong first draft, not a final proof. Accuracy depends on clear audio, background noise, accents, overlapping speech, microphone quality, and language.</p>
+      <p>Play the media in the transcript player. The current segment highlights as the audio moves, and clicking a segment jumps to that part of the recording. Select <strong>Edit transcript</strong> to correct names, brand terms, technical vocabulary, punctuation, and numbers. Automatic subtitles are a draft, not final proof.</p>
+      <p>Edits flow into TXT, SRT, VTT, and the translation workflow. The editor changes the words inside each segment but does not provide manual timecode editing or automatic speaker labels.</p>
 
       <h3>4. Choose TXT, SRT, or VTT</h3>
       <p>Choose the export based on where the subtitles will go next:</p>
       <ul>
-        <li><strong>TXT:</strong> Best for plain transcripts, notes, copy editing, summaries, translation preparation, and sending text to a reviewer. TXT does not preserve subtitle timing.</li>
-        <li><strong>SRT:</strong> Best for YouTube subtitles, social platforms, client review, Premiere Pro, DaVinci Resolve, and most editor workflows. SRT includes numbered captions, start and end times, and subtitle text.</li>
-        <li><strong>VTT:</strong> Best for websites, HTML5 video, learning platforms, and web players. VTT is similar to SRT but built for web caption tracks and can support extra cue settings in some players.</li>
+        <li>Choose TXT for plain transcripts, notes, copy editing, summaries, translation preparation, or sending text to a reviewer. TXT does not preserve subtitle timing.</li>
+        <li>Choose SRT for YouTube, social platforms, client review, Premiere Pro, DaVinci Resolve, and most editor workflows. It includes numbered captions, start and end times, and subtitle text.</li>
+        <li>Choose VTT for websites, HTML5 video, learning platforms, and web players. It can also support extra cue settings in compatible players.</li>
       </ul>
 
       <h3>5. Sync and shape each subtitle cue</h3>
-      <p>Set each cue to appear when the phrase begins and leave when it ends, with enough screen time to read it. Break on complete phrases rather than in the middle of a name or thought, and use one or two lines where possible. If every cue is late or early by the same amount, shift the whole file. If the offset grows over time, check the final edit and frame rate before fixing individual cues.</p>
+      <p>FreeAudioTrim builds timed cues from the model's segments and protects the full-file timeline when long recordings are processed in overlapping windows. You can hide timestamps in the readable transcript without deleting the underlying times. SRT and VTT downloads remain timed because those formats require cue timing.</p>
+      <p>Check the exported file in the final platform. Break long cues on complete phrases rather than in the middle of a name or thought. If every cue is late or early by the same amount, shift the whole file in your subtitle editor. If the offset grows over time, check whether the video changed after transcription.</p>
 
       <h3>6. Import, check, and deliver</h3>
       <p>For YouTube, upload the SRT in the subtitles area and preview it against the published video. In Premiere Pro or DaVinci Resolve, import the SRT, place it on the caption or subtitle track, then check the first cue, scene changes, long lines, and the final cue. Deliver a sidecar file when the platform or client needs switchable captions, or burn captions into the picture only when the delivery spec calls for visible text.</p>
     </section>
 
     <section>
-      <h2>YouTube, Premiere Pro, DaVinci Resolve, and Web Video</h2>
+      <h2>YouTube, Premiere Pro, DaVinci Resolve, and web video</h2>
       <p><strong>YouTube subtitles:</strong> Use SRT for most uploads. Review the captions inside YouTube before publishing because platform auto-sync and line wrapping can change how viewers experience the text.</p>
       <p><strong>Premiere Pro captions:</strong> SRT is the simplest handoff format. Import, review the caption track against the final timeline, fix line breaks, and export captions as a sidecar file or burn them into the video if the client wants open captions.</p>
       <p><strong>DaVinci Resolve subtitles:</strong> SRT is also the practical choice. Import the subtitle file, check the subtitle track, adjust any drift, and confirm styling or burn-in settings before final render.</p>
@@ -183,27 +186,42 @@
     </section>
 
     <section>
-      <h2>Preparing Subtitles for Translation</h2>
-      <p>For translation, export a clean TXT transcript first and fix the source language before translating. Remove false starts you do not want translated, standardize names, keep terminology consistent, and add notes for brand names or phrases that should stay in English.</p>
-      <p>After translation, rebuild or review the timed subtitle file. Translated sentences are often longer or shorter than the source, so the original timing may need new line breaks. For English-to-Arabic or Arabic-to-English subtitles, check meaning, reading speed, punctuation, and whether mixed-language phrases still display naturally.</p>
+      <h2>Preparing subtitles for translation</h2>
+      <p>Correct the source transcript before translating. FreeAudioTrim supports 20 translation languages and sends the edited segments to a temporary Google Translate view. Only transcript lines are marked for translation, while interface labels and timestamps stay untouched.</p>
+      <p>The translation page can download TXT, SRT, or VTT. It rebuilds timed cues around the translated sentences, but you still need to check reading speed and line breaks. For English-to-Arabic or Arabic-to-English subtitles, check punctuation, names, numbers, and mixed-language phrases in the final player.</p>
+      <p>You can also open <strong>Refine with ChatGPT</strong>. The button opens a dedicated custom GPT but does not send the transcript automatically. Copy only the text you want to share.</p>
     </section>
 
     <section>
-      <h2>Why this matters in real production</h2>
+      <h2>How the translation handoff works</h2>
+      <p>The available source and target choices are English, Modern Standard Arabic, Spanish, French, German, Hindi, Urdu, Turkish, Simplified Chinese, Portuguese, Russian, Japanese, Korean, Italian, Dutch, Persian, Bengali, Indonesian, Ukrainian, and Vietnamese. The source and target must be different.</p>
+      <p>When you open translation, FreeAudioTrim copies the corrected segment text and original cue times into a temporary local-storage session. A clean page opens in a new tab and loads the Google Translate website element. The session expires after 12 hours, so an old translation link cannot remain open indefinitely.</p>
+      <p>Google Translate changes only elements marked as transcript text. Cue numbers, timecodes, buttons, and page labels are protected. After translated text appears, FreeAudioTrim breaks it into sentences and rebalances those sentences across the original time span. That retiming is a useful starting point, but it cannot judge reading comfort as well as a person watching the finished video.</p>
+      <p>The active format button controls the download. TXT contains the translated text, SRT uses numbered cues and comma-based milliseconds, and VTT starts with <code>WEBVTT</code> and uses period-based milliseconds. The translated filenames end in <code>_translated.txt</code>, <code>_translated.srt</code>, or <code>_translated.vtt</code>.</p>
+    </section>
+
+    <section>
+      <h2>What the ChatGPT button does</h2>
+      <p><strong>Refine with ChatGPT</strong> opens the FreeAudioTrim Subtitle Translator custom GPT in another tab. It can help with grammar, punctuation, readability, translation wording, and terminology when you choose to provide the text.</p>
+      <p>The button does not copy the transcript, attach the media, put transcript text in the URL, send anything automatically, or return ChatGPT edits to FreeAudioTrim. You decide what to share and move any accepted changes back yourself.</p>
+    </section>
+
+    <section>
+      <h2>How subtitles move through a real project</h2>
       <p>Subtitles often travel through more than one tool: a transcript editor, a translator, YouTube Studio, Premiere Pro, DaVinci Resolve, or a client review link. A clean source transcript makes every handoff easier.</p>
       <p><strong>Privacy note:</strong> if the video includes confidential client audio, unreleased footage, or internal training material, use a no-upload workflow where supported and keep the reviewed TXT, SRT, or VTT files organized with the project.</p>
       <p><strong>Practical tip:</strong> finish the edit first, generate subtitles from the final audio, export SRT for editor and YouTube handoff, then prepare translation from the corrected source text.</p>
     </section>
 
     <section>
-      <h2>Arabic and Mixed Arabic-English Subtitle Notes</h2>
+      <h2>Arabic and mixed Arabic-English subtitles</h2>
       <p>Arabic subtitles need a careful right-to-left review. Check punctuation at the end of lines, numbers, English product names, hashtags, URLs, and mixed Arabic-English phrases. Some video editors and players handle bidirectional text differently, so test the subtitle file in the final platform before delivery.</p>
       <p>If you work with Gulf Arabic, dialect speech, or code-switching between Arabic and English, expect to do more manual review. The transcript may capture the general meaning but still miss names, local terms, or where one language switches into another.</p>
       <p>Arabic users can also start from the <a href="/ar/audio-video-transcription-online.html">Arabic transcription and subtitle tool</a> for a workflow written around Arabic-language needs.</p>
     </section>
 
     <section>
-      <h2>Common Mistakes When Generating Subtitles</h2>
+      <h2>Common subtitle mistakes</h2>
       <ul>
         <li><strong>Generating subtitles before the edit is locked:</strong> Every cut after transcription can push captions out of sync.</li>
         <li><strong>Exporting only TXT when you need timed captions:</strong> TXT is useful, but it will not upload as timed subtitles on most video platforms.</li>
@@ -217,11 +235,24 @@
     <section>
       <h2>Limitations to know</h2>
       <p>Automatic subtitles are a draft. Noisy audio, fast speech, overlapping speakers, dialects, technical names, and mixed Arabic-English phrases can all produce errors that only show up when you watch the captions against the final video.</p>
-      <p>Right-to-left display is also platform-dependent. Test Arabic SRT or VTT files in the actual destination, especially before sending subtitles to a client or publishing a translated video.</p>
+      <p>The tool can miss words, misspell names, repeat a phrase, or produce text during silence. It does not know which speaker is talking. Right-to-left display also depends on the destination. Test Arabic SRT or VTT files in the actual player before sending subtitles to a client or publishing a translated video.</p>
     </section>
 
     <section>
-      <h2>Recommended FreeAudioTrim Workflow</h2>
+      <h2>What the tool does not do</h2>
+      <p>The current tool does not capture a microphone, transcribe a meeting continuously, or provide live microphone dictation. Its live feature is a changing preview while an uploaded file is processed.</p>
+      <p>It also does not provide speaker diarization, automatic speaker names, or manual timestamp-value editing. The built-in <strong>Enhance audio</strong> option performs peak normalization. It does not remove noise, music, room echo, clipping, or overlapping voices.</p>
+      <p>Google translation is not local, and ChatGPT refinement is not a one-click round trip. Codec support is never guaranteed by the extension alone. Accuracy also varies by model, language, dialect, and recording quality, so there is no fixed WER that applies to every file.</p>
+    </section>
+
+    <section>
+      <h2>Right-to-left text and export behavior</h2>
+      <p>Arabic, Urdu, Persian, Hebrew, and other right-to-left languages are displayed with the appropriate text direction. Exports add direction marks, and Latin words, URLs, or numbers inside RTL text can receive bidirectional isolation to reduce scrambled display order.</p>
+      <p>That browser-side handling cannot control every video editor or player. Test the exported subtitle file in its final destination, especially when a cue mixes Arabic and English.</p>
+    </section>
+
+    <section>
+      <h2>A practical FreeAudioTrim workflow</h2>
       <p>For the cleanest subtitle workflow, use FreeAudioTrim tools in this order:</p>
       <ol>
         <li>Need audio from a video first? Use <a href="/extract-audio-from-video.html">Extract Audio from Video</a>.</li>
@@ -265,32 +296,72 @@
       <p>Captions help viewers who are deaf or hard of hearing, people watching without sound, and anyone who needs support following speech. For accessibility, include important spoken words, speaker changes where needed, and meaningful sound cues that affect understanding.</p>
     </section>
   </main>
-  <footer>
-    <div class="footer-container">
-      <div class="blog-footer-grid">
-        <div>
-          <div class="footer-title">AudioTools</div>
-          <p class="footer-text">Free browser-based audio editing tools. Private, fast, secure.</p>
-        </div>
-        <div>
-          <div class="footer-title">Tools</div>
-          <p><a href="/" class="footer-text">MP3 Trimmer</a></p>
-          <p><a href="/convert-mp3-to-wav.html" class="footer-text">Convert MP3</a></p>
-          <p><a href="/normalize-audio-volume.html" class="footer-text">Normalize Volume</a></p>
-        </div>
-        <div>
-          <div class="footer-title">Legal</div>
-          <p><a href="/privacy-policy.html" class="footer-text">Privacy Policy</a></p>
-          <p><a href="/terms-of-service.html" class="footer-text">Terms of Service</a></p>
-          <p><a href="/about.html" class="footer-text">About</a></p>
-          <p><a href="/contact.html" class="footer-text">Contact</a></p>
-        </div>
-      </div>
-      <div class="footer-small">
-        (c) 2026 AudioTools. All rights reserved.
-      </div>
+  <footer class="site-footer">
+
+  <div class="footer-container">
+
+    <!-- Brand -->
+    <div class="footer-brand">
+      <h3>FreeAudioTrim</h3>
+      <p>Simple, fast, and private audio tools that run entirely in your browser.</p>
     </div>
-  </footer>
+
+    <!-- Tools -->
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <ul>
+        <li><a href="/audio-cutter-online.html">Audio Cutter</a></li>
+        <li><a href="/free-mp3-cutter.html">MP3 Cutter</a></li>
+        <li><a href="/merge-audio-files.html">Merge Audio</a></li>
+        <li><a href="/remove-silence-from-audio.html">Remove Silence</a></li>
+        <li><a href="/normalize-audio-volume.html">Normalize Audio</a></li>
+        <li><a href="/audio-converter.html">Audio Converter</a></li>
+      </ul>
+    </div>
+
+    <!-- More Tools -->
+    <div class="footer-col">
+      <h4>More Tools</h4>
+      <ul>
+        <li><a href="/audio-speed-changer.html">Speed Changer</a></li>
+        <li><a href="/audio-pitch-changer.html">Pitch Changer</a></li>
+        <li><a href="/extract-audio-from-video.html">Extract Audio</a></li>
+        <li><a href="/convert-mp3-to-wav.html">MP3 to WAV</a></li>
+        <li><a href="/mp3-to-m4r.html">MP3 to M4R</a></li>
+        <li><a href="/ringtone-maker.html">Ringtone Maker</a></li>
+      </ul>
+    </div>
+
+    <!-- Resources -->
+    <div class="footer-col">
+      <h4>Resources</h4>
+      <ul>
+        <li><a href="/blog/">Blog</a></li>
+        <li><a href="/blog/audio-editing-guide.html">Audio Editing Guide</a></li>
+        <li><a href="/blog/how-to-trim-mp3-online.html">Trim MP3 Guide</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- Bottom Bar -->
+  <div class="footer-bottom">
+
+    <div class="footer-legal">
+      <a href="/terms-of-service.html">Terms</a>
+      <a href="/privacy-policy.html">Privacy</a>
+      <a href="/about.html">About</a>
+    </div>
+
+    <div class="footer-social">
+      <a href="https://x.com/FreeAudioTrim" target="_blank" rel="noopener noreferrer">X</a>
+      <a href="https://www.youtube.com/@freeaudiotrim" target="_blank" rel="noopener noreferrer">YouTube</a>
+    </div>
+
+  </div>
+
+</footer>
   <script src="/assets/mobile-menu.js"></script>
 </body>
 </html>
