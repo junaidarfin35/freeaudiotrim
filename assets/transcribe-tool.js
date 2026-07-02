@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var DEBUG_TRANSCRIPTION = true;
+  var DEBUG_TRANSCRIPTION = false;
   var RAW_WHISPER_PASSTHROUGH = true;
   // Experimental only. Production desktop transcription defaults to full-audio sliding-window chunking.
   var ENABLE_DESKTOP_TRANSCRIPTION_VAD = false;
