@@ -1,16 +1,18 @@
 (function () {
   "use strict";
 
-  var DEBUG_TRANSCRIPTION = false;
+  var DEBUG_TRANSCRIPTION = true;
   var RAW_WHISPER_PASSTHROUGH = true;
   // Experimental only. Production desktop transcription defaults to full-audio sliding-window chunking.
   var ENABLE_DESKTOP_TRANSCRIPTION_VAD = false;
   var srtContent = "";
   var vttContent = "";
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-06-19-subtitle-debug-1";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-07-02-leading-silence-trim-restore-1";
   var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-25-24";
   var MOBILE_VAD_WORKER_URL = "/assets/mobile-vad-worker.js?v=2026-05-25-24";
   var MOBILE_VAD_TIMEOUT_MS = 9000;
+  var LEADING_SILENCE_TRIM_MIN_SECONDS = 2.4;
+  var LEADING_SILENCE_TRIM_PRE_ROLL_SECONDS = 0.18;
   var worker = null;
   var workerGeneration = 0;
   var mobileVadWorker = null;
@@ -2479,6 +2481,92 @@
     }).finally(function () {
       resetMobileVadWorker();
     });
+  }
+
+  function normalizeLeadingTrimSpeechSpans(spans, trimStartSample, totalSamples) {
+    var safeTrimStartSample = Math.max(0, Math.floor(Number(trimStartSample) || 0));
+    var safeTotalSamples = Math.max(0, Number(totalSamples) || 0);
+    return (Array.isArray(spans) ? spans : []).map(function (span) {
+      var startSample = Math.max(0, Math.min(safeTotalSamples, Math.floor(Number(span && span.startSample) || 0)));
+      var endSample = Math.max(0, Math.min(safeTotalSamples, Math.ceil(Number(span && span.endSample) || 0)));
+      return {
+        startSample: Math.max(0, startSample - safeTrimStartSample),
+        endSample: Math.max(0, endSample - safeTrimStartSample)
+      };
+    }).filter(function (span) {
+      return span.endSample > span.startSample;
+    });
+  }
+
+  function buildLeadingSilenceTrimPlan(audioData, speechSpans, sampleRate) {
+    var safeSampleRate = Math.max(1, Number(sampleRate) || 16000);
+    var safeAudio = audioData && audioData.length ? audioData : null;
+    var spans = Array.isArray(speechSpans) ? speechSpans : [];
+    var firstSpan = spans.length ? spans[0] : null;
+    var firstSpeechSample = Math.max(0, Number(firstSpan && firstSpan.startSample) || 0);
+    var trimThresholdSamples = Math.round(LEADING_SILENCE_TRIM_MIN_SECONDS * safeSampleRate);
+    var preRollSamples = Math.round(LEADING_SILENCE_TRIM_PRE_ROLL_SECONDS * safeSampleRate);
+    var trimStartSample = Math.max(0, firstSpeechSample - preRollSamples);
+
+    if (!safeAudio || !firstSpan || firstSpeechSample < trimThresholdSamples || trimStartSample <= 0 || trimStartSample >= safeAudio.length) {
+      return {
+        didTrim: false,
+        audioData: safeAudio,
+        speechSpans: spans.slice(),
+        timelineOffsetSec: 0,
+        trimmedSamples: 0
+      };
+    }
+
+    return {
+      didTrim: true,
+      audioData: safeAudio.subarray(trimStartSample),
+      speechSpans: normalizeLeadingTrimSpeechSpans(spans, trimStartSample, safeAudio.length),
+      timelineOffsetSec: trimStartSample / safeSampleRate,
+      trimmedSamples: trimStartSample
+    };
+  }
+
+  function logTranscriptionLifecycleDebugReport(diagnostics, finalSegments) {
+    if (!DEBUG_TRANSCRIPTION || !window.console || typeof window.console.info !== "function") {
+      return;
+    }
+
+    refreshTranscriptionLifecycleDebugReport(diagnostics);
+    var report = window.__lastTranscriptionLifecycleReport || {};
+    var removed = Array.isArray(report.removedAfterLivePreview) ? report.removedAfterLivePreview : [];
+    var dropped = Array.isArray(report.droppedSegments) ? report.droppedSegments : [];
+    var finalRows = (Array.isArray(finalSegments) ? finalSegments : []).map(function (segment, index) {
+      return {
+        index: index,
+        start: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[0]) : null,
+        end: segment && Array.isArray(segment.timestamp) ? Number(segment.timestamp[1]) : null,
+        text: cleanText(segment && (segment.text || segment.originalText || segment.editedText))
+      };
+    });
+
+    if (typeof window.console.group === "function") {
+      window.console.group("[transcription-loss-debug] Live preview vs final transcript");
+    }
+    window.console.info("[transcription-loss-debug] summary", {
+      livePreviewFragments: Array.isArray(report.livePreviewFragments) ? report.livePreviewFragments.length : 0,
+      removedAfterLivePreview: removed.length,
+      droppedOrMergedDecisions: dropped.length,
+      finalSegments: finalRows.length
+    });
+    window.console.info("[transcription-loss-debug] Inspect window.__lastTranscriptionLifecycleReport for the complete report.");
+    if (typeof window.console.table === "function") {
+      window.console.table(removed);
+      window.console.table(dropped);
+      window.console.table(finalRows);
+    } else {
+      window.console.info("[transcription-loss-debug] removed-after-live-preview", removed);
+      window.console.info("[transcription-loss-debug] dropped-or-merged", dropped);
+      window.console.info("[transcription-loss-debug] final-segments", finalRows);
+    }
+    if (typeof window.console.groupEnd === "function") {
+      window.console.groupEnd();
+    }
   }
 
   function getTranscriptionModeByKey(modelKey) {
@@ -7796,6 +7884,7 @@ function generateVTT(segments) {
         });
         logSubtitleBoundaryDebug("accepted-final", finalSegments, this.timingSpeechSpans, this.sampleRate);
         markLivePreviewRemovals(this.overlapDedupDiagnostics, finalSegments);
+        logTranscriptionLifecycleDebugReport(this.overlapDedupDiagnostics, finalSegments);
         this.clearTimers();
         activeWindowedTranscriptionController = null;
         this.aggregateSegments = finalSegments;
@@ -7828,6 +7917,7 @@ function generateVTT(segments) {
         });
         logSubtitleBoundaryDebug("accepted-partial", finalSegments, this.timingSpeechSpans, this.sampleRate);
         markLivePreviewRemovals(this.overlapDedupDiagnostics, finalSegments);
+        logTranscriptionLifecycleDebugReport(this.overlapDedupDiagnostics, finalSegments);
         this.clearTimers();
         activeWindowedTranscriptionController = null;
         this.markWarning("weak_audio");
@@ -9198,6 +9288,8 @@ function generateVTT(segments) {
       var resampled = audio.phoneOptimized && audio.sampleRate === 16000
         ? processedData
         : resampleTo16kHz(processedData, audio.sampleRate);
+      var transcriptionAudioData = resampled;
+      var transcriptionTimelineOffsetSec = 0;
         activeTranscriptionContext = {
           modelKey: modelKey,
           language: language,
@@ -9222,19 +9314,19 @@ function generateVTT(segments) {
 
       var selectedLanguage = language || "auto";
       var shouldReleaseDecodedAudio = !!audio.phoneOptimized || isSafariLikeBrowser();
-      var transferBuffer = resampled.buffer;
+      var transferBuffer = transcriptionAudioData.buffer;
       var mobileVadSpans = [];
       var timingSpeechSpans = [];
       var sessionPathLabel = audio.phoneOptimized
         ? "Standard mobile chunking."
         : "Transformers.js sliding-window chunking.";
 
-      if (shouldUseTranscriptionVad(audio, resampled)) {
+      if (shouldUseTranscriptionVad(audio, transcriptionAudioData)) {
         try {
           setStatus(statusEl, "Analyzing speech regions...", "processing");
           setProgressMessage("Analyzing speech regions...");
           setProgress(Math.max(6, getProgressValue()));
-          mobileVadSpans = await requestMobileVadSpans(resampled);
+          mobileVadSpans = await requestMobileVadSpans(transcriptionAudioData);
           if (mobileVadSpans.length) {
             sessionPathLabel = "Experimental VAD-selected chunks.";
           }
@@ -9243,22 +9335,51 @@ function generateVTT(segments) {
         }
       }
 
-      if (!mobileVadSpans.length && shouldUseControlledDesktopWindows(audio, resampled)) {
-        var controlledWindows = buildControlledDesktopWindowPlan(resampled.length, 16000);
+      if (!audio.phoneOptimized && !mobileVadSpans.length) {
+        try {
+          timingSpeechSpans = await requestMobileVadSpans(transcriptionAudioData);
+          if (timingSpeechSpans.length) {
+            var leadingTrimPlan = buildLeadingSilenceTrimPlan(transcriptionAudioData, timingSpeechSpans, 16000);
+            if (leadingTrimPlan.didTrim) {
+              transcriptionAudioData = leadingTrimPlan.audioData;
+              transcriptionTimelineOffsetSec = leadingTrimPlan.timelineOffsetSec;
+              timingSpeechSpans = leadingTrimPlan.speechSpans;
+              transferBuffer = transcriptionAudioData.buffer;
+              sessionPathLabel = "Leading silence trimmed before transcription.";
+            }
+          }
+        } catch (timingTrimError) {
+          timingSpeechSpans = [];
+        }
+      }
+
+      if (!mobileVadSpans.length && shouldUseControlledDesktopWindows(audio, transcriptionAudioData)) {
+        var controlledWindows = buildControlledDesktopWindowPlan(transcriptionAudioData.length, 16000).map(function (windowMeta) {
+          return Object.assign({}, windowMeta, {
+            startSec: windowMeta.startSec + transcriptionTimelineOffsetSec,
+            endSec: windowMeta.endSec + transcriptionTimelineOffsetSec,
+            coreStartSec: windowMeta.coreStartSec + transcriptionTimelineOffsetSec,
+            coreEndSec: windowMeta.coreEndSec + transcriptionTimelineOffsetSec
+          });
+        });
         var controlledController;
         var controlledResult;
         var controlledSlices = controlledWindows.map(function (windowMeta) {
-          return inspectControlledWindowSlice(resampled, windowMeta);
+          return inspectControlledWindowSlice(transcriptionAudioData, windowMeta);
         });
-        try {
-          setStatus(statusEl, "Checking speech timing...", "processing");
-          setProgressMessage("Checking speech timing...");
-          setProgress(Math.max(6, getProgressValue()));
-          timingSpeechSpans = await requestMobileVadSpans(resampled);
-        } catch (timingVadError) {
-          timingSpeechSpans = [];
+        if (!timingSpeechSpans.length) {
+          try {
+            setStatus(statusEl, "Checking speech timing...", "processing");
+            setProgressMessage("Checking speech timing...");
+            setProgress(Math.max(6, getProgressValue()));
+            timingSpeechSpans = await requestMobileVadSpans(transcriptionAudioData);
+          } catch (timingVadError) {
+            timingSpeechSpans = [];
+          }
         }
-        sessionPathLabel = "App-controlled 29s desktop windows.";
+        if (sessionPathLabel !== "Leading silence trimmed before transcription.") {
+          sessionPathLabel = "App-controlled 29s desktop windows.";
+        }
         setTranscriptionSessionPathLabel(sessionPathLabel);
         controlledController = createControlledWindowTranscriptionController({
           sessionId: transcriptionSessionId,
@@ -9267,7 +9388,7 @@ function generateVTT(segments) {
           statusEl: statusEl,
           windows: controlledWindows,
           sliceReports: controlledSlices,
-          audioData: resampled,
+          audioData: transcriptionAudioData,
           sampleRate: 16000,
           timingSpeechSpans: timingSpeechSpans,
           releaseDecodedAudio: shouldReleaseDecodedAudio,
@@ -9290,6 +9411,7 @@ function generateVTT(segments) {
         scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
         processedData = null;
         resampled = null;
+        transcriptionAudioData = null;
         return;
       }
 
@@ -9303,14 +9425,16 @@ function generateVTT(segments) {
               modelKey: modelKey,
               audio: transferBuffer,
               speechSpans: mobileVadSpans,
-              selectedLanguage: selectedLanguage
+              selectedLanguage: selectedLanguage,
+              timelineOffset: transcriptionTimelineOffsetSec
             }
           : {
               type: "transcribe",
               sessionId: transcriptionSessionId,
               modelKey: modelKey,
               audio: transferBuffer,
-              selectedLanguage: selectedLanguage
+              selectedLanguage: selectedLanguage,
+              timelineOffset: transcriptionTimelineOffsetSec
             },
         [transferBuffer]
       );
@@ -9321,6 +9445,7 @@ function generateVTT(segments) {
       }
       processedData = null;
       resampled = null;
+      transcriptionAudioData = null;
       return;
     } catch (error) {
       window.translatedTranscript = "";
