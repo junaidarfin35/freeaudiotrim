@@ -7,8 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Raleway:wght@600;900&display=swap" rel="stylesheet">
-    <title>Free Audio Trimmer Online - Cut MP3, WAV, M4A Privately</title>
+    <title>FreeAudioTrim — Free Audio Trimmer Online, No Upload</title>
 <meta name="description" content="Trim audio online for free. Cut MP3, WAV, M4A, AAC, FLAC, or OGG files in your browser with preview, fades, and no upload required.">
+<meta name="application-name" content="FreeAudioTrim">
+<meta name="apple-mobile-web-app-title" content="FreeAudioTrim">
 <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://freeaudiotrim.com/">
   <link rel="alternate" hreflang="en" href="https://freeaudiotrim.com/">
@@ -22,7 +24,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
   <link rel="manifest" href="/assets/brand/site.webmanifest">
 <!-- Open Graph -->
-<meta property="og:title" content="Free Audio Trimmer Online - Cut MP3, WAV, M4A Privately">
+<meta property="og:title" content="FreeAudioTrim — Free Audio Trimmer Online, No Upload">
 <meta property="og:description" content="Trim audio online for free. Cut MP3, WAV, M4A, AAC, FLAC, or OGG files in your browser with preview, fades, and no upload required.">
 <meta property="og:url" content="https://freeaudiotrim.com/">
 <meta property="og:type" content="website">
@@ -31,7 +33,7 @@
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Free Audio Trimmer Online - Cut MP3, WAV, M4A Privately">
+<meta name="twitter:title" content="FreeAudioTrim — Free Audio Trimmer Online, No Upload">
 <meta name="twitter:description" content="Trim audio online for free. Cut MP3, WAV, M4A, AAC, FLAC, or OGG files in your browser with preview, fades, and no upload required.">
   <meta name="twitter:image" content="https://freeaudiotrim.com/assets/OG/audio-tools.webp">
 
@@ -43,24 +45,31 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebSite",
-  "name": "FreeAudioTrim",
-  "alternateName": ["freeaudiotrim.com"],
-  "url": "https://freeaudiotrim.com/",
-  "description": "Free browser-based audio tools for trimming, cutting, converting, cleaning, and preparing audio files without uploading supported files."
-}
-</script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "FreeAudioTrim",
-  "alternateName": "freeaudiotrim.com",
-  "url": "https://freeaudiotrim.com/",
-  "logo": "https://freeaudiotrim.com/assets/brand/logo.svg",
-  "sameAs": [
-    "https://x.com/FreeAudioTrim",
-    "https://www.youtube.com/@freeaudiotrim"
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://freeaudiotrim.com/#website",
+      "url": "https://freeaudiotrim.com/",
+      "name": "FreeAudioTrim",
+      "description": "Free, private audio and transcription tools that work directly in your browser.",
+      "publisher": {
+        "@id": "https://freeaudiotrim.com/#organization"
+      }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://freeaudiotrim.com/#organization",
+      "url": "https://freeaudiotrim.com/",
+      "name": "FreeAudioTrim",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://freeaudiotrim.com/assets/brand/logo.svg"
+      },
+      "sameAs": [
+        "https://x.com/FreeAudioTrim",
+        "https://www.youtube.com/@freeaudiotrim"
+      ]
+    }
   ]
 }
 </script>
@@ -68,9 +77,16 @@
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "Free Audio Trimmer Online - Cut MP3, WAV, M4A Privately",
+  "@id": "https://freeaudiotrim.com/#webpage",
+  "name": "FreeAudioTrim — Free Audio Trimmer Online, No Upload",
   "url": "https://freeaudiotrim.com/",
-  "description": "Trim audio online for free. Cut MP3, WAV, M4A, AAC, FLAC, or OGG files in your browser with preview, fades, and no upload required."
+  "description": "Trim audio online for free. Cut MP3, WAV, M4A, AAC, FLAC, or OGG files in your browser with preview, fades, and no upload required.",
+  "isPartOf": {
+    "@id": "https://freeaudiotrim.com/#website"
+  },
+  "about": {
+    "@id": "https://freeaudiotrim.com/#organization"
+  }
 }
 </script>
 <script type="application/ld+json">
@@ -78,7 +94,7 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Free Audio Trimmer",
-  "alternateName": ["FreeAudioTrim", "freeaudiotrim.com"],
+  "alternateName": "FreeAudioTrim",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "Web Browser",
   "url": "https://freeaudiotrim.com/",
@@ -201,7 +217,7 @@
 <body data-page="trim">
 <header>
   <div class="header-container">
-  <a href="/" class="logo" aria-label="FreeAudioTrim home"><img src="/assets/brand/logo.svg" alt="FreeAudioTrim" width="207" height="32" decoding="async"></a>
+  <a href="/" class="logo" aria-label="FreeAudioTrim homepage"><img src="/assets/brand/logo.svg" alt="FreeAudioTrim" width="207" height="32" decoding="async"></a>
 <button class="menu-toggle" aria-label="Toggle menu">&#9776;</button>
 
 <nav class="nav-links">
@@ -218,10 +234,10 @@
 <main class="container">
   <section class="content-section section-intro hero">
     <h1>
-  Trim Audio Online for Free
+  FreeAudioTrim: Trim Audio Online for Free
   <span class="hero-highlight">No Upload Required</span>
 </h1>
-      <p>Cut MP3, WAV, M4A, AAC, FLAC, or OGG files directly in your browser. Choose the section you want to keep, preview the cut, add fades if needed, and download a clean MP3 or WAV without creating an account or uploading your file to a server.
+      <p>FreeAudioTrim lets you cut MP3, WAV, M4A, AAC, FLAC, or OGG files directly in your browser. Choose the section you want to keep, preview the cut, add fades if needed, and download a clean MP3 or WAV without creating an account or uploading your file to a server.
 </p>
   </section>
 
