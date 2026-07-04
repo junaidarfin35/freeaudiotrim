@@ -290,6 +290,25 @@ body.blog-page {
   font-weight: 600;
 }
 
+.blog-lead-image {
+  position: relative;
+  z-index: 1;
+  margin: 0.35rem 0 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--blog-border);
+  border-radius: 1.5rem;
+  background: var(--blog-surface-strong);
+  box-shadow: var(--blog-shadow-soft);
+}
+
+.blog-lead-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 40 / 21;
+  object-fit: cover;
+}
+
 .blog-article-page .blog-article-layout > h1 + p:not(.article-meta),
 .blog-article-page .blog-article-layout > .article-meta + p {
   margin-top: 0;
