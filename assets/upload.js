@@ -110,7 +110,7 @@
   };
 
   const getPrimaryLabelElement = (dropzone) =>
-    dropzone.querySelector('.upload-dropzone__primary, .upload-content h2, h2');
+    dropzone.querySelector('.upload-dropzone__primary');
 
   const getDefaultPrimaryText = (dropzone) =>
     String(dropzone?.dataset?.defaultPrimaryText || DEFAULT_PRIMARY_TEXT).trim() || DEFAULT_PRIMARY_TEXT;
@@ -366,9 +366,9 @@ const dispatchToInput = (input, incomingFiles) => {
       content.prepend(icon);
     }
 
-    let primary = content.querySelector('.upload-dropzone__primary, h2');
+    let primary = content.querySelector('.upload-dropzone__primary');
     if (!primary) {
-      primary = document.createElement('h2');
+      primary = document.createElement('p');
       content.appendChild(primary);
     }
     primary.className = 'upload-dropzone__primary';

@@ -447,9 +447,19 @@ main.container {
   transform: scale(1.05);
 }
 
-.upload-dropzone__primary {
-  font-size: 17px;
-  font-weight: 600;
+.upload-content .upload-dropzone__primary,
+.upload-dropzone__content .upload-dropzone__primary {
+  color: var(--upload-text);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+@media (max-width: 640px) {
+  .upload-content .upload-dropzone__primary,
+  .upload-dropzone__content .upload-dropzone__primary {
+    font-size: 1.05rem;
+  }
 }
 
 .upload-dropzone__secondary {
