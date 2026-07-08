@@ -4,8 +4,6 @@
   "pages": [
     "audio-video-transcription-online.html",
     "ar/audio-video-transcription-online.html",
-    "audio-cutter-online.html",
-    "free-mp3-cutter.html",
     "audio-pitch-changer.html",
     "audio-speed-changer.html",
     "blog/best-adobe-podcast-enhance-speech-alternatives.html",
@@ -25,8 +23,6 @@
     "ar/translate-transcript.html"
   ],
   "intentOwners": {
-    "audio-video-transcription-online.html": "audio and video to text conversion with TXT, SRT, and VTT export",
-    "audio-cutter-online.html": "precise clip extraction across multiple audio formats",
-    "free-mp3-cutter.html": "fast MP3-only clips for ringtones, podcasts, and social posts"
+    "audio-video-transcription-online.html": "audio and video to text conversion with TXT, SRT, and VTT export"
   }
 }

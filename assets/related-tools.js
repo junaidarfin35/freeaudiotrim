@@ -4,14 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const PRIMARY_CARD_LIMIT = 4;
 
   const toolMeta = {
-    "audio-cutter-online.html": {
-      name: "Audio Cutter",
-      description: "Trim audio with precise waveform controls"
-    },
-    "free-mp3-cutter.html": {
-      name: "MP3 Cutter",
-      description: "Trim MP3 files quickly in your browser"
-    },
     "merge-audio-files.html": {
       name: "Merge Audio Files",
       description: "Combine multiple audio tracks into one"
@@ -65,34 +57,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const pageConfigs = {
     "index.html": {
       primary: [
-        "audio-cutter-online.html",
         "audio-converter.html",
         "audio-video-transcription-online.html",
-        "normalize-audio-volume.html"
-      ]
-    },
-    "audio-cutter-online.html": {
-      primary: [
-        "free-mp3-cutter.html",
-        "ringtone-maker.html",
-        "audio-converter.html",
-        "normalize-audio-volume.html"
-      ]
-    },
-    "free-mp3-cutter.html": {
-      primary: [
-        "audio-cutter-online.html",
-        "ringtone-maker.html",
-        "audio-converter.html",
-        "normalize-audio-volume.html"
+        "normalize-audio-volume.html",
+        "ringtone-maker.html"
       ]
     },
     "ringtone-maker.html": {
       primary: [
-        "audio-cutter-online.html",
-        "free-mp3-cutter.html",
         "mp3-to-m4r.html",
-        "audio-pitch-changer.html"
+        "audio-pitch-changer.html",
+        "audio-converter.html",
+        "normalize-audio-volume.html"
       ]
     },
     "audio-converter.html": {
@@ -124,7 +100,6 @@ document.addEventListener("DOMContentLoaded", () => {
         "ai-voice-studio.html",
         "extract-audio-from-video.html",
         "remove-silence-from-audio.html",
-        "audio-cutter-online.html",
         "normalize-audio-volume.html"
       ]
     },
@@ -133,31 +108,31 @@ document.addEventListener("DOMContentLoaded", () => {
         "audio-video-transcription-online.html",
         "normalize-audio-volume.html",
         "remove-silence-from-audio.html",
-        "audio-cutter-online.html"
+        "extract-audio-from-video.html"
       ]
     },
     "audio-pitch-changer.html": {
       primary: [
         "audio-speed-changer.html",
         "normalize-audio-volume.html",
-        "audio-cutter-online.html",
-        "ringtone-maker.html"
+        "ringtone-maker.html",
+        "audio-converter.html"
       ]
     },
     "audio-speed-changer.html": {
       primary: [
         "audio-pitch-changer.html",
         "normalize-audio-volume.html",
-        "audio-cutter-online.html",
-        "ringtone-maker.html"
+        "ringtone-maker.html",
+        "audio-converter.html"
       ]
     },
     "merge-audio-files.html": {
       primary: [
         "remove-silence-from-audio.html",
         "normalize-audio-volume.html",
-        "audio-cutter-online.html",
-        "audio-video-transcription-online.html"
+        "audio-video-transcription-online.html",
+        "audio-converter.html"
       ]
     },
     "normalize-audio-volume.html": {
@@ -166,7 +141,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "remove-silence-from-audio.html",
         "audio-speed-changer.html",
         "merge-audio-files.html",
-        "audio-cutter-online.html"
+        "audio-converter.html"
       ]
     },
     "remove-silence-from-audio.html": {
@@ -174,8 +149,8 @@ document.addEventListener("DOMContentLoaded", () => {
         "ai-voice-studio.html",
         "normalize-audio-volume.html",
         "merge-audio-files.html",
-        "audio-cutter-online.html",
-        "audio-video-transcription-online.html"
+        "audio-video-transcription-online.html",
+        "audio-converter.html"
       ]
     },
     "mp3-to-m4r.html": {
