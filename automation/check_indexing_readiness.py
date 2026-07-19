@@ -95,16 +95,30 @@ def parse_page(relative: str) -> PageParser:
 
 def sitemap_paths() -> set[str]:
     namespace = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
-    tree = ET.parse(ROOT / "sitemap.xml")
     paths = set()
-    for node in tree.findall(".//s:loc", namespace):
-        path = urlparse(node.text or "").path
+
+    def add_url_path(url: str) -> None:
+        path = urlparse(url).path
         if path == "/":
             paths.add("index.html")
         elif path.endswith("/"):
             paths.add(f"{path.lstrip('/')}index.html")
         else:
             paths.add(path.lstrip("/"))
+
+    def read_sitemap(path: Path) -> None:
+        tree = ET.parse(path)
+        root = tree.getroot()
+        if root.tag == f"{{{namespace['s']}}}sitemapindex":
+            for node in root.findall("s:sitemap/s:loc", namespace):
+                child_path = ROOT / Path(urlparse(node.text or "").path.lstrip("/"))
+                if child_path.exists():
+                    read_sitemap(child_path)
+        else:
+            for node in root.findall("s:url/s:loc", namespace):
+                add_url_path(node.text or "")
+
+    read_sitemap(ROOT / "sitemap.xml")
     return paths
 
 

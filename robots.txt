@@ -2,3 +2,5 @@ User-agent: *
 Allow: /
 
 Sitemap: https://freeaudiotrim.com/sitemap.xml
+Sitemap: https://freeaudiotrim.com/sitemap-pages.xml
+Sitemap: https://freeaudiotrim.com/sitemap-posts.xml

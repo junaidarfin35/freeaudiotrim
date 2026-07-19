@@ -169,77 +169,88 @@
     <figure class="blog-lead-image">
       <img src="/assets/blog/og/how-to-transcribe-audio-to-text.webp" width="1200" height="630" alt="Podcast audio converted into an editable transcript with TXT, SRT, and VTT export options" decoding="async" fetchpriority="high">
     </figure>
-    <p>Audio transcription turns speech into editable text. The useful work happens before and after the first draft: choose the clearest source, remove material you do not need, then review names, numbers, speaker changes, and unclear phrases against the recording.</p>
-    <p>This guide covers interviews, meetings, lectures, podcasts, voice notes, and audio files that need reliable text without installing heavy software or sending supported files through an upload queue.</p>
+    <p>Audio transcription turns audio into editable text. The real work happens before and after the first draft. Start with the clearest source you have, cut the sections you do not need, then review names, numbers, speaker changes, and unclear phrases against the recording. This guide is for anyone who needs to transcribe interviews, meetings, lectures, podcasts, or voice notes into reliable text without installing software or uploading files to a server.</p>
 
     <section>
-      <h2>Direct answer</h2>
-      <p>To transcribe audio to text online, open the <a href="/audio-video-transcription-online.html">FreeAudioTrim transcription tool</a>, choose a supported audio file, select the spoken language and an available model, then start transcription. Listen back, correct any mistakes, and download TXT for plain text or SRT/VTT for timed subtitles. The media file stays on your device during transcription, although your browser downloads the AI model it needs to do the work.</p>
-      <ol>
-        <li>Start with the clearest available MP3, WAV, M4A, AAC, WebM, or similar supported file.</li>
-        <li>Trim unrelated sections, remove long silence, and normalize uneven speech if needed.</li>
-        <li><a href="/audio-video-transcription-online.html">Turn the prepared audio into editable text, SRT, or VTT</a>.</li>
-        <li>Play the recording beside the timed transcript and review names, numbers, unclear phrases, and technical terms.</li>
-        <li>Export TXT for notes, SRT for most video editors and platforms, or VTT for web captions.</li>
-      </ol>
+      <h2>Transcription of Audio Files to Editable Text</h2>
+      <p>The <a href="/audio-video-transcription-online.html">Audio and Video Transcription tool</a> converts speech from audio and video files into editable text, timed subtitles, and downloadable caption files, all processed locally in your browser. The steps below cover everything you need to transcribe audio to text and get a clean, reviewable result. Start with the best source file you have, prepare it before running the tool, and review the output before exporting. Skipping the preparation steps is the most common reason a transcript needs heavy correction afterward.</p>
+
+      <h3>Step 1: Choose the Cleanest Source File</h3>
+      <p>Use the original recording if you have it. WAV can be a strong working format when file size is acceptable, while MP3 and M4A are common for voice notes, meetings, podcasts, and shared recordings. If the audio comes from a video, use <a href="/extract-audio-from-video.html">Extract Audio from Video</a> first when you only need the soundtrack.</p>
+
+      <h3>Step 2: Remove Sections You Do Not Need</h3>
+      <p>Cut setup chatter, long endings, repeated false starts, or unrelated sections before transcription. Trim audio down to what actually matters. Shorter, focused audio is easier to process and much faster to review afterward.</p>
+
+      <h3>Step 3: Remove Long Silence Carefully</h3>
+      <p>Use <a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> when the recording has long gaps, dead air, or extended pauses. Keep the settings conservative. If you cut too aggressively, you can remove quiet words or sentence endings and make the transcript worse.</p>
+
+      <h3>Step 4: Normalize Uneven Speech Volume</h3>
+      <p>If one speaker is much quieter than another, run <a href="/normalize-audio-volume.html">Normalize Audio Volume</a> before transcription. More consistent volume can make listening and review easier, especially for interviews, lectures, and podcasts. Normalization helps level, but it does not remove noise, echo, or overlapping speech.</p>
+
+      <h3>Step 5: Clean Rough Voice Recordings When Needed</h3>
+      <p>If the recording is understandable but still noisy, thin, or boxy, clean the voice first with <a href="/ai-voice-studio.html">AI Voice Studio</a>. That is especially useful for phone mics, laptop recordings, draft voiceovers, and interview audio that needs clearer speech before transcription review.</p>
+
+      <h3>Step 6: Generate the Transcript</h3>
+      <p>Open the transcription tool, choose your prepared file, select the spoken language, and pick an available model. On the first run, the browser downloads the model. Longer desktop recordings are processed in overlapping windows so words near a split are less likely to disappear. The browser rejects decoded audio shorter than one second. It mixes stereo or multichannel audio to mono and resamples it to 16 kHz before inference. Phone mode uses an equal-power left and right mix. Other multichannel files are averaged across their channels.</p>
+      <p>A live preview appears while the file is being processed. It is provisional, not microphone dictation. The final text may change when the tool removes duplicate lines or retries a difficult section. The tool also has an optional <strong>Enhance audio</strong> setting. It raises a quiet waveform through peak normalization before transcription. It does not remove background noise, music, echo, or overlapping voices.</p>
+
+      <h3>Step 7: Edit Before Export</h3>
+      <p>Use the built-in player to listen while the current transcript segment is highlighted. Click a segment to jump to that part of the recording, select <strong>Edit transcript</strong>, and correct the words in place. Review proper names, brand names, numbers, quotations, and unclear phrases. The tool does not identify speakers or let you rewrite timestamp values, so add speaker names later if your project needs them.</p>
+      <p>Your edits become the source for copied text, downloads, and translation. This is worth doing before translation because a mistranscribed name or number will otherwise become a translation problem too.</p>
+
+      <h3>Step 8: Export the Right Format</h3>
+      <p>Choose TXT when you need plain transcript text for notes, search, summaries, or article drafts. Choose SRT when you need subtitle timing for YouTube, Premiere Pro, DaVinci Resolve, Final Cut workflows, or social video publishing. Choose VTT for websites and web players. Hiding timestamps makes the on-page transcript easier to read, but SRT and VTT downloads remain timed because timing is part of those formats.</p>
+
+      <h3>Translate or Refine the Corrected Transcript</h3>
+      <p>After editing, you can translate the transcript between 20 supported languages. The tool opens a temporary translation page, sends only the transcript lines through Google Translate, and keeps the page controls and timestamps out of the translation. The translated result can be downloaded as TXT, SRT, or VTT. The <strong>Refine with ChatGPT</strong> button opens the Subtitle Translator custom GPT. It does not copy or send your transcript. You choose what to share, review the response, and bring back any changes you want to keep.</p>
+
+      <h3>TXT, SRT, and VTT: Choosing the Right Format</h3>
+      <p>TXT is the simplest export. It contains the words without subtitle timing, so it works well for notes, quotes, meeting summaries, podcast show notes, and searchable archives. SRT includes numbered subtitle blocks with start and end times. It is widely supported by video platforms and editors, making it the safest subtitle export for many production workflows. VTT is a timed caption format commonly used on websites and web video players. Use it when your destination asks for WebVTT captions or when subtitles will live inside a web playback experience.</p>
     </section>
 
     <section>
-      <h2>When to use this workflow</h2>
+      <h2>When to Transcribe Your Audio</h2>
       <p>Use this workflow when you need a practical first draft of spoken content that you can search, quote, subtitle, or repurpose. It is useful for recorded interviews, client calls, team meetings, classroom lectures, webinars, podcasts, voice notes, research recordings, and content drafts.</p>
       <p>It is also helpful when privacy matters. Client footage, unpublished podcast interviews, research audio, internal meetings, and personal voice notes often should not be uploaded casually. A local browser workflow keeps supported files on your device while still giving you transcript and subtitle exports.</p>
     </section>
 
     <section>
-      <h2>Privacy note</h2>
-      <p>For confidential client audio, research interviews, or internal recordings, treat transcription as part of the production workflow, not a throwaway upload. A supported local browser workflow helps you create a working transcript while keeping the source file on your device.</p>
-      <p>Local transcription and transcript translation are separate steps. If you open the optional translation view, the corrected transcript is sent through Google Translate. The optional ChatGPT button opens a custom GPT in another tab, but FreeAudioTrim does not send the transcript to it automatically.</p>
-      <p><strong>Practical tip:</strong> export TXT when you need notes, quotes, or translation preparation. Export SRT or VTT only when you need timed subtitles for a video, web player, or later caption review.</p>
-    </section>
+      <h2>How the Transcription Tool Works</h2>
+      <p>When you transcribe audio to text, the tool does more than simply recognize speech. Before transcription begins, it checks whether your browser and device can run the selected AI model, prepares the audio for processing, and performs everything locally in your browser. These checks help keep transcription stable while matching the best available model to your device.</p>
 
-    <section>
-      <h2>What the tool checks before it starts</h2>
-      <p>Local AI uses your computer or phone, so the tool checks whether the browser supports Web Workers, WebAssembly, and browser audio processing. It also considers available memory, CPU threads, phone-sized screens, and WebGPU support before enabling each model. This keeps a large model from being offered to a device that is unlikely to finish the job.</p>
-      <p>You may see three choices. Baby Raptor uses Whisper Base and is the lightest option. Triceratops uses Whisper Small and is the default balanced model on most desktops. T-Rex uses Whisper Large V3 Turbo and is reserved for stronger desktops that pass the WebGPU check. A larger model usually gives the best chance of handling difficult speech, but it also needs more memory and time.</p>
-      <p>The language picker lists 100 options. Choosing the spoken language matters because it stops the model from guessing and narrows its decoding choices. It is particularly helpful for short clips, accents, Arabic, and recordings that switch between languages.</p>
-    </section>
+      <h3>What the Tool Checks Before It Starts</h3>
+      <p>Before processing begins, the tool confirms that your browser supports the features needed for local transcription. It checks for Web Workers, WebAssembly, and browser audio processing support. It also reviews available memory, CPU threads, screen type, and WebGPU support before deciding which AI models your device can handle.</p>
+      <p>You may see up to three model options. Baby Raptor uses Whisper Base and is the lightest model. Triceratops uses Whisper Small and offers a balance between speed and accuracy for most desktop computers. T Rex uses Whisper Large V3 Turbo and is available only on devices that pass additional hardware checks. Larger models often improve transcription accuracy, but they also require more memory and processing power.</p>
+      <p>The language you choose also matters. Selecting the spoken language reduces guessing and helps improve accuracy, especially for short recordings, strong accents, Arabic audio, or conversations that switch between languages.</p>
 
-    <section>
-      <h2>How the hardware check chooses a safe model</h2>
-      <p>The basic check looks for Web Workers, WebAssembly, and AudioContext. Without all three, local transcription is unavailable. On desktop, Triceratops is disabled when the browser reports less than 4 GB of memory or fewer than four logical CPU threads. A coarse-pointer tablet needs at least 4 GB and six logical threads for that model.</p>
-      <p>T-Rex gets a stricter test. The browser requests a high-performance WebGPU adapter, rejects fallback renderers such as SwiftShader, and checks memory, CPU concurrency, GPU buffer capacity, and storage-buffer limits. The normal recommendation is at least 12 GB of memory and 10 logical CPU threads. Apple desktops can qualify through a separate eight-thread check.</p>
-      <p>The adapter earns more points when its maximum buffer is at least 256 MB or 512 MB and its maximum storage-buffer binding is at least 128 MB or 256 MB. Memory of 12 GB or 16 GB and CPU counts of 10 or 12 threads add more points. T-Rex needs a score of at least six. Older Intel integrated graphics lose a point, while software adapters are rejected outright.</p>
-      <p>These checks are conservative on purpose. If T-Rex fails while loading or becomes unstable during a run, the tool disables it for that session and retries with Triceratops. Baby Raptor is the final fallback.</p>
-    </section>
+      <h3>How the Hardware Check Chooses a Safe Model</h3>
+      <p>The tool starts with a basic compatibility check. Your browser must support Web Workers, WebAssembly, and AudioContext before local transcription can run. For desktop devices, Triceratops is available only when the browser reports enough memory and CPU threads. Tablets with touch focused hardware need slightly higher resources before the model becomes available.</p>
+      <p>T Rex goes through additional testing. The browser checks for a supported WebGPU adapter, available memory, CPU resources, GPU buffer capacity, and storage limits before enabling the model. Apple desktops qualify through a separate hardware check designed for Apple silicon devices. These checks are intentionally conservative. If T Rex becomes unstable or fails to load, the tool automatically switches to Triceratops. If needed, it falls back again to Baby Raptor so transcription can continue instead of failing completely.</p>
 
-    <section>
-      <h2>Where the model comes from and where it runs</h2>
-      <p>The desktop worker loads Transformers.js from jsDelivr and timestamped ONNX Whisper models from Hugging Face. Baby Raptor maps to <code>onnx-community/whisper-base_timestamped</code>, Triceratops to <code>onnx-community/whisper-small_timestamped</code>, and T-Rex to <code>onnx-community/whisper-large-v3-turbo_timestamped</code>. Phones use <code>Xenova/whisper-base</code>.</p>
-      <p>The model runs in a Web Worker. Desktop browsers prefer WebGPU with mixed quantized weights and use WebAssembly with quantized weights as a compatibility path for Baby Raptor and Triceratops. T-Rex requires its WebGPU path. The prepared audio stays inside the browser. Downloading a model is not the same as uploading a recording.</p>
-      <p>Non-Safari desktop browsers can restore model files from the browser cache. Safari disables that cache path for stability, and the mobile worker does not use the Transformers.js browser cache. While the page stays open, the model can remain in worker memory. It is normally unloaded after about 90 seconds of visible inactivity or 15 seconds while the page is hidden.</p>
-      <p>FreeAudioTrim also prevents two tabs from holding transcription models at once. It coordinates tabs with local storage and BroadcastChannel. If another tab owns the model, the current tab waits or asks you to close the other one. This avoids doubling memory use.</p>
-    </section>
+      <h3>Where the Model Comes From and Where It Runs</h3>
+      <p>The transcription models are downloaded from trusted online repositories the first time you use them. Desktop browsers load Transformers.js from jsDelivr and Whisper models from Hugging Face. Phone mode uses a lighter Whisper Base model designed for mobile devices. After the download finishes, the model runs inside a Web Worker in your browser. Your audio stays on your device during transcription. Downloading the AI model is separate from uploading your recording.</p>
+      <p>Desktop browsers can reuse previously downloaded models from the browser cache to reduce future loading times. Safari handles caching differently for stability, while mobile browsers use their own loading process. Once a transcription session finishes, the model usually stays in memory for a short time before it unloads automatically. To avoid using unnecessary system memory, FreeAudioTrim allows only one browser tab to hold an active transcription model at a time. If another tab is already using the model, the current tab waits until those resources become available.</p>
 
-    <section>
-      <h2>File length limits on phones and computers</h2>
-      <p>Phone mode offers Baby Raptor only. The limit is 90 seconds on a lower-power phone, 120 seconds on a typical phone, and 150 seconds on a stronger phone. The tool decides the tier from the memory and CPU information the browser exposes.</p>
-      <p>Desktop limits depend on model size: 20 minutes for Baby Raptor, 15 minutes for Triceratops, and 10 minutes for T-Rex. A lighter model can therefore be the better choice for a long recording, even when the computer can run the larger one.</p>
-    </section>
+      <h3>File Length Limits on Phones and Computers</h3>
+      <p>Phone mode supports Baby Raptor only. Depending on your device, recordings can be up to 90, 120, or 150 seconds long. The browser estimates your device's capabilities before deciding which limit applies.</p>
+      <p>Desktop limits depend on the selected model. Baby Raptor supports recordings up to 20 minutes, Triceratops supports up to 15 minutes, and T Rex supports up to 10 minutes. For longer recordings, choosing a lighter model may be the better option even if your computer can run a larger one.</p>
 
-    <section>
-      <h2>What the status messages are telling you</h2>
-      <p>The messages follow the actual pipeline, so they are useful when a run feels slow:</p>
-      <ul>
-        <li><strong>Preparing or downloading a model</strong> means the worker is checking memory, browser cache, or network files. A percentage appears during a fresh download.</li>
-        <li><strong>Preparing audio</strong> means the browser is decoding the file, mixing it to mono, normalizing it when requested, and resampling it to 16 kHz.</li>
-        <li><strong>Analyzing speech regions</strong> and <strong>Checking speech timing</strong> refer to local voice-activity and timing checks.</li>
-        <li><strong>Transcribing window or part</strong> shows progress through a longer recording. Smaller-window and recovery messages mean one region needed another attempt.</li>
-        <li><strong>Finalizing transcript</strong> means the tool is merging text, checking timestamps, and removing repeated overlap before showing the result.</li>
-      </ul>
-      <p>Warnings tell you when the speech was weak, repeated output was detected, a device limit was reached, or a safer model was selected. Errors keep the file loaded when a retry is possible.</p>
+      <h3>What the Status Messages Are Telling You</h3>
+      <p>The status messages show which stage of transcription is currently running. They can also help explain why processing may take longer for some recordings.</p>
+      <p><strong>Preparing or downloading a model</strong></p>
+      <p>The browser checks whether the selected AI model is already available. If it is not, the required files are downloaded before transcription begins.</p>
+      <p><strong>Preparing audio</strong></p>
+      <p>Your recording is decoded, converted to mono when needed, and resampled to 16 kHz so it matches the format required by the transcription model.</p>
+      <p><strong>Analyzing speech regions</strong></p>
+      <p>The tool identifies spoken sections and prepares timing information before speech recognition starts.</p>
+      <p><strong>Transcribing</strong></p>
+      <p>For longer recordings, the audio is processed in smaller sections. If one section is difficult to recognize, the tool may retry it before continuing.</p>
+      <p><strong>Finalizing transcript</strong></p>
+      <p>The completed transcript is merged, duplicate overlap is removed, and timestamps are checked before the final result appears.</p>
+      <p>You may also see warnings when speech quality is poor, a device reaches its processing limits, or the tool selects a safer model to improve stability. When possible, the original file stays loaded so you can retry without starting over.</p>
       <details>
         <summary>Full status and progress message reference</summary>
-        <h3>Upload and readiness</h3>
+        <p><strong>Getting Started</strong></p>
         <ul>
           <li>Upload a file to begin transcription</li>
           <li>Audio ready for transcription. Choose the spoken language.</li>
@@ -248,7 +259,7 @@
           <li>The selected model could not be prepared last time. Press Transcribe to retry.</li>
           <li>The selected model is disabled on this device, followed by the reason.</li>
         </ul>
-        <h3>Model preparation</h3>
+        <p><strong>Model Setup</strong></p>
         <ul>
           <li>Preparing the selected model</li>
           <li>Checking your cached AI model so transcription can stay local in this browser</li>
@@ -259,7 +270,7 @@
           <li>Failed to prepare the selected transcription mode</li>
           <li>Failed to load AI model. Check your internet connection</li>
         </ul>
-        <h3>Audio and transcription</h3>
+        <p><strong>Audio Processing</strong></p>
         <ul>
           <li>Preparing audio</li>
           <li>Analyzing speech regions</li>
@@ -273,7 +284,7 @@
           <li>Recovering speech after a repeated intro loop</li>
           <li>Finalizing transcript</li>
         </ul>
-        <h3>Results, warnings, and recovery</h3>
+        <p><strong>Results and Troubleshooting</strong></p>
         <ul>
           <li>Transcript ready or Transcription complete</li>
           <li>Audio enhanced for better accuracy</li>
@@ -286,113 +297,67 @@
           <li>The file is over the current model and device limit</li>
           <li>The previous run was reset while keeping the file loaded</li>
           <li>The worker stopped, ran out of memory, or could not communicate</li>
-          <li>T-Rex could not use WebGPU or became unstable, followed by a safer-model retry</li>
+          <li>T Rex could not use WebGPU or became unstable, followed by a safer-model retry</li>
         </ul>
       </details>
+
+      <h3>Privacy and Local Processing</h3>
+      <p>This free tool processes supported audio files locally in your browser. Your recording stays on your device while transcription runs. The only download is the AI model your browser needs to perform speech recognition.</p>
+      <p>Translation works differently. If you choose to translate your transcript, only the transcript text is sent through Google Translate. Your audio file is never included in that step.</p>
     </section>
 
     <section>
-      <h2>Audio transcription, step by step</h2>
-      <h3>1. Choose the cleanest source file</h3>
-      <p>Use the original recording if you have it. WAV can be a strong working format when file size is acceptable, while MP3 and M4A are common for voice notes, meetings, podcasts, and shared recordings. If the audio comes from a video, use <a href="/extract-audio-from-video.html">Extract Audio from Video</a> first when you only need the soundtrack.</p>
-
-      <h3>2. Remove sections you do not need</h3>
-      <p>Cut setup chatter, long endings, repeated false starts, or unrelated sections before transcription. Shorter, focused audio is easier to process and much faster to review afterward.</p>
-
-      <h3>3. Remove long silence carefully</h3>
-      <p>Use <a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> when the recording has long gaps, dead air, or extended pauses. Keep the settings conservative. If you cut too aggressively, you can remove quiet words or sentence endings and make the transcript worse.</p>
-
-      <h3>4. Normalize uneven speech volume</h3>
-      <p>If one speaker is much quieter than another, run <a href="/normalize-audio-volume.html">Normalize Audio Volume</a> before transcription. More consistent volume can make listening and review easier, especially for interviews, lectures, and podcasts. Normalization helps level, but it does not remove noise, echo, or overlapping speech.</p>
-
-      <h3>5. Clean rough voice recordings when needed</h3>
-      <p>If the recording is understandable but still noisy, thin, or boxy, clean the voice first with <a href="/ai-voice-studio.html">AI Voice Studio</a>. That is especially useful for phone mics, laptop recordings, draft voiceovers, and interview audio that needs clearer speech before transcription review.</p>
-
-      <h3>6. Generate the transcript</h3>
-      <p>Open <a href="/audio-video-transcription-online.html">Audio &amp; Video Transcription Online</a>, choose your prepared file, select the spoken language, and pick an available model. On the first run, the browser downloads the model. Longer desktop recordings are processed in overlapping windows so words near a split are less likely to disappear.</p>
-      <p>The browser rejects decoded audio shorter than one second. It mixes stereo or multichannel audio to mono and resamples it to 16 kHz before inference. Phone mode uses an equal-power left and right mix. Other multichannel files are averaged across their channels.</p>
-      <p>A live preview appears while the uploaded file is being processed. It is provisional, not microphone dictation. The final text may change when the tool removes duplicate lines or retries a difficult section.</p>
-      <p>The tool also has an optional <strong>Enhance audio</strong> setting. It raises a quiet waveform through peak normalization before transcription. It does not remove background noise, music, echo, or overlapping voices.</p>
-
-      <h3>7. Edit before export</h3>
-      <p>Use the built-in player to listen while the current transcript segment is highlighted. Click a segment to jump to that part of the recording, select <strong>Edit transcript</strong>, and correct the words in place. Review proper names, brand names, numbers, quotations, and unclear phrases. The tool does not identify speakers or let you rewrite timestamp values, so add speaker names later if your project needs them.</p>
-      <p>Your edits become the source for copied text, downloads, and translation. This is worth doing before translation because a mistranscribed name or number will otherwise become a translation problem too.</p>
-
-      <h3>8. Export the right format</h3>
-      <p>Choose TXT when you need plain transcript text for notes, search, summaries, or article drafts. Choose SRT when you need subtitle timing for YouTube, Premiere Pro, DaVinci Resolve, Final Cut workflows, or social video publishing. Choose VTT for websites and web players. Hiding timestamps makes the on-page transcript easier to read, but SRT and VTT downloads remain timed because timing is part of those formats.</p>
+      <h2>Creating Subtitles From Audio Files</h2>
+      <p>Once your audio has been transcribed, you can turn the timed transcript into subtitle files without creating a video first. This is useful for podcasts, webinars, voiceovers, online courses, interviews, and any project that needs captions before video editing begins. Choose SRT when you need subtitles for YouTube, Premiere Pro, DaVinci Resolve, Final Cut Pro, or most video editing software. Choose VTT when your captions will be used on websites or in web based video players.</p>
+      <p>Before exporting, review the transcript carefully. Check names, numbers, punctuation, and subtitle timing while listening to the recording. Small corrections at this stage help produce captions that are easier to read and more accurate when published.</p>
     </section>
 
     <section>
-      <h2>Translate or refine the corrected transcript</h2>
-      <p>After editing, you can translate the transcript between 20 supported languages. FreeAudioTrim opens a temporary translation page, sends only the transcript lines through Google Translate, and keeps the page controls and timestamps out of the translation. The translated result can be downloaded as TXT, SRT, or VTT.</p>
-      <p>The <strong>Refine with ChatGPT</strong> button opens the FreeAudioTrim Subtitle Translator custom GPT. It does not copy or send your transcript. You choose what to share, review the response, and bring back any changes you want to keep.</p>
+      <h2>Accuracy and Review Checklist</h2>
+      <p>Automatic transcription works best when the recording is clear. A single speaker, a good microphone, and a quiet environment usually produce the most accurate results. Background noise, echo, music, overlapping voices, fast speech, strong accents, and heavy audio compression can all reduce accuracy. Accuracy is often measured using Word Error Rate, or WER. It compares the transcript with a verified reference to estimate how many words were added, missed, or transcribed incorrectly. While useful for benchmarking, WER does not always reflect how readable or usable a transcript is in real situations.</p>
+      <p>Speaker overlap remains one of the biggest challenges for speech recognition. When two or more people talk at the same time, words may be missed or merged together. Audio cleanup can improve listening quality, but it cannot recover speech that was never recorded clearly. Always review the transcript while listening to the original recording. Check names, numbers, quotations, technical terms, and unclear phrases before exporting or publishing. If the transcript will be used for client work, subtitles, research, education, accessibility, or legal documents, a complete manual review is essential.</p>
     </section>
 
     <section>
-      <h2>TXT vs SRT vs VTT</h2>
-      <p><strong>TXT</strong> is the simplest export. It contains the words without subtitle timing, so it works well for notes, quotes, meeting summaries, podcast show notes, and searchable archives.</p>
-      <p><strong>SRT</strong> includes numbered subtitle blocks with start and end times. It is widely supported by video platforms and editors, making it the safest subtitle export for many production workflows.</p>
-      <p><strong>VTT</strong> is a timed caption format commonly used on websites and web video players. Use it when your destination asks for WebVTT captions or when subtitles will live inside a web playback experience.</p>
+      <h2>Language Support and Accuracy</h2>
+      <p>The transcription tool supports around 100 languages, but accuracy is not the same across every language. Recording quality, accents, dialects, and the amount of training data available for each language all influence the final transcript. Selecting the correct spoken language before transcription helps improve recognition and reduces unnecessary mistakes.</p>
+
+      <h3>Arabic Audio and Dialect Considerations</h3>
+      <p>The tool can transcribe Arabic recordings, including conversations that mix Arabic and English. When Arabic is selected, the model is prompted to transcribe speech instead of translating it, preserve English words as spoken, use punctuation where appropriate, and identify music when detected.</p>
+      <p>Even with these improvements, dialects, regional vocabulary, code switching, names, and local expressions may still require manual review. Check both the wording and subtitle timing carefully before exporting captions for publication.</p>
+
+      <h3>Which Languages Work Best</h3>
+      <p>The transcription model generally performs best in English and other well represented languages such as Spanish, French, German, Portuguese, Italian, and Dutch. Clear Modern Standard Arabic can also produce strong results when Arabic is selected before transcription begins.</p>
+      <p>Languages with less training data may produce more recognition errors, especially in recordings with background noise, strong regional accents, or technical vocabulary. When available, choose the most capable model for these recordings and review the transcript carefully before using it.</p>
     </section>
 
     <section>
-      <h2>Can you create subtitles from audio?</h2>
-      <p>Yes. If the transcript includes timing, audio can become subtitles even without a video file. This is useful when you are preparing captions for a podcast clip, voiceover, webinar audio, narrated lesson, or video that will be assembled later.</p>
-      <p>For a deeper subtitle workflow, read <a href="/blog/how-to-generate-subtitles.html">How to Generate Subtitles</a>. If your source is a video file instead of audio, use <a href="/blog/how-to-transcribe-video-to-text.html">How to Transcribe Video to Text</a>.</p>
+      <h2>Common Mistakes</h2>
+      <p>Even the best transcription tool cannot fix problems caused by poor preparation. Avoid these common mistakes to save time during editing and improve the final transcript.</p>
+
+      <h3>Transcribing Noisy Recordings Without Preparation</h3>
+      <p>If the recording contains long pauses, uneven volume, or distracting noise, clean it first. Simple preparation often produces a more accurate transcript and reduces manual corrections later.</p>
+
+      <h3>Removing too Much Silence</h3>
+      <p>Silence removal can speed up review, but aggressive settings may cut off quiet words or the ends of sentences. Keep the settings conservative when speech quality matters.</p>
+
+      <h3>Choosing the Wrong Spoken Language</h3>
+      <p>Always select the language used in the recording before starting transcription. This helps the model recognize speech more accurately, especially for short clips, accents, and multilingual conversations.</p>
+
+      <h3>Skipping the Review Step</h3>
+      <p>Automatic transcription creates a strong first draft, but it is not the final version. Listen to the recording and verify names, numbers, quotations, technical terms, and unclear phrases before exporting.</p>
+
+      <h3>Using the Wrong Export Format</h3>
+      <p>Choose TXT for notes, summaries, and searchable text. Use SRT for most subtitle workflows and VTT when captions will be published on websites or web based video players.</p>
+
+      <h3>Expecting Perfect Results from Difficult Audio</h3>
+      <p>Background noise, echo, overlapping speakers, distant microphones, and strong accents can all reduce transcription accuracy. The clearer the recording, the better the final result.</p>
     </section>
 
     <section>
-      <h2>Accuracy and review checklist</h2>
-      <p>Automatic transcription is strongest when one person speaks clearly into a decent microphone in a quiet room. Accuracy drops when there is background noise, echo, music under speech, heavy compression, strong accents, dialect variation, fast speech, multiple people talking at once, or a speaker far from the microphone.</p>
-      <p>Accuracy is often measured with word error rate, or WER. The formula is: substitutions plus deletions plus insertions, divided by the number of words in a checked reference transcript. If a 100-word reference has five substitutions, two missing words, and one extra word, the WER is 8%. Lower is better, and a flood of inserted words can push WER above 100%.</p>
-      <p>WER is useful but imperfect. Punctuation, spelling conventions, number formatting, and contractions can raise it even when a person finds the transcript understandable. There is no honest single WER for every recording. The result changes with the language, model, microphone, room, subject vocabulary, dataset, and reference formatting.</p>
-      <p>Speaker overlap is one of the hardest problems. If two people talk at the same time, the transcript may miss words, merge phrases, or assign the wrong wording. Noise reduction and volume normalization can help with review comfort, but they cannot fully recover words that were never captured clearly.</p>
-      <p>Review while listening to the source, not from text alone. Check the opening and closing sentence of each topic, search for every name and number, and replay uncertain phrases. For quotes or client delivery, make a final pass from beginning to end after corrections.</p>
-      <p>The transcript is an AI-generated draft. You are responsible for checking missed words, misspellings, names, numbers, quotations, and timing before publishing it or using it for client, legal, medical, educational, accessibility, or research work.</p>
-      <p><strong>Limitations to know:</strong> Arabic dialects, code-switching, names, local terms, and right-to-left subtitle display can need extra review before you export SRT or VTT for publishing.</p>
+      <h2>Start With the Recording You Already Have</h2>
+      <p>You do not need a perfect recording to transcribe audio to text. Start with the clearest version you have, remove anything that is not needed, and generate the first transcript. A few minutes spent reviewing names, numbers, and unclear phrases will usually produce a reliable final result. If your recording contains long pauses, uneven volume, or unnecessary sections, prepare it before transcription. Trimming the audio, removing silence, or normalizing volume can make both transcription and review easier. When you are ready, open <a href="/audio-video-transcription-online.html">Audio and Video Transcription</a>, generate your transcript, and export it as TXT, SRT, or VTT depending on how you plan to use it.</p>
     </section>
-
-    <section>
-      <h2>A note about Arabic audio</h2>
-      <p>Arabic audio can be transcribed, including mixed Arabic and English recordings, but review is important. When Arabic is selected, the worker tries to add an Arabic prompt asking Whisper to transcribe without translating or summarizing, keep English words as spoken, use punctuation where helpful, and write <span lang="ar" dir="rtl">(موسيقى)</span> when it detects music.</p>
-      <p>Dialects, Gulf Arabic, Saudi Arabic, code-switching, names, and local terms can still affect accuracy. For an Arabic-first interface and workflow, use the <a href="/ar/audio-video-transcription-online.html" lang="ar" dir="rtl">أداة تحويل الصوت والفيديو إلى نص</a>. For subtitle work, check both the wording and the line timing before exporting SRT or VTT.</p>
-    </section>
-
-    <section>
-      <h2>Which languages tend to work best?</h2>
-      <p>Whisper does not perform equally across all 100 choices. English and well-represented European languages such as Spanish, French, German, Portuguese, Italian, and Dutch generally have the safest expectations. Clear Modern Standard Arabic can also work well, especially when you select Arabic before starting.</p>
-      <p>Lower-resource languages can be less predictable. OpenAI's Whisper research specifically found that Hebrew, Telugu, Chinese, and Korean performed worse than their amount of training data alone would suggest. For those languages, choose the strongest available model and review the result closely.</p>
-      <p>For the underlying research and model details, see the <a href="https://cdn.openai.com/papers/whisper.pdf">OpenAI Whisper paper</a> and the model cards for <a href="https://huggingface.co/openai/whisper-base">Whisper Base</a>, <a href="https://huggingface.co/openai/whisper-small">Whisper Small</a>, and <a href="https://huggingface.co/openai/whisper-large-v3-turbo">Whisper Large V3 Turbo</a>.</p>
-      <details>
-        <summary>All 100 transcription language choices</summary>
-        <p>English, Arabic, Spanish, French, German, Hindi, Urdu, Turkish, Chinese, Portuguese, Russian, Japanese, Korean, Italian, Dutch, Persian, Bengali, Punjabi, Tamil, Telugu, Vietnamese, Indonesian, Afrikaans, Amharic, Assamese, Azerbaijani, Bashkir, Belarusian, Bulgarian, Tibetan, Breton, Bosnian, Catalan, Czech, Welsh, Danish, Greek, Estonian, Basque, Finnish, Faroese, Galician, Gujarati, Hausa, Hawaiian, Hebrew, Croatian, Haitian Creole, Hungarian, Armenian, Icelandic, Javanese, Georgian, Kazakh, Khmer, Kannada, Latin, Luxembourgish, Lingala, Lao, Lithuanian, Latvian, Malagasy, Maori, Macedonian, Malayalam, Mongolian, Marathi, Malay, Maltese, Myanmar, Nepali, Nynorsk, Norwegian, Occitan, Polish, Pashto, Romanian, Sanskrit, Sindhi, Sinhala, Slovak, Slovenian, Shona, Somali, Albanian, Serbian, Sundanese, Swedish, Swahili, Tajik, Thai, Turkmen, Tagalog, Tatar, Ukrainian, Uzbek, Yiddish, Yoruba, and Cantonese.</p>
-      </details>
-    </section>
-
-    <section>
-      <h2>Common mistakes</h2>
-      <ul>
-        <li><strong>Uploading private recordings without checking the workflow:</strong> Use a no-upload browser workflow for supported files when recordings are sensitive.</li>
-        <li><strong>Transcribing noisy raw audio first:</strong> Remove long silence and normalize uneven speech before transcription when cleanup will make review easier.</li>
-        <li><strong>Cutting silence too hard:</strong> Aggressive silence removal can delete quiet words and hurt the transcript.</li>
-        <li><strong>Exporting before editing:</strong> Always check names, numbers, speaker changes, and key quotes before using the transcript.</li>
-        <li><strong>Choosing the wrong format:</strong> TXT is for plain text, SRT is for most subtitle workflows, and VTT is usually for web captions.</li>
-        <li><strong>Expecting perfect results from difficult audio:</strong> Noise, accents, overlap, echo, and distant microphones all affect accuracy.</li>
-      </ul>
-    </section>
-
-    <section>
-      <h2>A practical FreeAudioTrim workflow</h2>
-      <ol>
-        <li>For video files, start with <a href="/extract-audio-from-video.html">Extract Audio from Video</a> if you want a separate audio track.</li>
-        <li>Use <a href="/">Audio Cutter Online</a> or <a href="/">Trim MP3 Online</a> to remove sections you do not need.</li>
-        <li>Use <a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> to shorten dead air while protecting quiet speech.</li>
-        <li>Use <a href="/normalize-audio-volume.html">Normalize Audio Volume</a> when speaker levels are uneven.</li>
-        <li>Use <a href="/ai-voice-studio.html">AI Voice Studio</a> when spoken audio needs clearer voice tone before text generation.</li>
-        <li>Use <a href="/audio-video-transcription-online.html">Audio &amp; Video Transcription Online</a> to create editable text, SRT subtitles, or VTT captions.</li>
-      </ol>
-    </section>
-
     <section>
       <h2>FAQ</h2>
       <h3>Can I transcribe MP3, WAV, or M4A files?</h3>
@@ -417,11 +382,6 @@
       <p>Check names, quotes, numbers, jargon, unclear sections, and subtitle timing. The tool does not create speaker labels, so add them yourself when the recording has several people. If the transcript will be published, watched, quoted, or sent to a client, manual review is part of the job.</p>
     </section>
 
-    <section>
-      <h2>Start with the recording you already have</h2>
-      <p>A clean file helps, but do not spend an hour polishing audio that is already easy to understand. Transcribe it, listen back, and fix what the model missed. Use TXT for reading, SRT for most subtitle workflows, and VTT for web captions.</p>
-      <p>Open <a href="/audio-video-transcription-online.html">Audio &amp; Video Transcription Online</a> to begin. If the recording has long gaps or uneven levels, prepare it first with <a href="/remove-silence-from-audio.html">Remove Silence from Audio</a> or <a href="/normalize-audio-volume.html">Normalize Audio Volume</a>.</p>
-    </section>
   </main>
   <footer class="site-footer">
 
@@ -437,8 +397,6 @@
     <div class="footer-col">
       <h4>Tools</h4>
       <ul>
-        <li><a href="/">Audio Cutter</a></li>
-        <li><a href="/">MP3 Cutter</a></li>
         <li><a href="/merge-audio-files.html">Merge Audio</a></li>
         <li><a href="/remove-silence-from-audio.html">Remove Silence</a></li>
         <li><a href="/normalize-audio-volume.html">Normalize Audio</a></li>
