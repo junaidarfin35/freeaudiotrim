@@ -607,6 +607,76 @@
     return this.buffer;
   };
 
+  AudioEngine.prototype.setBuffer = function (buffer, startPosition) {
+    this.stop();
+    this.buffer = buffer || null;
+    this.playStart = 0;
+    this.playEnd = this.buffer ? this.buffer.duration : 0;
+    this.startedOffset = clamp(Number(startPosition) || 0, 0, this.playEnd);
+    return this.buffer;
+  };
+
+  AudioEngine.prototype.removeSection = function (start, end, crossfadeSec) {
+    if (!this.buffer) {
+      throw new Error("No audio loaded.");
+    }
+
+    var source = this.buffer;
+    var sampleRate = source.sampleRate;
+    var startFrame = Math.floor(clamp(start, 0, source.duration) * sampleRate);
+    var endFrame = Math.ceil(clamp(end, start, source.duration) * sampleRate);
+    var removedFrames = Math.max(0, endFrame - startFrame);
+    var beforeFrames = startFrame;
+    var afterFrames = Math.max(0, source.length - endFrame);
+
+    if (removedFrames < Math.max(1, Math.floor(sampleRate * 0.01))) {
+      throw new Error("Select a longer section to remove.");
+    }
+    if (beforeFrames + afterFrames < Math.max(1, Math.floor(sampleRate * 0.05))) {
+      throw new Error("Cannot remove the entire audio file.");
+    }
+
+    var requestedCrossfade = Math.floor(Math.max(0, Number(crossfadeSec) || 0) * sampleRate);
+    var crossfadeFrames = Math.min(requestedCrossfade, beforeFrames, afterFrames);
+    var outputLength = Math.max(1, beforeFrames + afterFrames - crossfadeFrames);
+    var ctx = this.ensureContext();
+    var output = ctx.createBuffer(source.numberOfChannels, outputLength, sampleRate);
+
+    for (var channelIndex = 0; channelIndex < source.numberOfChannels; channelIndex += 1) {
+      var input = source.getChannelData(channelIndex);
+      var outputChannel = output.getChannelData(channelIndex);
+      var writeIndex = 0;
+      var beforeCopyFrames = beforeFrames - crossfadeFrames;
+
+      if (beforeCopyFrames > 0) {
+        outputChannel.set(input.subarray(0, beforeCopyFrames), writeIndex);
+        writeIndex += beforeCopyFrames;
+      }
+
+      for (var i = 0; i < crossfadeFrames; i += 1) {
+        var t = i / (crossfadeFrames - 1 || 1);
+        var outGain = Math.cos(t * (Math.PI / 2));
+        var inGain = Math.sin(t * (Math.PI / 2));
+        outputChannel[writeIndex] =
+          (input[beforeCopyFrames + i] || 0) * outGain +
+          (input[endFrame + i] || 0) * inGain;
+        writeIndex += 1;
+      }
+
+      var afterStart = endFrame + crossfadeFrames;
+      if (afterStart < source.length && writeIndex < outputLength) {
+        outputChannel.set(input.subarray(afterStart, afterStart + (outputLength - writeIndex)), writeIndex);
+      }
+    }
+
+    this.setBuffer(output, Math.min(beforeFrames / sampleRate, output.duration));
+    return {
+      buffer: output,
+      joinTime: Math.min(beforeFrames / sampleRate, output.duration),
+      removedDuration: removedFrames / sampleRate
+    };
+  };
+
   AudioEngine.prototype.stop = function (shouldSuspendContext) {
     this._playToken += 1;
     var suspendContext = shouldSuspendContext !== false;
@@ -948,6 +1018,8 @@
     this.uiFadeIn = 0;
     this.uiFadeOut = 0;
     this.duration = 1;
+    this.joinHighlightRatio = null;
+    this.joinHighlightUntil = 0;
     this.resizeObserver = null;
     this.waveformCache = null;
     this.waveformCacheWidth = 0;
@@ -1004,6 +1076,12 @@
 
   WaveformRenderer.prototype.setPlayhead = function (ratio) {
     this.playheadRatio = ratio == null ? null : clamp(ratio, 0, 1);
+    this.scheduleRender();
+  };
+
+  WaveformRenderer.prototype.flashJoin = function (ratio) {
+    this.joinHighlightRatio = ratio == null ? null : clamp(ratio, 0, 1);
+    this.joinHighlightUntil = this.joinHighlightRatio == null ? 0 : Date.now() + 1800;
     this.scheduleRender();
   };
 
@@ -1201,6 +1279,25 @@
     ctx.shadowBlur = 0;
     ctx.stroke();
     ctx.shadowBlur = 0;
+
+    if (this.joinHighlightRatio != null && Date.now() < this.joinHighlightUntil) {
+      var joinX = this.ratioToX(this.joinHighlightRatio);
+      var remaining = clamp((this.joinHighlightUntil - Date.now()) / 1800, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = 0.35 + (remaining * 0.45);
+      ctx.fillStyle = "#22c55e";
+      ctx.fillRect(joinX - 2, 0, 4, height);
+      ctx.strokeStyle = "rgba(34,197,94,0.65)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(joinX, mid, 12 + ((1 - remaining) * 8), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      this.scheduleRender();
+    } else if (this.joinHighlightRatio != null) {
+      this.joinHighlightRatio = null;
+      this.joinHighlightUntil = 0;
+    }
 
     if (this.playheadRatio != null) {
       var playheadX = this.ratioToX(this.playheadRatio);
@@ -1527,6 +1624,7 @@
     this.objectUrls = [];
     this.fadeInDuration = 0;
     this.fadeOutDuration = 0;
+    this.undoStack = [];
 
     this.audio.onEnded = this.onPlaybackEnded.bind(this);
     this.build();
@@ -1538,15 +1636,20 @@
     this.fadeOutToggle = this.root.querySelector('[data-role="fadeOutToggle"]');
     this.setStartBtn = this.root.querySelector('[data-role="setStartToPlayhead"]');
     this.setEndBtn = this.root.querySelector('[data-role="setEndToPlayhead"]');
+    this.supportsRemoveSelection = !!(document.body && document.body.dataset && document.body.dataset.page === "trim");
+    this.removeSelectionBtn = this.root.querySelector('[data-role="removeSelection"]');
+    this.undoEditBtn = this.root.querySelector('[data-role="undoEdit"]');
     var fadeControlsRow = this.fadeOutToggle && this.fadeOutToggle.closest
       ? this.fadeOutToggle.closest(".at-row")
       : null;
-    if (fadeControlsRow && (!this.setStartBtn || !this.setEndBtn)) {
+    if (fadeControlsRow && (!this.setStartBtn || !this.setEndBtn || (this.supportsRemoveSelection && (!this.removeSelectionBtn || !this.undoEditBtn)))) {
       var startLabel = isArabicDocument() ? "تعيين البداية" : "Set Start";
       var endLabel = isArabicDocument() ? "تعيين النهاية" : "Set End";
       var firstFadeControl = this.fadeInToggle && this.fadeInToggle.closest
         ? this.fadeInToggle.closest("label")
         : null;
+      var removeLabel = "Remove selected section";
+      var undoLabel = "Undo remove section";
       if (!this.setStartBtn) {
         this.setStartBtn = createSnapButton("setStartToPlayhead", startLabel, "arrow-right-to-line");
         fadeControlsRow.insertBefore(this.setStartBtn, firstFadeControl);
@@ -1554,6 +1657,14 @@
       if (!this.setEndBtn) {
         this.setEndBtn = createSnapButton("setEndToPlayhead", endLabel, "arrow-left-to-line");
         fadeControlsRow.insertBefore(this.setEndBtn, firstFadeControl);
+      }
+      if (this.supportsRemoveSelection && !this.removeSelectionBtn) {
+        this.removeSelectionBtn = createSnapButton("removeSelection", removeLabel, "scissors");
+        fadeControlsRow.insertBefore(this.removeSelectionBtn, firstFadeControl);
+      }
+      if (this.supportsRemoveSelection && !this.undoEditBtn) {
+        this.undoEditBtn = createSnapButton("undoEdit", undoLabel, "undo-2");
+        fadeControlsRow.insertBefore(this.undoEditBtn, firstFadeControl);
       }
       renderLucideIcons();
     }
@@ -1616,6 +1727,7 @@
     setResetButtonIcon(this.resetBtn);
     this.updateTimeText();
     this.updateMp3QualityEstimate();
+    this.syncUndoButton();
   };
 
   UIController.prototype.getSelectedMp3Bitrate = function () {
@@ -1704,6 +1816,12 @@
     if (this.setEndBtn) {
       this.setEndBtn.addEventListener("click", this.onSetEndToPlayhead.bind(this));
     }
+    if (this.removeSelectionBtn) {
+      this.removeSelectionBtn.addEventListener("click", this.onRemoveSelection.bind(this));
+    }
+    if (this.undoEditBtn) {
+      this.undoEditBtn.addEventListener("click", this.onUndoEdit.bind(this));
+    }
     if (this.changeFileBtn && this.fileInput) {
       this.changeFileBtn.addEventListener("click", () => {
         this.fileInput.click();
@@ -1789,6 +1907,20 @@
     if (this.setEndBtn) {
       this.setEndBtn.disabled = !enabled;
     }
+    if (this.removeSelectionBtn) {
+      this.removeSelectionBtn.disabled = !enabled;
+    }
+    this.syncUndoButton();
+  };
+
+  UIController.prototype.syncUndoButton = function () {
+    if (this.undoEditBtn) {
+      var canUndo = !!(this.duration && this.undoStack.length);
+      var label = canUndo ? "Undo remove section" : "Nothing to undo";
+      this.undoEditBtn.disabled = !canUndo;
+      this.undoEditBtn.setAttribute("aria-label", label);
+      this.undoEditBtn.setAttribute("title", label);
+    }
   };
 
   UIController.prototype.onLoopToggle = function () {
@@ -1836,12 +1968,84 @@
     );
   };
 
+  UIController.prototype.applyWorkingBuffer = function (buffer, playheadSeconds, joinHighlightSeconds) {
+    if (!buffer) {
+      return;
+    }
+    var safePlayhead = clamp(Number(playheadSeconds) || 0, 0, buffer.duration);
+    var safeJoin = joinHighlightSeconds == null ? null : clamp(Number(joinHighlightSeconds) || 0, 0, buffer.duration);
+    this.audio.setBuffer(buffer, safePlayhead);
+    this.duration = buffer.duration;
+    this.trim.reset();
+    this.renderer.setDuration(this.duration);
+    this.renderer.setPeaksFromBuffer(buffer);
+    this.renderer.setFadeDurations(this.fadeInDuration, this.fadeOutDuration);
+    this.renderer.setPlayhead(this.duration ? safePlayhead / this.duration : null);
+    if (safeJoin != null) {
+      this.renderer.flashJoin(this.duration ? safeJoin / this.duration : null);
+    }
+    this.updateTimeText();
+    this.updateMp3QualityEstimate();
+    this.updateFadeOverlay();
+    this._setControlsEnabled(true);
+  };
+
+  UIController.prototype.onRemoveSelection = function () {
+    if (!this.duration || !this.currentFile || !this.audio.buffer) {
+      return;
+    }
+
+    var selection = this._getSelection();
+    var selectedDuration = selection.end - selection.start;
+    if (selectedDuration < 0.05) {
+      this.setStatus("Select a longer section to remove.");
+      return;
+    }
+    if (selection.start <= 0.001 && selection.end >= this.duration - 0.001) {
+      this.setStatus("Cannot remove the entire audio file.");
+      return;
+    }
+
+    this.audio.stop();
+    this.stopAnimationLoop();
+    setPlayPauseButtonState(this.playPauseBtn, false);
+    this.undoStack.push(this.audio.buffer);
+    if (this.undoStack.length > 10) {
+      this.undoStack.shift();
+    }
+
+    try {
+      var result = this.audio.removeSection(selection.start, selection.end, 0.035);
+      var previewStart = Math.max(0, result.joinTime - 2);
+      this.applyWorkingBuffer(result.buffer, previewStart, result.joinTime);
+      this.setStatus("Section removed. Play starts near the join. Preview, undo, or download.");
+      this.syncUndoButton();
+    } catch (err) {
+      this.undoStack.pop();
+      this.setStatus(err && err.message ? err.message : "Could not remove selected section.");
+      this.syncUndoButton();
+    }
+  };
+
+  UIController.prototype.onUndoEdit = function () {
+    if (!this.undoStack.length) {
+      return;
+    }
+    this.audio.stop();
+    this.stopAnimationLoop();
+    setPlayPauseButtonState(this.playPauseBtn, false);
+    var previousBuffer = this.undoStack.pop();
+    this.applyWorkingBuffer(previousBuffer, 0);
+    this.setStatus("Removal undone. Preview restored audio or edit again.");
+    this.syncUndoButton();
+  };
+
   UIController.prototype.setStatus = function (message) {
     this.statusEl.textContent = message;
     var text = String(message || "").toLowerCase();
     this.statusEl.dataset.statusState =
       /error|failed|not supported/.test(text) ? "error" :
-      /ready|download started|reset/.test(text) ? "success" :
+      /ready|download started|reset|removed|undone|restored/.test(text) ? "success" :
       /decoding|encoding|loading/.test(text) ? "processing" :
       "idle";
   };
@@ -1914,6 +2118,8 @@
       this.fileRow.classList.remove("is-hidden");
     }
     this.currentFile = file;
+    this.undoStack = [];
+    this.syncUndoButton();
     this.setStatus("Decoding audio...");
     this._setControlsEnabled(false);
     this.audio.stop();
