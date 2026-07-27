@@ -7,7 +7,7 @@
   var ENABLE_DESKTOP_TRANSCRIPTION_VAD = false;
   var srtContent = "";
   var vttContent = "";
-  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-07-02-leading-silence-trim-restore-1";
+  var DESKTOP_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker.js?v=2026-07-27-trex-arabic-window-1";
   var MOBILE_TRANSCRIBE_WORKER_URL = "/assets/transcribe-worker-mobile.js?v=2026-05-25-24";
   var MOBILE_VAD_WORKER_URL = "/assets/mobile-vad-worker.js?v=2026-05-25-24";
   var MOBILE_VAD_TIMEOUT_MS = 9000;
@@ -2568,6 +2568,57 @@
       window.console.groupEnd();
     }
   }
+
+  function getTranscriptionDebugPayload() {
+    return {
+      backend: window.__lastTranscriptionBackendStatus || null,
+      run: window.__lastTranscriptionRunDiagnostics || null,
+      generationControls: window.__lastTranscriptionGenerationControls || null,
+      lifecycle: window.__lastTranscriptionLifecycleReport || null,
+      boundary: window.__lastSubtitleBoundaryDebug || null,
+      arabicPrompt: window.__lastArabicPromptStatus || null,
+      currentSegments: Array.isArray(window.currentSegments)
+        ? window.currentSegments.map(function (segment, index) {
+            var timestamp = Array.isArray(segment && segment.timestamp) ? segment.timestamp : [];
+            return {
+              index: index,
+              start: Number.isFinite(Number(timestamp[0])) ? Number(timestamp[0]) : null,
+              end: Number.isFinite(Number(timestamp[1])) ? Number(timestamp[1]) : null,
+              text: cleanText(segment && segment.text)
+            };
+          })
+        : [],
+      currentTranscript: window.currentTranscript || "",
+      currentRawTranscript: window.currentRawTranscript || ""
+    };
+  }
+
+  function printTranscriptionDebugPayload(label) {
+    if (!DEBUG_TRANSCRIPTION || !window.console || typeof window.console.info !== "function") {
+      return;
+    }
+    var payload = getTranscriptionDebugPayload();
+    var json = JSON.stringify(payload, null, 2);
+    window.console.info(
+      "FREEAUDIOTRIM_DIAGNOSTICS_JSON_START " + (label || "") + "\n" +
+      json +
+      "\nFREEAUDIOTRIM_DIAGNOSTICS_JSON_END"
+    );
+  }
+
+  window.FreeAudioTrimTranscriptionDebug = {
+    get: getTranscriptionDebugPayload,
+    print: function () {
+      printTranscriptionDebugPayload("manual");
+    },
+    copy: function () {
+      var json = JSON.stringify(getTranscriptionDebugPayload(), null, 2);
+      if (typeof copy === "function") {
+        copy(json);
+      }
+      return json;
+    }
+  };
 
   function getTranscriptionModeByKey(modelKey) {
     return TRANSCRIPTION_MODELS.find(function (item) {
@@ -9146,6 +9197,9 @@ function generateVTT(segments) {
         stopFakeProgress();
         stopProgressMessages(false);
         window.__lastTranscriptionRunDiagnostics = diagnostics || null;
+        window.__lastTranscriptionGenerationControls = e.data && e.data.generationControls
+          ? e.data.generationControls
+          : (diagnostics && diagnostics.generationControls ? diagnostics.generationControls : null);
         if (DEBUG_TRANSCRIPTION && window.console && typeof window.console.info === "function" && diagnostics) {
           console.info("[transcription-run-diagnostics]", diagnostics);
         }
@@ -9163,6 +9217,7 @@ function generateVTT(segments) {
           finalSegments,
           e.data.warnings
         );
+        printTranscriptionDebugPayload("worker-result");
         scheduleIdleUnload(document.hidden ? IDLE_UNLOAD_HIDDEN_MS : IDLE_UNLOAD_VISIBLE_MS);
       }
 

@@ -1239,12 +1239,19 @@ function getGenerationConfigHints(model) {
   return hints;
 }
 
-function createGenerationControlState(model, modelKey, useLegacyRuntime) {
+function createGenerationControlState(model, modelKey, useLegacyRuntime, selectedLanguage) {
+  const resolvedModel = getTranscriptionModelConfig(modelKey);
+  const useTrexArabicGuard = resolvedModel.key === "t-rex"
+    && shouldUseArabicPrompt(selectedLanguage)
+    && !useLegacyRuntime;
   const pathLabel = useLegacyRuntime
     ? "legacy-whisper"
     : (modelKey === "baby-raptor" ? "baby-raptor-modern" : "default-whisper");
   const state = {
     modelKey,
+    resolvedModelKey: resolvedModel.key,
+    selectedLanguage: selectedLanguage || "",
+    useTrexArabicGuard,
     pathLabel,
     useLegacyRuntime: !!useLegacyRuntime,
     runtimeHints: getGenerationConfigHints(model),
@@ -1255,7 +1262,12 @@ function createGenerationControlState(model, modelKey, useLegacyRuntime) {
     hasLoggedInitialReport: false
   };
 
-  pushUnique(state.skipped, "desktop repetition controls disabled for accuracy testing");
+  if (useTrexArabicGuard) {
+    pushUnique(state.plannedApplied, "condition_on_prev_tokens=false");
+    pushUnique(state.plannedApplied, "no_repeat_ngram_size=4");
+  } else {
+    pushUnique(state.skipped, "desktop repetition controls disabled for accuracy testing");
+  }
 
   return state;
 }
@@ -1272,7 +1284,14 @@ function getGenerationControlReport(state) {
 }
 
 function getGenerationControlOverrides(state) {
-  return {};
+  if (!state || !state.useTrexArabicGuard || state.controlsRejected) {
+    return {};
+  }
+
+  return {
+    condition_on_prev_tokens: false,
+    no_repeat_ngram_size: 4
+  };
 }
 
 function removeUnsupportedWhisperFallbackOptions(options) {
@@ -2966,6 +2985,16 @@ async function handleOfficialSlidingWindowTranscription(
   };
   options = applyTranscriptionOptionOverrides(options, requestConfig && requestConfig.overrides);
 
+  if (
+    getTranscriptionModelConfig(modelLoad.modelKey).key === "t-rex"
+    && shouldUseArabicPrompt(selectedLanguage)
+    && clipDurationSeconds <= 30
+  ) {
+    options.chunk_length_s = 30;
+    options.stride_length_s = 0;
+    diagnostics.shortArabicTrexSinglePass = true;
+  }
+
   diagnostics.usedVad = false;
   diagnostics.chunkCount = 1;
   diagnostics.chunkingMode = requestConfig && requestConfig.chunkingMode
@@ -3041,12 +3070,18 @@ async function handleOfficialSlidingWindowTranscription(
       : undefined
   };
 
+  const generationControlState = createGenerationControlState(
+    model,
+    modelLoad.modelKey,
+    !!modelLoad.legacy,
+    selectedLanguage
+  );
   const result = await runWhisperTranscriptionAttempt(
     model,
     audio,
     transcriptionOptions,
     progressHandler,
-    createGenerationControlState(model, modelLoad.modelKey, !!modelLoad.legacy),
+    generationControlState,
     "official-sliding-window"
   );
 
@@ -3129,6 +3164,10 @@ async function handleOfficialSlidingWindowTranscription(
   diagnostics.officialSlidingWindowTextOverrideReason = acceptedTextChoice.reason || "";
   diagnostics.officialSlidingWindowRawReasons = acceptedTextChoice.rawReasons || [];
   diagnostics.officialSlidingWindowFinalizedReasons = acceptedTextChoice.finalizedReasons || [];
+  diagnostics.generationControls = {
+    ...getGenerationControlReport(generationControlState),
+    path: "transformers_sliding_window"
+  };
 
   emitWorkerMessage({
     type: "status",
@@ -3145,14 +3184,7 @@ async function handleOfficialSlidingWindowTranscription(
     text: acceptedResult.text.trim(),
     segments: acceptedResult.chunks,
     warnings: Array.from(new Set(warnings)),
-    generationControls: {
-      modelKey: modelLoad.modelKey,
-      path: "transformers_sliding_window",
-      runtimeHints: [],
-      applied: [],
-      skipped: [],
-      controlsRejected: false
-    },
+    generationControls: diagnostics.generationControls,
     diagnostics: getDiagnosticsSnapshot(diagnostics)
   });
 }
@@ -3196,7 +3228,12 @@ async function handleTranscription(
     ...getDefaultTranscriptionOptions(modelLoad.modelKey, !!modelLoad.legacy)
   };
   const warnings = [];
-  const generationControlState = createGenerationControlState(model, modelLoad.modelKey, !!modelLoad.legacy);
+  const generationControlState = createGenerationControlState(
+    model,
+    modelLoad.modelKey,
+    !!modelLoad.legacy,
+    selectedLanguage
+  );
   const useExternalSpeechSpans = Array.isArray(externalSpeechSpans) && externalSpeechSpans.length > 0;
 
   if (selectedLanguage && selectedLanguage !== "auto") {
